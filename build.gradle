@@ -2,6 +2,8 @@
 plugins {
 	id 'java'
 	id 'application'
+	//id 'com.jfrog.artifactory' version '4.24.16'
+	id 'maven-publish'
 	id 'info.solidsoft.pitest' version '1.6.0'
 	id 'com.github.spotbugs' version '4.5.0' // 4.6 drops support for Java 8
 	id 'com.diffplug.gradle.spotless' version '3.25.0'
@@ -49,6 +51,7 @@ allprojects {
 	apply plugin: 'jacoco'
 	apply plugin: 'com.github.spotbugs'
 	apply plugin: 'com.diffplug.gradle.spotless'
+	apply plugin: 'maven-publish'
 
 	spotless {
 		enforceCheck false
@@ -141,4 +144,57 @@ pitest {
 	threads = 4
 	outputFormats = ['XML', 'HTML']
 	timestampedReports = false
+}
+
+publishing {
+	publications {
+		mavenJava(MavenPublication) {
+			artifactId = 'bosk'
+			from components.java
+			versionMapping {
+				usage('java-api') {
+					fromResolutionOf('runtimeClasspath')
+				}
+				usage('java-runtime') {
+					fromResolutionResult()
+				}
+			}
+			pom {
+				name = 'Bosk'
+				description = 'Control plane state management library'
+				url = 'http://bosk.works'
+				licenses {
+					license {
+						name = 'The Apache License, Version 2.0'
+						url = 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+					}
+				}
+				developers {
+					developer {
+						id = 'pdoyle'
+						name = 'Patrick Doyle'
+						email = 'pdoyle@venacorp.com'
+					}
+					developer {
+						id = 'gjohnson'
+						name = 'Grady Johnson'
+						email = 'gjohnson@venacorp.com'
+					}
+				}
+//				scm {
+//					connection = 'scm:git:git://example.com/my-library.git'
+//					developerConnection = 'scm:git:ssh://example.com/my-library.git'
+//					url = 'http://example.com/my-library/'
+//				}
+			}
+		}
+	}
+	repositories {
+		maven {
+			name = "VenaArtifactory"
+			credentials( PasswordCredentials )
+			allowInsecureProtocol = true
+			url = 'http://artifactory.devops.vena.vpn:8081/artifactory/libs-snapshot-local/'
+		}
+	}
 }
