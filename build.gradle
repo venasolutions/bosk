@@ -1,0 +1,144 @@
+
+plugins {
+	id 'java'
+	id 'application'
+	id 'info.solidsoft.pitest' version '1.6.0'
+	id 'com.github.spotbugs' version '4.5.0' // 4.6 drops support for Java 8
+	id 'com.diffplug.gradle.spotless' version '3.25.0'
+}
+
+compileTestJava.options.encoding = 'UTF-8'
+
+group = 'org.vena'
+archivesBaseName = 'bosk'
+jar.archiveBaseName = "${archivesBaseName}"
+version = '0.0.1-SNAPSHOT'
+sourceCompatibility = 1.8
+targetCompatibility = 1.8
+
+allprojects {
+	buildscript {
+		// Global project variables
+		ext {
+			asmVersion = '9.1'
+			gsonVersion = '2.8.6'
+			hamcrestVersion = '2.2'
+			jUnitVersion = '5.6.2'
+			jUnitPlatformVersion = '1.6.2'
+			logbackVersion = '1.2.3'
+			lombokVersion = '1.18.20'
+			mongoDriverVersion = '3.11.2'
+			slf4jVersion = '1.7.31'
+			testcontainersVersion = '1.16.0'
+
+			// Spotbugs version is different from the gradle plugin version
+			// https://github.com/spotbugs/spotbugs-gradle-plugin#spotbugs-version-mapping
+			spotbugsVersion = '4.1.1'
+		}
+	}
+	repositories {
+		maven {
+			url 'https://plugins.gradle.org/m2/'
+		}
+		mavenCentral()
+	}
+
+	apply plugin: 'java'
+	apply plugin: 'eclipse'
+	apply plugin: 'idea'
+	apply plugin: 'jacoco'
+	apply plugin: 'com.github.spotbugs'
+	apply plugin: 'com.diffplug.gradle.spotless'
+
+	spotless {
+		enforceCheck false
+		java {
+			importOrder '', '\\#' // Static imports after regular imports, as per mt-server standard and IntelliJ default
+			removeUnusedImports()
+			trimTrailingWhitespace()
+			indentWithTabs()
+			replaceRegex 'class-level javadoc indentation fix', /^\*/, ' *'
+			replaceRegex 'method-level javadoc indentation fix', /\t\*/, '\t *'
+			paddedCell()
+		}
+		format 'misc', {
+			target '**/*.gradle', '**/*.md', '**/.gitignore'
+
+			trimTrailingWhitespace()
+			indentWithTabs()
+			replaceRegex 'class-level javadoc indentation fix', /^\*/, ' *'
+			replaceRegex 'method-level javadoc indentation fix', /\t\*/, '\t *'
+			endWithNewline()
+		}
+	}
+
+	spotbugs {
+		// Won't fail the build if errors are found
+		ignoreFailures = true
+	}
+
+	tasks.withType(Tar) {
+		enabled = false
+	}
+}
+
+dependencies {
+	compileJava {
+		options.compilerArgs << '-parameters'
+		options.compilerArgs << '-Xlint'
+		options.compilerArgs << '-Xlint:-serial'     // Don't care about Java serialization
+		options.compilerArgs << '-Xlint:-try'        // Really annoying bogus "auto-closeable never used" warnings
+		options.compilerArgs << '-Xlint:-processing' // Not all annotations are meant for compile-time "annotation processing"
+	}
+
+	compileTestJava {
+		options.compilerArgs << '-parameters'
+	}
+
+	annotationProcessor "org.projectlombok:lombok:${lombokVersion}"
+	compileOnly "org.projectlombok:lombok:${lombokVersion}"
+	testAnnotationProcessor "org.projectlombok:lombok:${lombokVersion}"
+	testCompileOnly "org.projectlombok:lombok:${lombokVersion}"
+
+	testImplementation "org.junit.jupiter:junit-jupiter-api:${jUnitVersion}"
+	testImplementation "org.junit.jupiter:junit-jupiter-params:${jUnitVersion}"
+	testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:${jUnitVersion}"
+
+	testImplementation "org.testcontainers:testcontainers:${testcontainersVersion}"
+	testImplementation "org.testcontainers:junit-jupiter:${testcontainersVersion}"
+
+	testImplementation "org.hamcrest:hamcrest:${hamcrestVersion}"
+	testImplementation "org.hamcrest:hamcrest-library:${hamcrestVersion}"
+
+	implementation "com.github.spotbugs:spotbugs-annotations:${spotbugsVersion}"
+	implementation "org.mongodb:mongo-java-driver:${mongoDriverVersion}"
+	implementation "com.google.code.gson:gson:${gsonVersion}"
+	implementation "org.slf4j:slf4j-api:${slf4jVersion}"
+	implementation group: 'org.ow2.asm', name: 'asm', version: "${asmVersion}"
+}
+
+test {
+	useJUnitPlatform()
+
+	// High-performance code sometimes uses `assert` statements instead of explicit checks.
+	// Our unit tests should be able to check for the presence of these assertions.
+	enableAssertions = true
+
+	testLogging.showStandardStreams = true
+
+	reports {
+		// Used to convert gradle test output to be understood by Jenkins JUnit publishing
+		junitXml.enabled = true
+		html.enabled = false
+	}
+}
+
+pitest {
+	junit5PluginVersion = '0.12'
+	jvmArgs = ['-ea'] // Our unit tests check for assert statements
+	targetClasses = ['org.vena.bosk.drivers.MongoDriver']  //by default "${project.group}.*"
+	targetTests   = ['org.vena.bosk.drivers.MongoDriverTest']
+	threads = 4
+	outputFormats = ['XML', 'HTML']
+	timestampedReports = false
+}
