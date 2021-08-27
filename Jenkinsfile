@@ -42,9 +42,6 @@ pipeline {
                     currentBuild.description = "bosk : ${env.CURRENT_COMMIT_SHA}"
 
                     VenaCommon.setupGitReferences(this)
-
-		    // Clear publication status
-                    VenaCommon.publishCustomStatus(this, 'pending', STATUS_PUBLISH, 'Will publish to artifactory...', 'display/redirect')
                 }
             }
         }
@@ -96,6 +93,10 @@ pipeline {
         }
 
         stage('Publish to Artifactory') {
+            when {
+                branch 'develop'
+            }
+
             steps {
                 script { VenaCommon.publishCustomStatus(this, 'pending', STATUS_PUBLISH, 'Publishing to artifactory...', 'display/redirect') }
                 withCredentials([usernamePassword(credentialsId: 'artifactory-automation-credentials', usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
