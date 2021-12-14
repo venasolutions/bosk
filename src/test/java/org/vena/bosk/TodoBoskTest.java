@@ -34,7 +34,7 @@ import static org.vena.bosk.ListingEntry.LISTING_ENTRY;
  * @author Patrick Doyle
  */
 @RequiredArgsConstructor
-public class TodoBoskTest extends AbstractBoskTest {
+public class TodoBoskTest extends AbstractRoundTripTest {
 
 	/////////////////////////
 	//

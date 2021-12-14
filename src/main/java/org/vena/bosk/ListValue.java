@@ -89,6 +89,31 @@ public class ListValue<T> extends AbstractList<T> {
 		return Arrays.toString(entries);
 	}
 
+	@Override
+	public boolean equals(Object o) {
+		// The contract for List.equals is pretty strict.
+		// We can peel off some cases above for performance, but the canonical
+		// implementation is the one we've inherited from AbstractList, and
+		// we're not allowed to do anything that would return a different answer.
+
+		if (this == o) {
+			return true;
+		} else if (o instanceof ListValue) {
+			ListValue<?> listValue = (ListValue<?>) o;
+			return Arrays.equals(entries, listValue.entries);
+		}
+
+		// Fall back on the canonical implementation
+		return super.equals(o);
+	}
+
+	@Override
+	public int hashCode() {
+		// Returns the same answer as AbstractList.hashCode, but should
+		// be faster because it doesn't need to instantiate an iterator.
+		return Arrays.hashCode(entries);
+	}
+
 	public static <TT>
 	Collector<TT, ?, ListValue<TT>> toListValue() {
 		Function<List<TT>, ListValue<TT>> finisher = ListValue::from;

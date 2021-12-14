@@ -38,13 +38,13 @@ class MongoDriverDottedFieldNameTest extends AbstractDriverTest {
 		public Stream<? extends Arguments> provideArguments(ExtensionContext context) {
 			final String base = "state";
 			return Stream.of(
-					args("", base),
-					args("catalog", base + ".catalog"),
-					args("listing", base + ".listing"),
-					args("mapping", base + ".mapping"),
-					args("catalog/xyz", base + ".catalog.xyz"),
-					args("listing/xyz", base + ".listing.ids.xyz"),
-					args("mapping/xyz", base + ".mapping.valuesById.xyz")
+					args("/", base),
+					args("/catalog", base + ".catalog"),
+					args("/listing", base + ".listing"),
+					args("/mapping", base + ".mapping"),
+					args("/catalog/xyz", base + ".catalog.xyz"),
+					args("/listing/xyz", base + ".listing.ids.xyz"),
+					args("/mapping/xyz", base + ".mapping.valuesById.xyz")
 					);
 		}
 

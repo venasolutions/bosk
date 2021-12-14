@@ -105,7 +105,7 @@ class ListingTest {
 			for (TestEntity child: children) {
 				TestEntity actual = listing.getValue(child.id());
 				assertSame(child, actual, "All expected entities should be present in the Listing");
-				TestEntity expected = listing.catalog().then(TestEntity.class, child.id().toString()).value();
+				TestEntity expected = listing.domain().then(TestEntity.class, child.id().toString()).value();
 				assertSame(expected, actual, "The definition of Listing.get should hold");
 			}
 			Identifier nonexistent = Identifier.unique("nonexistent");
@@ -361,7 +361,7 @@ class ListingTest {
 	@ArgumentsSource(ListingArgumentProvider.class)
 	void testScope(Listing<TestEntity> listing, List<TestEntity> children, Bosk<TestEntity> bosk) throws InvalidTypeException {
 		Reference<Catalog<TestEntity>> expected = bosk.catalogReference(TestEntity.class, Path.just(TestEntity.Fields.children));
-		assertEquals(expected, listing.catalog());
+		assertEquals(expected, listing.domain());
 	}
 
 	private List<TestEntity> distinctEntities(List<TestEntity> children) {

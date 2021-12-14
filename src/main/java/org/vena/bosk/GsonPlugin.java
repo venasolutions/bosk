@@ -36,6 +36,15 @@ import static org.vena.bosk.ReferenceUtils.theOnlyConstructorFor;
 
 public final class GsonPlugin extends SerializationPlugin {
 	private final GsonAdapterCompiler compiler = new GsonAdapterCompiler(this);
+	private final boolean separateOrderList;
+
+	public GsonPlugin() {
+		this(false);
+	}
+
+	public GsonPlugin(boolean separateOrderList) {
+		this.separateOrderList = separateOrderList;
+	}
 
 	// Java's generics are just not capable of the following shenanigans.
 	// This method leaps on the generics grenade so most of this class can
@@ -73,6 +82,8 @@ public final class GsonPlugin extends SerializationPlugin {
 				} else if (Optional.class.isAssignableFrom(theClass)) {
 					// Optional.empty() can't be serialized on its own because the field name itself must also be omitted
 					throw new IllegalArgumentException("Cannot serialize an Optional on its own; only as a field of another object");
+				} else if (Phantom.class.isAssignableFrom(theClass)) {
+					throw new IllegalArgumentException("Cannot serialize a Phantom on its own; only as a field of another object");
 				} else if (ListValue.class.isAssignableFrom(theClass)) {
 					return listValueAdapter(gson, typeToken);
 				} else if (MapValue.class.isAssignableFrom(theClass)) {
@@ -90,7 +101,6 @@ public final class GsonPlugin extends SerializationPlugin {
 		TypeToken<V[]> arrayType = listValueEquivalentArrayTypeToken(typeToken);
 		TypeAdapter<V[]> arrayTypeAdapter = gson.getAdapter(arrayType);
 		return new TypeAdapter<ListValue<V>>() {
-
 			@Override
 			public void write(JsonWriter out, ListValue<V> value) throws IOException {
 				arrayTypeAdapter.write(out, value.toArray());
@@ -101,12 +111,11 @@ public final class GsonPlugin extends SerializationPlugin {
 			public ListValue<V> read(JsonReader in) throws IOException {
 				V[] elementArray = arrayTypeAdapter.read(in);
 				try {
-					return (ListValue<V>) ctor.newInstance((Object)elementArray);
+					return (ListValue<V>) ctor.newInstance((Object) elementArray);
 				} catch (InvocationTargetException | InstantiationException | IllegalAccessException e) {
 					throw new IOException("Failed to instantiate " + typeToken.getRawType().getSimpleName() + ": " + e.getMessage(), e);
 				}
 			}
-
 		};
 	}
 
@@ -164,15 +173,15 @@ public final class GsonPlugin extends SerializationPlugin {
 	}
 
 	private <E extends Entity> TypeAdapter<Listing<E>> listingAdapter(Gson gson) {
-		TypeAdapter<Reference<Catalog<E>>> catalogAdapter = gson.getAdapter(new TypeToken<Reference<Catalog<E>>>() {});
+		TypeAdapter<Reference<Catalog<E>>> referenceAdapter = gson.getAdapter(new TypeToken<Reference<Catalog<E>>>() {});
 		TypeAdapter<List<Identifier>> idListAdapter = gson.getAdapter(ID_LIST_TOKEN);
 		return new TypeAdapter<Listing<E>>() {
 			@Override
 			public void write(JsonWriter out, Listing<E> listing) throws IOException {
 				out.beginObject();
 
-				out.name("catalog");
-				catalogAdapter.write(out, listing.catalog());
+				out.name("domain");
+				referenceAdapter.write(out, listing.domain());
 
 				out.name("ids");
 				idListAdapter.write(out, listing.ids());
@@ -182,7 +191,7 @@ public final class GsonPlugin extends SerializationPlugin {
 
 			@Override
 			public Listing<E> read(JsonReader in) throws IOException {
-				Reference<Catalog<E>> catalog = null;
+				Reference<Catalog<E>> domain = null;
 				List<Identifier> ids = null;
 
 				in.beginObject();
@@ -190,11 +199,11 @@ public final class GsonPlugin extends SerializationPlugin {
 				while (in.hasNext()) {
 					String fieldName = in.nextName();
 					switch (fieldName) {
-					case "catalog":
-						if (catalog == null) {
-							catalog = catalogAdapter.read(in);
+					case "domain":
+						if (domain == null) {
+							domain = referenceAdapter.read(in);
 						} else {
-							throw new JsonParseException("'catalog' field appears twice");
+							throw new JsonParseException("'domain' field appears twice");
 						}
 						break;
 					case "ids":
@@ -211,12 +220,12 @@ public final class GsonPlugin extends SerializationPlugin {
 
 				in.endObject();
 
-				if (catalog == null) {
-					throw new JsonParseException("Missing 'catalog' field");
+				if (domain == null) {
+					throw new JsonParseException("Missing 'domain' field");
 				} else if (ids == null) {
 					throw new JsonParseException("Missing 'ids' field");
 				} else {
-					return Listing.of(catalog, ids);
+					return Listing.of(domain, ids);
 				}
 			}
 		};
@@ -224,29 +233,34 @@ public final class GsonPlugin extends SerializationPlugin {
 
 	private <K extends Entity, V> TypeAdapter<Mapping<K,V>> mappingAdapter(Gson gson, TypeToken<Mapping<K,V>> typeToken) {
 		TypeToken<V> valueToken = mappingValueTypeToken(typeToken);
-		TypeAdapter<Reference<Catalog<K>>> catalogAdapter = gson.getAdapter(new TypeToken<Reference<Catalog<K>>>() {});
+		TypeAdapter<Reference<Catalog<K>>> referenceAdapter = gson.getAdapter(new TypeToken<Reference<Catalog<K>>>() {});
 		TypeAdapter<List<Identifier>> idListAdapter = gson.getAdapter(ID_LIST_TOKEN);
 		TypeAdapter<Map<Identifier, V>> mapAdapter = identifierMapAdapter(gson, valueToken);
+		TypeAdapter<V> valueAdapter = gson.getAdapter(valueToken);
 		return new TypeAdapter<Mapping<K,V>>() {
 			@Override
 			public void write(JsonWriter out, Mapping<K,V> mapping) throws IOException {
 				out.beginObject();
 
-				out.name("catalog");
-				catalogAdapter.write(out, mapping.catalog());
+				out.name("domain");
+				referenceAdapter.write(out, mapping.domain());
 
-				out.name("order");
-				idListAdapter.write(out, mapping.ids());
-
-				out.name("valuesById");
-				mapAdapter.write(out, mapping.asMap());
+				if (separateOrderList) {
+					out.name("order");
+					idListAdapter.write(out, mapping.ids());
+					out.name("valuesById");
+					mapAdapter.write(out, mapping.asMap());
+				} else {
+					out.name("valuesById");
+					writeMapEntries(out, mapping.idEntrySet(), valueAdapter);
+				}
 
 				out.endObject();
 			}
 
 			@Override
 			public Mapping<K,V> read(JsonReader in) throws IOException {
-				Reference<Catalog<K>> catalog = null;
+				Reference<Catalog<K>> domain = null;
 				LinkedHashMap<Identifier, V> valuesById = null;
 				List<Identifier> order = null;
 
@@ -255,23 +269,31 @@ public final class GsonPlugin extends SerializationPlugin {
 				while (in.hasNext()) {
 					String fieldName = in.nextName();
 					switch (fieldName) {
-					case "catalog":
-						if (catalog == null) {
-							catalog = catalogAdapter.read(in);
+					case "domain":
+						if (domain == null) {
+							domain = referenceAdapter.read(in);
 						} else {
-							throw new JsonParseException("'catalog' field appears twice");
+							throw new JsonParseException("'domain' field appears twice");
 						}
 						break;
 					case "order":
 						if (order == null) {
-							order = idListAdapter.read(in);
+							if (separateOrderList) {
+								order = idListAdapter.read(in);
+							} else {
+								throw new JsonParseException("Unexpected 'oder' field");
+							}
 						} else {
 							throw new JsonParseException("'order' field appears twice");
 						}
 						break;
 					case "valuesById":
 						if (valuesById == null) {
-							valuesById = (LinkedHashMap<Identifier, V>)mapAdapter.read(in); // We know what type this really returns
+							if (separateOrderList) {
+								valuesById = (LinkedHashMap<Identifier, V>) mapAdapter.read(in); // We know what type this really returns
+							} else {
+								valuesById = readMapEntries(in, valueAdapter);
+							}
 						} else {
 							throw new JsonParseException("'valuesById' field appears twice");
 						}
@@ -283,19 +305,52 @@ public final class GsonPlugin extends SerializationPlugin {
 
 				in.endObject();
 
-				if (catalog == null) {
-					throw new JsonParseException("Missing 'catalog' field");
+				if (domain == null) {
+					throw new JsonParseException("Missing 'domain' field");
 				} else if (valuesById == null) {
 					throw new JsonParseException("Missing 'valuesById' field");
 				} else if (order == null) {
-					return Mapping.fromOrderedMap(catalog, valuesById);
+					return Mapping.fromOrderedMap(domain, valuesById);
 				} else if (valuesById.size() != order.size() && !valuesById.keySet().equals(new HashSet<>(order))) {
 					throw new JsonParseException("'valuesById' and 'order' don't match");
 				} else {
-					return Mapping.fromFunction(catalog, order.stream(), valuesById::get);
+					return Mapping.fromFunction(domain, order.stream(), valuesById::get);
 				}
 			}
+
 		};
+	}
+
+	private <V> void writeMapEntries(JsonWriter out, Iterable<Entry<Identifier, V>> entries, TypeAdapter<V> valueAdapter) throws IOException {
+		out.beginArray();
+		for (Entry<Identifier, V> entry: entries) {
+			out.beginObject();
+			out.name(entry.getKey().toString());
+			valueAdapter.write(out, entry.getValue());
+			out.endObject();
+		}
+		out.endArray();
+	}
+
+	private <V> LinkedHashMap<Identifier, V> readMapEntries(JsonReader in, TypeAdapter<V> valueAdapter) throws IOException {
+		LinkedHashMap<Identifier, V> result = new LinkedHashMap<>();
+		in.beginArray();
+		while (in.hasNext()) {
+			in.beginObject();
+			String fieldName = in.nextName();
+			V value;
+			try (@SuppressWarnings("unused") DeserializationScope scope = innerDeserializationScope(fieldName)) {
+				value = valueAdapter.read(in);
+			}
+			in.endObject();
+
+			V oldValue = result.put(Identifier.from(fieldName), value);
+			if (oldValue != null) {
+				throw new JsonParseException("Duplicate mapping entry '" + fieldName + "'");
+			}
+		}
+		in.endArray();
+		return result;
 	}
 
 	private <E extends Entity> TypeAdapter<Catalog<E>> catalogAdapter(Gson gson, TypeToken<Catalog<E>> typeToken) {
@@ -307,20 +362,24 @@ public final class GsonPlugin extends SerializationPlugin {
 		return new TypeAdapter<Catalog<E>>() {
 			@Override
 			public void write(JsonWriter out, Catalog<E> catalog) throws IOException {
-				out.beginObject();
+				if (separateOrderList) {
+					out.beginObject();
 
-				out.name("order");
-				idListAdapter.write(out, catalog.ids());
+					out.name("order");
+					idListAdapter.write(out, catalog.ids());
 
-				out.name("contents");
-				out.beginObject();
-				for (E element: catalog) {
-					out.name(element.id().toString());
-					elementAdapter.write(out, element);
+					out.name("contents");
+					out.beginObject();
+					for (E element: catalog) {
+						out.name(element.id().toString());
+						elementAdapter.write(out, element);
+					}
+					out.endObject();
+
+					out.endObject();
+				} else {
+					writeMapEntries(out, catalog.asMap().entrySet(), elementAdapter);
 				}
-				out.endObject();
-
-				out.endObject();
 			}
 
 			@Override
@@ -328,31 +387,35 @@ public final class GsonPlugin extends SerializationPlugin {
 				Map<Identifier, E> contents = null;
 				List<Identifier> order = null;
 
-				in.beginObject();
+				if (separateOrderList) {
+					in.beginObject();
 
-				while (in.hasNext()) {
-					String fieldName = in.nextName();
-					switch (fieldName) {
-					case "order":
-						if (order == null) {
-							order = idListAdapter.read(in);
-						} else {
-							throw new JsonParseException("'order' field appears twice");
+					while (in.hasNext()) {
+						String fieldName = in.nextName();
+						switch (fieldName) {
+							case "order":
+								if (order == null) {
+									order = idListAdapter.read(in);
+								} else {
+									throw new JsonParseException("'order' field appears twice");
+								}
+								break;
+							case "contents":
+								if (contents == null) {
+									contents = mapAdapter.read(in);
+								} else {
+									throw new JsonParseException("'contents' field appears twice");
+								}
+								break;
+							default:
+								throw new JsonParseException("Unrecognized field in Catalog: " + fieldName);
 						}
-						break;
-					case "contents":
-						if (contents == null) {
-							contents = mapAdapter.read(in);
-						} else {
-							throw new JsonParseException("'contents' field appears twice");
-						}
-						break;
-					default:
-						throw new JsonParseException("Unrecognized field in Catalog: " + fieldName);
 					}
-				}
 
-				in.endObject();
+					in.endObject();
+				} else {
+					contents = readMapEntries(in, elementAdapter);
+				}
 
 				if (contents == null) {
 					throw new JsonParseException("Missing 'contents' field");
@@ -529,9 +592,8 @@ public final class GsonPlugin extends SerializationPlugin {
 	 * @author Patrick Doyle
 	 */
 	public interface FieldModerator {
-		Type typeOf(Parameter parameter);
-
-		Object valueFor(Parameter parameter, Object deserializedValue);
+		Type typeOf(Type parameterType);
+		Object valueFor(Type parameterType, Object deserializedValue);
 	}
 
 	/**
@@ -544,12 +606,12 @@ public final class GsonPlugin extends SerializationPlugin {
 		Type nodeType;
 
 		@Override
-		public Type typeOf(Parameter parameter) {
-			return parameter.getParameterizedType();
+		public Type typeOf(Type parameterType) {
+			return parameterType;
 		}
 
 		@Override
-		public Object valueFor(Parameter parameter, Object deserializedValue) {
+		public Object valueFor(Type parameterType, Object deserializedValue) {
 			return deserializedValue;
 		}
 
@@ -567,18 +629,18 @@ public final class GsonPlugin extends SerializationPlugin {
 		Type nodeType;
 
 		@Override
-		public Type typeOf(Parameter parameter) {
-			if (isReflectiveEntity(parameter)) {
+		public Type typeOf(Type parameterType) {
+			if (reflectiveEntity(parameterType)) {
 				// These are serialized as References
-				return ReferenceUtils.referenceTypeFor(parameter.getParameterizedType());
+				return ReferenceUtils.referenceTypeFor(parameterType);
 			} else {
-				return parameter.getParameterizedType();
+				return parameterType;
 			}
 		}
 
 		@Override
-		public Object valueFor(Parameter parameter, Object deserializedValue) {
-			if (isReflectiveEntity(parameter)) {
+		public Object valueFor(Type parameterType, Object deserializedValue) {
+			if (reflectiveEntity(parameterType)) {
 				// The deserialized value is a Reference; what we want is Reference.value()
 				return ((Reference<?>)deserializedValue).value();
 			} else {
@@ -586,13 +648,14 @@ public final class GsonPlugin extends SerializationPlugin {
 			}
 		}
 
-		private boolean isReflectiveEntity(Parameter parameter) {
-			if (ReflectiveEntity.class.isAssignableFrom(parameter.getType())) {
+		private boolean reflectiveEntity(Type parameterType) {
+			Class<?> parameterClass = rawClass(parameterType);
+			if (ReflectiveEntity.class.isAssignableFrom(parameterClass)) {
 				return true;
-			} else if (Entity.class.isAssignableFrom(parameter.getType())) {
-				throw new IllegalArgumentException(DerivedRecord.class.getSimpleName() + " " + rawClass(nodeType).getSimpleName() + " cannot contain " + Entity.class.getSimpleName() + " that is not a " + ReflectiveEntity.class.getSimpleName() + ": " + nodeType + "=>" + parameter);
-			} else if (Catalog.class.isAssignableFrom(parameter.getType())) {
-				throw new IllegalArgumentException(DerivedRecord.class.getSimpleName() + " " + rawClass(nodeType).getSimpleName() + " cannot contain Catalog (try Listing): " + nodeType + "=>" + parameter);
+			} else if (Entity.class.isAssignableFrom(parameterClass)) {
+				throw new IllegalArgumentException(DerivedRecord.class.getSimpleName() + " " + rawClass(nodeType).getSimpleName() + " cannot contain " + Entity.class.getSimpleName() + " that is not a " + ReflectiveEntity.class.getSimpleName() + ": " + parameterType);
+			} else if (Catalog.class.isAssignableFrom(parameterClass)) {
+				throw new IllegalArgumentException(DerivedRecord.class.getSimpleName() + " " + rawClass(nodeType).getSimpleName() + " cannot contain Catalog (try Listing)");
 			} else {
 				return false;
 			}
@@ -616,11 +679,12 @@ public final class GsonPlugin extends SerializationPlugin {
 			if (parameter == null) {
 				throw new JsonParseException("No such parameter in constructor for " + nodeClass.getSimpleName() + ": " + name);
 			} else {
+				Type parameterType = parameter.getParameterizedType();
 				Object deserializedValue;
 				try (@SuppressWarnings("unused") DeserializationScope scope = nodeFieldDeserializationScope(nodeClass, name)) {
-					deserializedValue = readField(in, gson, TypeToken.get(moderator.typeOf(parameter)));
+					deserializedValue = readField(name, in, gson, parameterType, moderator);
 				}
-				Object value = moderator.valueFor(parameter, deserializedValue);
+				Object value = moderator.valueFor(parameterType, deserializedValue);
 				Object prev = parameterValuesByName.put(name, value);
 				if (prev != null) {
 					throw new JsonParseException("Parameter appeared twice: " + name);
@@ -630,27 +694,22 @@ public final class GsonPlugin extends SerializationPlugin {
 		return parameterValuesByName;
 	}
 
-	private Object readField(JsonReader in, Gson gson, TypeToken<?> typeToken) throws IOException {
+	private Object readField(String name, JsonReader in, Gson gson, Type parameterType, FieldModerator moderator) throws IOException {
 		// TODO: Combine with similar method in BsonPlugin
-		if (Optional.class.isAssignableFrom(typeToken.getRawType())) {
-			// Optional field is present in JSON; wrap it using Optional.of
-			TypeToken<?> contentsType = TypeToken.get(parameterType(typeToken.getType(), Optional.class, 0));
-			return Optional.of(readField(in, gson, contentsType));
+		Type effectiveType = moderator.typeOf(parameterType);
+		Class<?> effectiveClass = rawClass(effectiveType);
+		if (Optional.class.isAssignableFrom(effectiveClass)) {
+			// Optional field is present in JSON; wrap deserialized value in Optional.of
+			Type contentsType = parameterType(effectiveType, Optional.class, 0);
+			Object deserializedValue = readField(name, in, gson, contentsType, moderator);
+			return Optional.of(deserializedValue);
+		} else if (Phantom.class.isAssignableFrom(effectiveClass)) {
+			throw new JsonParseException("Unexpected phantom field \"" + name + "\"");
 		} else {
-			TypeAdapter<?> parameterAdapter = gson.getAdapter(typeToken);
+			TypeAdapter<?> parameterAdapter = gson.getAdapter(TypeToken.get(effectiveType));
 			return parameterAdapter.read(in);
 		}
 	}
-
-	@SuppressWarnings("unused") // WRITE_FIELD
-	private static <TT> void writeField(String name, TypeToken<TT> typeToken, TT value, Gson gson, JsonWriter out) throws IOException {
-		TypeAdapter<TT> adapter = gson.getAdapter(typeToken);
-		out.name(name);
-		adapter.write(out, value);
-	}
-
-	@SuppressWarnings({"unused", "EmptyMethod"}) // WRITE_NOTHING
-	private static void writeNothing(Object node, Gson gson, JsonWriter out) {}
 
 	@SuppressWarnings("unchecked")
 	private static <EE extends Entity> TypeToken<EE> catalogEntryTypeToken(TypeToken<Catalog<EE>> typeToken) {

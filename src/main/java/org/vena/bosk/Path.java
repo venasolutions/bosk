@@ -11,15 +11,21 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.WeakHashMap;
+import java.util.function.Predicate;
+import java.util.function.Supplier;
 import java.util.function.UnaryOperator;
 import java.util.stream.Stream;
-import lombok.EqualsAndHashCode;
 import lombok.RequiredArgsConstructor;
+import lombok.Value;
 import lombok.experimental.Accessors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.vena.bosk.BindingEnvironment.Builder;
 import org.vena.bosk.exceptions.MalformedPathException;
 
 import static java.lang.Character.isDigit;
+import static java.lang.String.format;
+import static java.lang.System.identityHashCode;
 import static java.util.Arrays.asList;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
@@ -46,7 +52,6 @@ import static lombok.AccessLevel.PACKAGE;
  * @author pdoyle
  */
 @Accessors(fluent=true)
-@EqualsAndHashCode
 @RequiredArgsConstructor(access = PACKAGE)
 public abstract class Path implements Iterable<String> {
 	public abstract int length();
@@ -66,13 +71,16 @@ public abstract class Path implements Iterable<String> {
 	 * paths that are invalid according to {@link #validParsedSegment(String)}.
 	 */
 	public static Path parse(String urlEncoded) {
-		if (urlEncoded.isEmpty()) {
-			return Path.empty();
+		if ("/".equals(urlEncoded)) {
+			return ROOT_PATH;
+		} else if (urlEncoded.startsWith("/")) {
+			String afterFirstSlash = urlEncoded.substring(1);
+			return Path.of(Stream.of(afterFirstSlash.split("/", Integer.MAX_VALUE))
+				.map(DECODER)
+				.map(Path::validParsedSegment)
+				.collect(toList()));
 		} else {
-			return Path.of(Stream.of(urlEncoded.split("/", Integer.MAX_VALUE))
-					.map(DECODER)
-					.map(Path::validParsedSegment)
-					.collect(toList()));
+			throw new MalformedPathException(format("Path must start with leading slash: \"%s\"", urlEncoded));
 		}
 	}
 
@@ -80,18 +88,21 @@ public abstract class Path implements Iterable<String> {
 	 * Like {@link #parse} but permits parameter segments.
 	 */
 	public static Path parseParameterized(String urlEncoded) {
-		if (urlEncoded.isEmpty()) {
-			return Path.empty();
-		} else {
-			return Path.of(Stream.of(urlEncoded.split("/", Integer.MAX_VALUE))
+		if ("/".equals(urlEncoded)) {
+			return ROOT_PATH;
+		} else if (urlEncoded.startsWith("/")) {
+			String afterFirstSlash = urlEncoded.substring(1);
+			return Path.of(Stream.of(afterFirstSlash.split("/", Integer.MAX_VALUE))
 				.map(DECODER)
 				.map(Path::validSegment)
 				.collect(toList()));
+		} else {
+			throw new MalformedPathException(format("Path must start with leading slash: \"%s\"", urlEncoded));
 		}
 	}
 
 	public final String urlEncoded() {
-		return segmentStream()
+		return "/" + segmentStream()
 			.map(ENCODER)
 			.collect(joining("/"));
 	}
@@ -157,7 +168,11 @@ public abstract class Path implements Iterable<String> {
 				}
 			}
 			List<String> remainder = segments.subList(1, segments.size());
-			return INTERNER.apply(new NestedPath(this, firstSegment)).then(remainder);
+			return INTERNER
+				.apply(
+					new InternKey(this, firstSegment),
+					() -> new NestedPath(this, firstSegment))
+				.then(remainder);
 		}
 	}
 
@@ -384,7 +399,6 @@ public abstract class Path implements Iterable<String> {
 	}
 
 	@RequiredArgsConstructor
-	@EqualsAndHashCode(callSuper=true)
 	private static final class NestedPath extends Path {
 		private final Path prefix;
 		private final String segment;
@@ -468,10 +482,10 @@ public abstract class Path implements Iterable<String> {
 				return isParameterSegment(lastSegment());
 			}
 		}
+
 	}
 
 	@RequiredArgsConstructor
-	@EqualsAndHashCode(callSuper=true)
 	private static final class RootPath extends Path {
 		@Override public int length() { return 0; }
 
@@ -509,26 +523,97 @@ public abstract class Path implements Iterable<String> {
 			assert other.isEmpty(): "Should never be called with a path of a different length";
 			return true;
 		}
+
 	}
 
 	private static final Path ROOT_PATH = new RootPath();
 
-	private static final Interner<Path> INTERNER = new Interner<>();
+	private static final Interner<InternKey, Path> INTERNER = new Interner<>();
 
-	static final class Interner<T> implements UnaryOperator<T> {
+	@Value
+	static class InternKey {
+		Path prefix;
+		String segment;
+
 		@Override
-		public synchronized T apply(T given) {
-			WeakReference<T> ref = INTERNED.get(given);
-			T existing;
-			if (ref == null || (existing = ref.get()) == null) {
-				INTERNED.put(given, new WeakReference<>(given));
-				return given;
-			} else {
-				return existing;
+		public String toString() {
+			return identityHashCode(prefix) + "/" + segment;
+		}
+	}
+
+	static final class Interner<K, V> {
+		public V apply(K key, Supplier<V> supplier) {
+			synchronized (INTERNED) {
+				WeakReference<V> ref = INTERNED.get(key);
+				if (ref == null) {
+					logMapContents(this::isPathOfLength1, "No entry for {}", key);
+				} else {
+					V existing = ref.get();
+					if (existing == null) {
+						logMapContents(this::isPathOfLength1, "Empty entry for {}", key);
+					} else {
+						LOGGER.trace("Path interner has entry for {}", key);
+						return existing;
+					}
+				}
+				V newValue = supplier.get();
+				LOGGER.debug("Path interner created {} for {}", identityHashCode(newValue), key);
+				K oldKey = KEEP_ALIVE.put(newValue, key);
+
+				// Important! Make sure INTERNED doesn't hang on to the old key object.
+				// We need to use the same key object that we put into the KEEP_ALIVE map,
+				// even though the old key is supposedly equivalent as per equals and hashCode.
+				INTERNED.remove(key);
+				INTERNED.put(key, new WeakReference<V>(newValue));
+
+				if (oldKey == null) {
+					logMapContents(this::isPathOfLength1, "New entry in KEEP_ALIVE for {}: {}->{}", key, identityHashCode(newValue), identityHashCode(key));
+				} else {
+					logMapContents(v->true, "REPLACED entry in KEEP_ALIVE for {}: {}->{} (was {})", key, identityHashCode(newValue), identityHashCode(key), identityHashCode(oldKey));
+				}
+				return newValue;
 			}
 		}
 
-		private final Map<T, WeakReference<T>> INTERNED = new WeakHashMap<>();
+		private boolean isPathOfLength1(V v) {
+			return v == null || ((Path) v).length() == 1;
+		}
+
+		private void logMapContents(Predicate<V> filter, String titleFormat, Object... args) {
+			if (LOGGER.isDebugEnabled()) {
+				LOGGER.debug(titleFormat + ": intern map contents {", args);
+				LOGGER.trace("-> location: ", new Exception());
+				LOGGER.debug("\tINTERNED {");
+				INTERNED.forEach((k,ref) -> {
+					V v = ref.get();
+					if (filter.test(v)) {
+						LOGGER.debug("\t\t{}->{} ; {}", identityHashCode(k), identityHashCode(v), k);
+					}
+				});
+				LOGGER.debug("\t}");
+				LOGGER.debug("\tKEEP_ALIVE {");
+				KEEP_ALIVE.forEach((k,v) -> {
+					if (filter.test(k)) {
+						LOGGER.debug("\t\t{}->{} ; {}", identityHashCode(k), identityHashCode(v), v);
+					}
+				});
+				LOGGER.debug("\t}");
+				LOGGER.debug("}");
+			}
+		}
+
+		private final Map<K, WeakReference<V>> INTERNED = new WeakHashMap<>();
+
+		/**
+		 * The key object we use in {@link #INTERNED} needs to stay alive as long as the
+		 * value is in use. This map achieves this.
+		 */
+		private final Map<V, K> KEEP_ALIVE = new WeakHashMap<>();
 	}
 
+	public static void logMapContents(String titleFormat, Object... args) {
+		INTERNER.logMapContents(p->true, titleFormat, args);
+	}
+
+	private static final Logger LOGGER = LoggerFactory.getLogger(Path.class);
 }

@@ -3,16 +3,16 @@ package org.vena.bosk;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.vena.bosk.AbstractHookTest.HookRecorder.Event;
 import org.vena.bosk.Bosk.ReadContext;
+import org.vena.bosk.HookRecorder.Event;
 import org.vena.bosk.exceptions.InvalidTypeException;
 
 import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.vena.bosk.AbstractHookTest.HookRecorder.Event.Kind.CHANGED;
+import static org.vena.bosk.HookRecorder.Event.Kind.CHANGED;
 
-public class HooksTest extends AbstractHookTest {
+public class HooksTest extends AbstractBoskTest {
 	Bosk<TestRoot> bosk;
 	Reference<TestEntity> parentRef;
 	Reference<TestChild> child1Ref, child2Ref, child3Ref, anyChildRef;

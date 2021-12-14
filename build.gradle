@@ -14,7 +14,7 @@ compileTestJava.options.encoding = 'UTF-8'
 group = 'org.vena'
 archivesBaseName = 'bosk'
 jar.archiveBaseName = "${archivesBaseName}"
-version = '0.0.1-SNAPSHOT'
+version = '0.0.2-SNAPSHOT'
 sourceCompatibility = 1.8
 targetCompatibility = 1.8
 
@@ -109,6 +109,7 @@ dependencies {
 
 	testImplementation "org.testcontainers:testcontainers:${testcontainersVersion}"
 	testImplementation "org.testcontainers:junit-jupiter:${testcontainersVersion}"
+	testImplementation "org.testcontainers:toxiproxy:1.16.2"
 
 	testImplementation "org.hamcrest:hamcrest:${hamcrestVersion}"
 	testImplementation "org.hamcrest:hamcrest-library:${hamcrestVersion}"
