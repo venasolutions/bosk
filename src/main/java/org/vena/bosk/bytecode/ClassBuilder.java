@@ -30,8 +30,8 @@ import static org.vena.bosk.ReferenceUtils.setAccessible;
 public final class ClassBuilder<T> implements Opcodes {
 	private final Class<? extends T> supertype;
 	private final String superClassName;
-	private final String slashyName;
-	private final String dottyName;
+	private final String slashyName; // like "java/lang/Object"
+	private final String dottyName;  // like "java.lang.Object"
 	private final StackTraceElement sourceFileOrigin; // Where this ClassBuilder was instantiated
 	private ClassWriter classWriter = null;
 	private MethodBuilder currentMethod = null;
@@ -141,7 +141,43 @@ public final class ClassBuilder<T> implements Opcodes {
 		return result;
 	}
 
-	public CurriedField curry(Object object) {
+	/**
+	 * Emit code to push the given object on the operand stack.
+	 *
+	 * <p>
+	 * Implemented as a GETFIELD: https://docs.oracle.com/javase/specs/jvms/se8/html/jvms-6.html#jvms-6.5.getfield
+	 */
+	public void pushObject(Object object) {
+		CurriedField field = curry(object);
+		beginPush();
+		methodVisitor().visitVarInsn(ALOAD, 0);
+		methodVisitor().visitFieldInsn(GETFIELD, slashyName, field.name(), field.typeDescriptor());
+	}
+
+	/**
+	 * Makes the given <code>object</code> available to the generated code via
+	 * a final field in the generated object.
+	 *
+	 * <p>
+	 * This is not necessary for values that can be put in the constant pool instead.
+	 * For those, methods like {@link #pushInt} and {@link #pushString} are more efficient.
+	 *
+	 * <p>
+	 * <em>Implementation note</em>: For each distinct <code>object</code>, this method:
+	 *
+	 * <ul><li>
+	 * adds a field to the class,
+	 * </li><li>
+	 * adds a parameter to the constructor,
+	 * </li><li>
+	 * adds code to the constructor that stores the parameter to the field, and
+	 * </li><li>
+	 * saves the <code>object</code> in {@link #curriedFields} so that {@link #buildInstance()}
+	 * will pass the object to the constructor.
+	 * </li></ul>
+	 *
+	 */
+	private CurriedField curry(Object object) {
 		for (CurriedField candidate: curriedFields) {
 			if (candidate.value() == object) {
 				return candidate;
@@ -164,15 +200,6 @@ public final class ClassBuilder<T> implements Opcodes {
 		).visitEnd();
 
 		return result;
-	}
-
-	/**
-	 * Emit GETFIELD
-	 */
-	public void pushField(CurriedField field) {
-		beginPush();
-		methodVisitor().visitVarInsn(ALOAD, 0);
-		methodVisitor().visitFieldInsn(GETFIELD, slashyName, field.name(), field.typeDescriptor());
 	}
 
 	/**
@@ -325,7 +352,7 @@ public final class ClassBuilder<T> implements Opcodes {
 	}
 
 	private final class CustomClassLoader extends ClassLoader {
-		protected CustomClassLoader() {
+		CustomClassLoader() {
 			// Delegate to targetInterface.getClassLoader() to make sure our class
 			// implements the right interface class.
 			super(supertype.getClassLoader());

@@ -5,6 +5,7 @@ import com.google.gson.GsonBuilder;
 import java.lang.reflect.Type;
 import java.util.Optional;
 import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
 import lombok.AccessLevel;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
@@ -21,49 +22,8 @@ import org.vena.bosk.exceptions.NotYetImplementedException;
 
 import static java.util.Arrays.asList;
 
-public abstract class AbstractBoskTest extends AbstractRoundTripTest {
-
-	protected static Bosk<TestRoot> setUpBosk(DriverFactory<TestRoot> driverFactory) {
-		return new Bosk<TestRoot>("Test", TestRoot.class, AbstractBoskTest::initialRoot, driverFactory);
-	}
-
-	protected static TestRoot initialRoot(Bosk<TestRoot> bosk) {
-		TestEntityBuilder teb;
-		try {
-			teb = new TestEntityBuilder(bosk);
-		} catch (InvalidTypeException e) {
-			throw new NotYetImplementedException(e);
-		}
-		Identifier parentID = Identifier.from("parent");
-		Reference<TestEntity> parentRef = teb.entityRef(parentID);
-		CatalogReference<TestChild> childrenRef = teb.childrenRef(parentID);
-		Identifier child1ID = Identifier.from("child1");
-		Identifier child2ID = Identifier.from("child2");
-		Identifier child3ID = Identifier.from("child3");
-		TestEntity entity = new TestEntity(parentID, "parent", TestEnum.OK, Catalog.of(
-			new TestChild(child1ID, "child1", TestEnum.OK),
-			new TestChild(child2ID, "child2", TestEnum.NOT_SO_OK),
-			new TestChild(child3ID, "child3", TestEnum.OK)
-		),
-			Listing.empty(childrenRef).withID(child1ID).withID(child3ID),
-			Mapping.empty(childrenRef, String.class).with(child2ID, "I'm child 2"),
-			new Optionals(Identifier.from("optionals"),
-				Optional.of("rootString"),
-				Optional.of(new TestChild(Identifier.from("entity2"), "entity2", TestEnum.OK)),
-				Optional.of(parentRef),
-				Optional.of(Catalog.of(new TestChild(Identifier.from("OptionalTestEntity2"), "OptionalTestEntity2", TestEnum.OK))),
-				Optional.of(Listing.of(childrenRef, child2ID)),
-				Optional.of(Mapping.empty(childrenRef, String.class).with(child2ID, "String value associated with " + child2ID))
-			),
-			new ImplicitRefs(Identifier.from("parent_implicitRefs"),
-				teb.implicitRefsRef(parentID), parentRef,
-				teb.implicitRefsRef(parentID), parentRef));
-		return new TestRoot(
-			Identifier.from("root"),
-			Catalog.of(entity),
-			new StringListValueSubclass("One", "Two"),
-			MapValue.fromFunction(asList("key1", "key2"), k ->k + "_value"));
-	}
+public abstract class AbstractBoskTest {
+	public interface DriverFactory<R extends Entity> extends BiFunction<BoskDriver<R>, Bosk<R>, BoskDriver<R>> {}
 
 	@EqualsAndHashCode(callSuper=false) @ToString
 	@Accessors(fluent=true) @Getter @With @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
@@ -91,6 +51,7 @@ public abstract class AbstractBoskTest extends AbstractRoundTripTest {
 		Catalog<TestChild> children;
 		Listing<TestChild> oddChildren;
 		Mapping<TestChild,String> stringMapping;
+		Phantoms phantoms;
 		Optionals optionals;
 		ImplicitRefs implicitRefs;
 
@@ -121,8 +82,27 @@ public abstract class AbstractBoskTest extends AbstractRoundTripTest {
 
 		public static Optionals empty(Identifier id) {
 			return new Optionals(id,
-					Optional.empty(), Optional.empty(), Optional.empty(),
-					Optional.empty(), Optional.empty(), Optional.empty());
+				Optional.empty(), Optional.empty(), Optional.empty(),
+				Optional.empty(), Optional.empty(), Optional.empty());
+		}
+	}
+
+	@EqualsAndHashCode(callSuper=false) @ToString
+	@Accessors(fluent=true) @Getter @With @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
+	@FieldNameConstants
+	public static class Phantoms extends Entity {
+		Identifier id;
+		Phantom<String> phantomString;
+		Phantom<TestChild> phantomEntity;
+		Phantom<Reference<TestEntity>> phantomRef;
+		Phantom<Catalog<TestChild>> phantomCatalog;
+		Phantom<Listing<TestChild>> phantomListing;
+		Phantom<Mapping<TestChild,String>> phantomMapping;
+
+		public static Phantoms empty(Identifier id) {
+			return new Phantoms(id,
+				Phantom.empty(), Phantom.empty(), Phantom.empty(),
+				Phantom.empty(), Phantom.empty(), Phantom.empty());
 		}
 	}
 
@@ -167,11 +147,54 @@ public abstract class AbstractBoskTest extends AbstractRoundTripTest {
 
 	}
 
+	protected static Bosk<TestRoot> setUpBosk(DriverFactory<TestRoot> driverFactory) {
+		return new Bosk<TestRoot>("Test", TestRoot.class, AbstractRoundTripTest::initialRoot, driverFactory);
+	}
+
+	protected static TestRoot initialRoot(Bosk<TestRoot> bosk) {
+		TestEntityBuilder teb;
+		try {
+			teb = new TestEntityBuilder(bosk);
+		} catch (InvalidTypeException e) {
+			throw new NotYetImplementedException(e);
+		}
+		Identifier parentID = Identifier.from("parent");
+		Reference<TestEntity> parentRef = teb.entityRef(parentID);
+		CatalogReference<TestChild> childrenRef = teb.childrenRef(parentID);
+		Identifier child1ID = Identifier.from("child1");
+		Identifier child2ID = Identifier.from("child2");
+		Identifier child3ID = Identifier.from("child3");
+		TestEntity entity = new TestEntity(parentID, "parent", TestEnum.OK, Catalog.of(
+			new TestChild(child1ID, "child1", TestEnum.OK),
+			new TestChild(child2ID, "child2", TestEnum.NOT_SO_OK),
+			new TestChild(child3ID, "child3", TestEnum.OK)
+		),
+			Listing.empty(childrenRef).withID(child1ID).withID(child3ID),
+			Mapping.empty(childrenRef, String.class).with(child2ID, "I'm child 2"),
+			Phantoms.empty(Identifier.from("phantoms")),
+			new Optionals(Identifier.from("optionals"),
+				Optional.of("rootString"),
+				Optional.of(new TestChild(Identifier.from("entity2"), "entity2", TestEnum.OK)),
+				Optional.of(parentRef),
+				Optional.of(Catalog.of(new TestChild(Identifier.from("OptionalTestEntity2"), "OptionalTestEntity2", TestEnum.OK))),
+				Optional.of(Listing.of(childrenRef, child2ID)),
+				Optional.of(Mapping.empty(childrenRef, String.class).with(child2ID, "String value associated with " + child2ID))
+			),
+			new ImplicitRefs(Identifier.from("parent_implicitRefs"),
+				teb.implicitRefsRef(parentID), parentRef,
+				teb.implicitRefsRef(parentID), parentRef));
+		return new TestRoot(
+			Identifier.from("root"),
+			Catalog.of(entity),
+			new StringListValueSubclass("One", "Two"),
+			MapValue.fromFunction(asList("key1", "key2"), k ->k + "_value"));
+	}
+
 	protected Gson gsonFor(Bosk<TestRoot> bosk) {
 		return new GsonBuilder()
-				.setPrettyPrinting()
-				.registerTypeAdapterFactory(new GsonPlugin().adaptersFor(bosk))
-				.create();
+			.setPrettyPrinting()
+			.registerTypeAdapterFactory(new GsonPlugin().adaptersFor(bosk))
+			.create();
 	}
 
 	protected Reference<TestEntity> entityReference(Identifier id, Bosk<TestRoot> bosk) {

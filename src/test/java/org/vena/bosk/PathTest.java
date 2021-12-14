@@ -91,14 +91,15 @@ class PathTest {
 	@TestFactory
 	Iterable<DynamicTest> testParse() {
 		return asList(
-			parseTest(Path.empty(), ""),
-			parseTest(Path.just("a"), "a"),
-			parseTest(Path.of("a","b"), "a/b"),
-			parseTest(Path.just("a/b"), "a%2Fb"),
+			parseTest(Path.empty(), "/"),
+			parseTest(Path.just("a"), "/a"),
+			parseTest(Path.of("a","b"), "/a/b"),
+			parseTest(Path.just("a/b"), "/a%2Fb"),
 
-			invalidParseTest("/"),
+			invalidParseTest(""),
 			invalidParseTest("//"),
 			invalidParseTest("a//"),
+			invalidParseTest("/a//"),
 			invalidParseTest("/a/"),
 			invalidParseTest("//a"),
 
@@ -119,9 +120,9 @@ class PathTest {
 	@TestFactory
 	Stream<DynamicTest> testURLEncode() {
 		return Stream.of(
-			urlEncodeTest("a/b", "a", "b"),
-			urlEncodeTest("a%2Fb", "a/b"),
-			urlEncodeTest("a%20b", "a b") // We follow RFC 3986, which is not what Java's URLEncoder implements!
+			urlEncodeTest("/a/b", "a", "b"),
+			urlEncodeTest("/a%2Fb", "a/b"),
+			urlEncodeTest("/a%20b", "a b") // We follow RFC 3986, which is not what Java's URLEncoder implements!
 		).flatMap(s->s);
 	}
 
@@ -355,9 +356,9 @@ class PathTest {
 			parameterTests(2, 1, "a", "-p1-", "b", "c", "-p2-")
 		).flatMap(identity());
 		Stream<DynamicTest> oneOffTests = Stream.of(
-			dynamicTest("# a/b",         () -> assertEquals(0, Path.parse("a/b").numParameters())),
-			dynamicTest("# a/-p-",       () -> assertEquals(1, Path.of("a","-p-").numParameters())),
-			dynamicTest("# a/-p- bound", () -> assertEquals(0, Path.of("a","-p-").boundBy(singletonBinding("p","b")).numParameters()))
+			dynamicTest("# /a/b",         () -> assertEquals(0, Path.parse("/a/b").numParameters())),
+			dynamicTest("# /a/-p-",       () -> assertEquals(1, Path.of("a","-p-").numParameters())),
+			dynamicTest("# /a/-p- bound", () -> assertEquals(0, Path.of("a","-p-").boundBy(singletonBinding("p","b")).numParameters()))
 
 		);
 		Stream<DynamicTest> sadPath = Stream.of(
@@ -384,20 +385,20 @@ class PathTest {
 	@TestFactory
 	Stream<DynamicTest> testParametersFrom() {
 		return Stream.of(
-			parametersFromTest("a", Path.just("-p-"), singletonBinding("p", "a")),
-			parametersFromTest("a/b", Path.just("-p-"), singletonBinding("p", "a")),
-			parametersFromTest("a/b", Path.of("a", "-p-"), singletonBinding("p", "b")),
-			parametersFromTest("a/b", Path.of("-p-", "b"), singletonBinding("p", "a")),
-			parametersFromTest("a", Path.of("-p-", "b"), singletonBinding("p", "a")),
-			parametersFromTest("", Path.of("-p1-", "-p2-"), BindingEnvironment.empty()),
-			parametersFromTest("a", Path.of("-p1-", "-p2-"), singletonBinding("p1", "a")),
-			parametersFromTest("a/b", Path.of("-p1-", "-p2-"), doubletonBinding("p1", "a", "p2", "b")),
-			parametersFromTest("a/b/c/d", Path.of("-p1-", "-p2-"), doubletonBinding("p1", "a", "p2", "b")),
-			parametersFromTest("", Path.empty(), BindingEnvironment.empty()),
-			parametersFromTest("a/b", Path.of("a", "b"), BindingEnvironment.empty()),
+			parametersFromTest("/a", Path.just("-p-"), singletonBinding("p", "a")),
+			parametersFromTest("/a/b", Path.just("-p-"), singletonBinding("p", "a")),
+			parametersFromTest("/a/b", Path.of("a", "-p-"), singletonBinding("p", "b")),
+			parametersFromTest("/a/b", Path.of("-p-", "b"), singletonBinding("p", "a")),
+			parametersFromTest("/a", Path.of("-p-", "b"), singletonBinding("p", "a")),
+			parametersFromTest("/", Path.of("-p1-", "-p2-"), BindingEnvironment.empty()),
+			parametersFromTest("/a", Path.of("-p1-", "-p2-"), singletonBinding("p1", "a")),
+			parametersFromTest("/a/b", Path.of("-p1-", "-p2-"), doubletonBinding("p1", "a", "p2", "b")),
+			parametersFromTest("/a/b/c/d", Path.of("-p1-", "-p2-"), doubletonBinding("p1", "a", "p2", "b")),
+			parametersFromTest("/", Path.empty(), BindingEnvironment.empty()),
+			parametersFromTest("/a/b", Path.of("a", "b"), BindingEnvironment.empty()),
 
-			badParametersFromTest("a", Path.just("b")),
-			badParametersFromTest("a/b", Path.of("b", "-p-"))
+			badParametersFromTest("/a", Path.just("b")),
+			badParametersFromTest("/a/b", Path.of("b", "-p-"))
 		);
 	}
 

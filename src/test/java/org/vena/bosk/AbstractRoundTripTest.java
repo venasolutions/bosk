@@ -11,7 +11,6 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.BiFunction;
 import java.util.function.UnaryOperator;
 import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
@@ -35,7 +34,7 @@ import static org.vena.bosk.ReferenceUtils.parameterType;
 import static org.vena.bosk.ReferenceUtils.rawClass;
 import static org.vena.bosk.ReferenceUtils.theOnlyConstructorFor;
 
-public abstract class AbstractRoundTripTest {
+public abstract class AbstractRoundTripTest extends AbstractBoskTest {
 
 	static <R extends Entity> Stream<DriverFactory<R>> driverFactories() {
 		return Stream.of(
@@ -50,8 +49,6 @@ public abstract class AbstractRoundTripTest {
 				bsonRoundTripFactory()
 		);
 	}
-
-	public interface DriverFactory<R extends Entity> extends BiFunction<BoskDriver<R>, Bosk<R>, BoskDriver<R>> {}
 
 	public static <R extends Entity> DriverFactory<R> directFactory() {
 		return Bosk::simpleDriver;
@@ -242,6 +239,6 @@ public abstract class AbstractRoundTripTest {
 		}
 	}
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(AbstractBoskTest.class);
+	private static final Logger LOGGER = LoggerFactory.getLogger(AbstractRoundTripTest.class);
 
 }

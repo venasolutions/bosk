@@ -53,7 +53,7 @@ public final class BsonPlugin extends SerializationPlugin {
 	private final ValueCodecProvider valueCodecProvider = new ValueCodecProvider();
 	private final Map<Type, Codec<?>> memoizedCodecs = new ConcurrentHashMap<>();
 
-	protected static MethodHandle computeFactoryHandle(Constructor<?> constructor) throws AssertionError {
+	private static MethodHandle computeFactoryHandle(Constructor<?> constructor) throws AssertionError {
 		MethodHandle ctorHandle;
 		try {
 			ctorHandle = LOOKUP.unreflectConstructor(constructor);
@@ -152,6 +152,8 @@ public final class BsonPlugin extends SerializationPlugin {
 		} else if (Optional.class.isAssignableFrom(targetClass)) {
 			// Optional.empty() can't be serialized on its own because the field name itself must also be omitted
 			throw new IllegalArgumentException("Cannot serialize an Optional on its own; only as a field of another object");
+		} else if (Phantom.class.isAssignableFrom(targetClass)) {
+			throw new IllegalArgumentException("Cannot serialize a Phantom on its own; only as a field of another object");
 		} else if (targetClass.getTypeParameters().length == 0) {
 			// The only remaining non-generic types we handle are the primitive values
 			return valueCodecProvider.get(targetClass, registry);
@@ -224,7 +226,7 @@ public final class BsonPlugin extends SerializationPlugin {
 
 	private static <E extends Entity> Codec<Listing<E>> listingCodec(Class<Listing<E>> targetClass, CodecRegistry registry) {
 		@SuppressWarnings("rawtypes")
-		Codec<Reference> catalogCodec = registry.get(Reference.class);
+		Codec<Reference> referenceCodec = registry.get(Reference.class);
 		return new Codec<Listing<E>>() {
 			@Override public Class<Listing<E>> getEncoderClass() { return targetClass; }
 
@@ -232,8 +234,8 @@ public final class BsonPlugin extends SerializationPlugin {
 			public void encode(BsonWriter writer, Listing<E> value, EncoderContext encoderContext) {
 				writer.writeStartDocument();
 
-				writer.writeName("catalog");
-				catalogCodec.encode(writer, value.catalog(), encoderContext);
+				writer.writeName("domain");
+				referenceCodec.encode(writer, value.domain(), encoderContext);
 
 				writer.writeName("ids");
 				writer.writeStartDocument();
@@ -252,8 +254,8 @@ public final class BsonPlugin extends SerializationPlugin {
 				if (reader.getCurrentBsonType() == BsonType.DOCUMENT) {
 					reader.readStartDocument(); // can't read start document if currentBsonType == "ARRAY"
 				}
-				reader.readName("catalog");
-				Reference<Catalog<E>> catalog = catalogCodec.decode(reader, decoderContext);
+				reader.readName("domain");
+				Reference<Catalog<E>> domain = referenceCodec.decode(reader, decoderContext);
 
 				reader.readName("ids");
 				List<Identifier> ids = new ArrayList<>();
@@ -267,7 +269,7 @@ public final class BsonPlugin extends SerializationPlugin {
 
 				reader.readEndDocument();
 
-				Listing<E> result =  Listing.of(catalog, ids);
+				Listing<E> result =  Listing.of(domain, ids);
 				if (result.size() > ids.size()) {
 					throw new NotYetImplementedException("Duplicate ids");
 				}
@@ -483,7 +485,7 @@ public final class BsonPlugin extends SerializationPlugin {
 		Class<V> valueClass = (Class<V>) rawClass(valueType);
 		Codec<V> valueCodec = getCodec(valueType, valueClass, registry, bosk);
 		@SuppressWarnings("rawtypes")
-		Codec<Reference> catalogCodec = getCodec(Reference.class, Reference.class, registry, bosk);
+		Codec<Reference> referenceCodec = getCodec(Reference.class, Reference.class, registry, bosk);
 
 		return new Codec<Mapping<K,V>>() {
 			@Override public Class<Mapping<K, V>> getEncoderClass() { return mappingClass; }
@@ -502,9 +504,9 @@ public final class BsonPlugin extends SerializationPlugin {
 			public Mapping<K, V> decode(BsonReader reader, DecoderContext decoderContext) {
 				reader.readStartDocument();
 
-				reader.readName("catalog");
+				reader.readName("domain");
 				@SuppressWarnings("unchecked")
-				Reference<Catalog<K>> catalog = catalogCodec.decode(reader, decoderContext);
+				Reference<Catalog<K>> domain = referenceCodec.decode(reader, decoderContext);
 
 				reader.readName("valuesById");
 				LinkedHashMap<Identifier, V> valuesById = new LinkedHashMap<>();
@@ -525,7 +527,7 @@ public final class BsonPlugin extends SerializationPlugin {
 
 				reader.readEndDocument();
 
-				return Mapping.fromOrderedMap(catalog, valuesById);
+				return Mapping.fromOrderedMap(domain, valuesById);
 			}
 
 			private MethodHandle mappingWriterHandle(Type valueType, CodecRegistry codecRegistry, Bosk<R> bosk) {
@@ -561,7 +563,9 @@ public final class BsonPlugin extends SerializationPlugin {
 	private <R extends Entity> Object decodeValue(Type valueType, BsonReader reader, DecoderContext decoderContext, CodecRegistry registry, Bosk<R> bosk) {
 		Class<?> valueClass = rawClass(valueType);
 		Object value;
-		if (Optional.class.isAssignableFrom(valueClass)) {
+		if (Phantom.class.isAssignableFrom(valueClass)) {
+			throw new NotYetImplementedException("Unexpected Phantom field");
+		} else if (Optional.class.isAssignableFrom(valueClass)) {
 			// Optional field is present in BSON; wrap it using Optional.of
 			Type contentsType = parameterType(valueType, Optional.class, 0);
 			value = Optional.of(decodeValue(contentsType, reader, decoderContext, registry, bosk));
@@ -601,7 +605,10 @@ public final class BsonPlugin extends SerializationPlugin {
 
 	private <R extends Entity> MethodHandle valueWriterHandle(String name, Type valueType, CodecRegistry codecRegistry, Bosk<R> bosk) {
 		MethodHandle fieldWriter;
-		if (Optional.class.isAssignableFrom(rawClass(valueType))) {
+		Class<?> valueClass = rawClass(valueType);
+		if (Phantom.class.isAssignableFrom(valueClass)) {
+			return writeNothingHandle(valueClass);
+		} else if (Optional.class.isAssignableFrom(valueClass)) {
 			// Serialize Optional values only when present
 			Type contentsType = parameterType(valueType, Optional.class, 0);
 			MethodHandle contentsWriter = valueWriterHandle(name, contentsType, codecRegistry, bosk);
@@ -612,7 +619,7 @@ public final class BsonPlugin extends SerializationPlugin {
 			MethodHandle customized = collectArguments(
 					insertArguments(WRITE_FIELD, 0, name),
 					0, codecSupplierHandle(valueType, codecRegistry, bosk));
-			fieldWriter = customized.asType(customized.type().changeParameterType(0, rawClass(valueType)));
+			fieldWriter = customized.asType(customized.type().changeParameterType(0, valueClass));
 		}
 		return fieldWriter;
 	}
@@ -671,13 +678,13 @@ public final class BsonPlugin extends SerializationPlugin {
 
 	@SuppressWarnings("unused") // WRITE_MAPPING
 	private static <K extends Entity, V> void writeMapping(
-		Codec<Reference<?>> catalogCodec, Codec<V> valueCodec,                 // Known when the MethodHandle is constructed
+		Codec<Reference<?>> referenceCodec, Codec<V> valueCodec,               // Known when the MethodHandle is constructed
 		Mapping<K,V> mapping, BsonWriter writer, EncoderContext encoderContext // Known when the MethodHandle is invoked
 		) {
 		writer.writeStartDocument();
 
-			writer.writeName("catalog");
-			catalogCodec.encode(writer, mapping.catalog(), encoderContext);
+			writer.writeName("domain");
+			referenceCodec.encode(writer, mapping.domain(), encoderContext);
 
 			writer.writeName("valuesById");
 			writer.writeStartDocument();

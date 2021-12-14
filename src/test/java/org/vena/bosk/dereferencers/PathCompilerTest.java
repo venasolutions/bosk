@@ -55,7 +55,7 @@ public class PathCompilerTest extends AbstractBoskTest {
 	@TestFactory
 	Stream<DynamicTest> compiler_shouldThrow_withBadPath() {
 		return Stream.of(
-			assertThrowsInvalidTypeException(Path.parse("no/such/thing")),
+			assertThrowsInvalidTypeException(Path.parse("/no/such/thing")),
 			assertThrowsInvalidTypeException(Path.just("-p-")),
 			assertThrowsInvalidTypeException(Path.of(TestRoot.Fields.entities, "parent", "-p-"))
 		).flatMap(x->x);
@@ -73,7 +73,7 @@ public class PathCompilerTest extends AbstractBoskTest {
 	 */
 	@Test
 	void compiler_shouldThrow_withNoseyPaths() {
-		assertThrows(InvalidTypeException.class, () -> pathCompiler.compiled(Path.parse("entities/parent/string/length")));
+		assertThrows(InvalidTypeException.class, () -> pathCompiler.compiled(Path.parse("/entities/parent/string/length")));
 	}
 
 	@TestFactory
@@ -83,7 +83,7 @@ public class PathCompilerTest extends AbstractBoskTest {
 			(s,v)->v,
 			(s)->{ throw new IllegalArgumentException("Can't delete root"); }
 		);
-		return standardEquivalenceTests(expected, "", new TestRoot(Identifier.from("newRoot"), Catalog.empty(), new StringListValueSubclass("A string"), MapValue.singleton("key", "value")));
+		return standardEquivalenceTests(expected, "/", new TestRoot(Identifier.from("newRoot"), Catalog.empty(), new StringListValueSubclass("A string"), MapValue.singleton("key", "value")));
 	}
 
 	@TestFactory
@@ -92,7 +92,7 @@ public class PathCompilerTest extends AbstractBoskTest {
 			TestRoot::entities,
 			TestRoot::withEntities
 		);
-		return standardEquivalenceTests(expected, "entities", Catalog.empty());
+		return standardEquivalenceTests(expected, "/entities", Catalog.empty());
 	}
 
 	@TestFactory
@@ -102,7 +102,7 @@ public class PathCompilerTest extends AbstractBoskTest {
 			(s,v) -> s.withEntities(s.entities().with(v)),
 			s->s.withEntities(s.entities().without(parentID))
 		);
-		return standardEquivalenceTests(expected, "entities/parent", teb.blankEntity(parentID, TestEnum.OK));
+		return standardEquivalenceTests(expected, "/entities/parent", teb.blankEntity(parentID, TestEnum.OK));
 	}
 
 	@TestFactory
@@ -114,7 +114,7 @@ public class PathCompilerTest extends AbstractBoskTest {
 					.with(s.entities().get(parentID)
 						.withChildren(v)))
 		);
-		return standardEquivalenceTests(expected, "entities/parent/children", Catalog.empty());
+		return standardEquivalenceTests(expected, "/entities/parent/children", Catalog.empty());
 	}
 
 	@TestFactory
@@ -131,7 +131,7 @@ public class PathCompilerTest extends AbstractBoskTest {
 					.with(s.entities().get(parentID)
 						.withChildren(s.entities().get(parentID).children().without(child1ID))))
 		);
-		return standardEquivalenceTests(expected, "entities/parent/children/child1", new TestChild(child1ID, "New child 1", TestEnum.OK));
+		return standardEquivalenceTests(expected, "/entities/parent/children/child1", new TestChild(child1ID, "New child 1", TestEnum.OK));
 	}
 
 	@TestFactory
@@ -143,7 +143,7 @@ public class PathCompilerTest extends AbstractBoskTest {
 					.with(s.entities().get(parentID)
 						.withOddChildren(v)))
 		);
-		return standardEquivalenceTests(expected, "entities/parent/oddChildren", Listing.empty(teb.childrenRef(parentID)));
+		return standardEquivalenceTests(expected, "/entities/parent/oddChildren", Listing.empty(teb.childrenRef(parentID)));
 	}
 
 	@TestFactory
@@ -164,7 +164,7 @@ public class PathCompilerTest extends AbstractBoskTest {
 								.withoutID(childID))))
 			);
 			results.addAll(
-				standardEquivalenceTests(expected, "entities/parent/oddChildren/" + childID, LISTING_ENTRY)
+				standardEquivalenceTests(expected, "/entities/parent/oddChildren/" + childID, LISTING_ENTRY)
 			);
 		}
 		return results;
@@ -179,7 +179,7 @@ public class PathCompilerTest extends AbstractBoskTest {
 					.with(s.entities().get(parentID)
 						.withStringMapping(v)))
 		);
-		return standardEquivalenceTests(expected, "entities/parent/stringMapping", Mapping.empty(teb.childrenRef(parentID)));
+		return standardEquivalenceTests(expected, "/entities/parent/stringMapping", Mapping.empty(teb.childrenRef(parentID)));
 	}
 
 	@TestFactory
@@ -200,7 +200,7 @@ public class PathCompilerTest extends AbstractBoskTest {
 								.without(childID))))
 			);
 			results.addAll(
-				standardEquivalenceTests(expected, "entities/parent/stringMapping/" + childID, "Example string")
+				standardEquivalenceTests(expected, "/entities/parent/stringMapping/" + childID, "Example string")
 			);
 		}
 		return results;
@@ -221,7 +221,7 @@ public class PathCompilerTest extends AbstractBoskTest {
 						.withOptionals(s.entities().get(parentID).optionals()
 							.withOptionalString(Optional.empty()))))
 		);
-		return standardEquivalenceTests(expected, "entities/parent/optionals/optionalString", "Example string");
+		return standardEquivalenceTests(expected, "/entities/parent/optionals/optionalString", "Example string");
 	}
 
 	private List<DynamicTest> standardEquivalenceTests(Dereferencer expected, String pathString, Object exampleValue) {

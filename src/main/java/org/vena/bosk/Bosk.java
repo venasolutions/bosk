@@ -481,9 +481,9 @@ public class Bosk<R extends Entity> {
 				// could correspond to changed objects and then recursing.
 				//
 				Path containerPath = effectiveScope.path().truncatedTo(effectiveScope.path().firstParameterIndex());
-				Reference<AddressableByIdentifier<?>> containerRef = reference(ADDRESSABLE_BY_IDENTIFIER, containerPath);
-				AddressableByIdentifier<?> priorContainer = refValueIfExists(containerRef, priorRoot);
-				AddressableByIdentifier<?> newContainer = refValueIfExists(containerRef, newRoot);
+				Reference<EnumerableByIdentifier<?>> containerRef = reference(ENUMERABLE_BY_IDENTIFIER, containerPath);
+				EnumerableByIdentifier<?> priorContainer = refValueIfExists(containerRef, priorRoot);
+				EnumerableByIdentifier<?> newContainer = refValueIfExists(containerRef, newRoot);
 
 				// Process deleted items first. This might allow the hook to free some resources
 				// that could be used by subsequent hooks.
@@ -729,7 +729,7 @@ try (ReadContext originalThReadContext = bosk.new ReadContext()) {
 			final int prime = 31;
 			int result = 1;
 			result = prime * result + rootType().hashCode();
-			result = prime * result + Objects.hash(path);
+			result = prime * result + path.hashCode();
 			return result;
 		}
 
@@ -810,7 +810,7 @@ try (ReadContext originalThReadContext = bosk.new ReadContext()) {
 	 * <p>
 	 * It is an error to have a parameter in a position that does not
 	 * correspond to an {@link Identifier} that can be looked up in an
-	 * object that implements {@link AddressableByIdentifier}. (We are
+	 * object that implements {@link EnumerableByIdentifier}. (We are
 	 * not offering to use reflection to look up object fields by name here.)
 	 *
 	 * TODO: This is not currently checked or enforced; it will just cause confusing crashes.
@@ -832,13 +832,13 @@ try (ReadContext originalThReadContext = bosk.new ReadContext()) {
 			int firstParameterIndex = path.firstParameterIndex();
 			String parameterName = parameterNameFromSegment(path.segment(firstParameterIndex));
 			Path containerPath = path.truncatedTo(firstParameterIndex);
-			Reference<AddressableByIdentifier<?>> containerRef;
+			Reference<EnumerableByIdentifier<?>> containerRef;
 			try {
-				containerRef = reference(ADDRESSABLE_BY_IDENTIFIER, containerPath);
+				containerRef = reference(ENUMERABLE_BY_IDENTIFIER, containerPath);
 			} catch (InvalidTypeException e) {
-				throw new NotYetImplementedException("Parameter reference should come after a " + AddressableByIdentifier.class, e);
+				throw new NotYetImplementedException("Parameter reference should come after a " + EnumerableByIdentifier.class, e);
 			}
-			AddressableByIdentifier<?> container = containerRef.valueIfExists();
+			EnumerableByIdentifier<?> container = containerRef.valueIfExists();
 			if (container != null) {
 				container.ids().forEach(id ->
 					this.boundTo(id).forEachValue(action,
@@ -945,9 +945,9 @@ try (ReadContext originalThReadContext = bosk.new ReadContext()) {
 		return currentRoot;
 	}
 
-	// Not sure why AddressableByIdentifier.class doesn't already return a Class<AddressableByIdentifier<?>>
+	// Not sure why EnumerableByIdentifier.class doesn't already return a Class<EnumerableByIdentifier<?>>
 	@SuppressWarnings({"unchecked","rawtypes"})
-	private static final Class<AddressableByIdentifier<?>> ADDRESSABLE_BY_IDENTIFIER = (Class)AddressableByIdentifier.class;
+	private static final Class<EnumerableByIdentifier<?>> ENUMERABLE_BY_IDENTIFIER = (Class) EnumerableByIdentifier.class;
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(Bosk.class);
 }

@@ -30,7 +30,7 @@ import static lombok.AccessLevel.PROTECTED;
  */
 @RequiredArgsConstructor(access=PROTECTED)
 @EqualsAndHashCode
-public class Catalog<E extends Entity> implements Iterable<E>, AddressableByIdentifier<E> {
+public class Catalog<E extends Entity> implements Iterable<E>, EnumerableByIdentifier<E> {
 	private final Map<Identifier, E> contents;
 
 	public int size() { return contents.size(); }

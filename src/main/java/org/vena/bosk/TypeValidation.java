@@ -85,6 +85,8 @@ public final class TypeValidation {
 				// Exclude specific anti-patterns
 				if (Optional.class.isAssignableFrom(entryClass)) {
 					throw new InvalidTypeException("Optional is not allowed in a " + ListValue.class.getSimpleName());
+				} else if (Phantom.class.isAssignableFrom(entryClass)) {
+					throw new InvalidTypeException("Phantom is not allowed in a " + ListValue.class.getSimpleName());
 				} else if (Entity.class.isAssignableFrom(entryClass)) {
 					throw new InvalidTypeException(entryClass.getSimpleName() + " Entity is not allowed in a " + ListValue.class.getSimpleName() + "; use Catalog");
 				} else if (Identifier.class.isAssignableFrom(entryClass) || Reference.class.isAssignableFrom(entryClass)) {
@@ -226,10 +228,10 @@ public final class TypeValidation {
 	 */
 	private static boolean isValidFieldNameChar(int codePoint) {
 		return codePoint == '_'
-				|| isBetween('a','z', codePoint)
-				|| isBetween('A','Z', codePoint)
-				|| isBetween('0','9', codePoint)
-				;
+			|| isBetween('a','z', codePoint)
+			|| isBetween('A','Z', codePoint)
+			|| isBetween('0','9', codePoint)
+			;
 	}
 
 	static boolean isBetween(char start, char end, int codePoint) {
@@ -258,18 +260,19 @@ public final class TypeValidation {
 	}
 
 	private static final List<Class<?>> SIMPLE_VALUE_CLASSES = asList(
-			Number.class, // TODO: This includes classes like AtomicLong which are not immutable!!
-			Boolean.class,
-			String.class);
+		Number.class, // TODO: This includes classes like AtomicLong which are not immutable!!
+		Boolean.class,
+		String.class);
 
 	private static final List<Class<?>> TRUSTED_IMMUTABLE_CLASSES = asList(
-			Identifier.class,
-			Optional.class,
-			Catalog.class,
-			Listing.class,
-			Mapping.class,
-			// These ones can be subclassed; hard to REALLY trust them
-			Reference.class,
-			ListValue.class);
+		Identifier.class,
+		Optional.class,
+		Phantom.class,
+		Catalog.class,
+		Listing.class,
+		Mapping.class,
+		// These ones can be subclassed; hard to REALLY trust them
+		Reference.class,
+		ListValue.class);
 
 }

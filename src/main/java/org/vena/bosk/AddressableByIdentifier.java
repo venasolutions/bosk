@@ -1,8 +1,8 @@
 package org.vena.bosk;
 
-import java.util.List;
-
 public interface AddressableByIdentifier<T> {
-	List<Identifier> ids();
+	/**
+	 * @return The item with the given <code>id</code>, or null if no such item exists.
+	 */
 	T get(Identifier id);
 }

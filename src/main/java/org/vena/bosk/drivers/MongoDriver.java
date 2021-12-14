@@ -1,5 +1,8 @@
 package org.vena.bosk.drivers;
 
+import com.mongodb.ErrorCategory;
+import com.mongodb.MongoException;
+import com.mongodb.MongoWriteException;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoCursor;
 import com.mongodb.client.model.UpdateOptions;
@@ -51,6 +54,7 @@ import org.vena.bosk.SerializationPlugin;
 import org.vena.bosk.exceptions.InvalidTypeException;
 import org.vena.bosk.exceptions.NotYetImplementedException;
 
+import static com.mongodb.ErrorCategory.DUPLICATE_KEY;
 import static java.lang.String.format;
 import static java.lang.Thread.currentThread;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -103,7 +107,19 @@ public final class MongoDriver<R extends Entity> implements BoskDriver<R> {
 		LOGGER.trace("| Filter: {}", filter);
 		LOGGER.trace("| Update: {}", update);
 		LOGGER.trace("| Options: {}", options);
-		UpdateResult result = collection.updateOne(filter, update, options);
+		UpdateResult result = null;
+		try {
+			result = collection.updateOne(filter, update, options);
+		} catch (MongoWriteException e) {
+			if (DUPLICATE_KEY == ErrorCategory.fromErrorCode(e.getCode())) {
+				// This can happen in MongoDB 4.0 if two upserts occur in parallel.
+				// https://docs.mongodb.com/v4.0/reference/method/db.collection.update/
+				LOGGER.debug("| Retrying: {}", e.getMessage());
+				result = collection.updateOne(filter, update, options);
+			} else {
+				throw e;
+			}
+		}
 		LOGGER.debug("| Result: {}", result);
 	}
 
@@ -525,6 +541,8 @@ public final class MongoDriver<R extends Entity> implements BoskDriver<R> {
 	 * Because all updates are totally ordered, this means all prior updates have also arrived,
 	 * even from other servers; and because our event processing submits them downstream
 	 * as they arrive, this means all prior updates are submitted downstream, QED.
+	 *
+	 * @throws MongoException if something goes wrong with MongoDB
 	 */
 	private void flushToDownstreamDriver() throws InterruptedException {
 		String echoToken = uniqueEchoToken();

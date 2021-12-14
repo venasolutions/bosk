@@ -2,6 +2,7 @@ package org.vena.bosk;
 
 import org.vena.bosk.AbstractBoskTest.ImplicitRefs;
 import org.vena.bosk.AbstractBoskTest.Optionals;
+import org.vena.bosk.AbstractBoskTest.Phantoms;
 import org.vena.bosk.AbstractBoskTest.TestChild;
 import org.vena.bosk.AbstractBoskTest.TestEntity;
 import org.vena.bosk.AbstractBoskTest.TestEnum;
@@ -30,6 +31,7 @@ public class TestEntityBuilder {
 			Catalog.empty(),
 			Listing.empty(childrenRef(id)),
 			Mapping.empty(childrenRef(id)),
+			Phantoms.empty(Identifier.from(id + "_phantoms")),
 			Optionals.empty(Identifier.from(id + "_optionals")),
 			new ImplicitRefs(Identifier.from(id + "_implicitRefs"),
 				implicitRefsRef(id), entityRef(id),

@@ -21,6 +21,7 @@ import org.vena.bosk.annotations.DeserializationPath;
 import org.vena.bosk.annotations.Enclosing;
 import org.vena.bosk.annotations.Self;
 import org.vena.bosk.exceptions.InvalidTypeException;
+import org.vena.bosk.exceptions.MalformedPathException;
 import org.vena.bosk.exceptions.ParameterUnboundException;
 import org.vena.bosk.exceptions.UnexpectedPathException;
 
@@ -84,18 +85,25 @@ public abstract class SerializationPlugin {
 			return innerDeserializationScope(fieldName);
 		} else {
 			DeserializationScope outerScope = currentScope.get();
-			Path path = Path
-				.parseParameterized(annotation.value())
-				.boundBy(outerScope.bindingEnvironment());
-			if (path.numParameters() == 0) {
-				DeserializationScope newScope = new NestedDeserializationScope(outerScope, path, outerScope.bindingEnvironment());
-				currentScope.set(newScope);
-				return newScope;
-			} else {
-				throw new ParameterUnboundException(
-					"Unbound parameters in @"
-						+ DeserializationPath.class.getSimpleName() + "(\"" + path + "\") "
-						+ nodeClass.getSimpleName() + "." + fieldName + " ");
+			try {
+				Path path = Path
+					.parseParameterized(annotation.value())
+					.boundBy(outerScope.bindingEnvironment());
+				if (path.numParameters() == 0) {
+					DeserializationScope newScope = new NestedDeserializationScope(outerScope, path, outerScope.bindingEnvironment());
+					currentScope.set(newScope);
+					return newScope;
+				} else {
+					throw new ParameterUnboundException(
+						"Unbound parameters in @"
+							+ DeserializationPath.class.getSimpleName() + "(\"" + path + "\") "
+							+ nodeClass.getSimpleName() + "." + fieldName + " ");
+				}
+			} catch (MalformedPathException e) {
+				throw new MalformedPathException("Invalid DeserializationPath for "
+					+ nodeClass.getSimpleName()
+					+ "." + fieldName
+					+ ": " + e.getMessage(), e);
 			}
 		}
 	}
@@ -165,6 +173,8 @@ public abstract class SerializationPlugin {
 					parameterValues.add(implicitReference);
 				} else if (Optional.class.equals(type)) {
 					parameterValues.add(Optional.empty());
+				} else if (Phantom.class.equals(type)) {
+					parameterValues.add(Phantom.empty());
 				} else {
 					throw new JsonParseException("Missing field: " + name);
 				}

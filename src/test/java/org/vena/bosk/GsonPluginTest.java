@@ -63,7 +63,7 @@ class GsonPluginTest extends AbstractBoskTest {
 
 	@BeforeEach
 	void setUpGson() throws Exception {
-		bosk = setUpBosk(gsonRoundTripFactory(GsonBuilder::setPrettyPrinting));
+		bosk = setUpBosk(Bosk::simpleDriver);
 		teb = new TestEntityBuilder(bosk);
 		entitiesRef = bosk.catalogReference(TestEntity.class, Path.just(TestRoot.Fields.entities));
 		parentRef = entitiesRef.then(Identifier.from("parent"));
@@ -92,14 +92,10 @@ class GsonPluginTest extends AbstractBoskTest {
 		Catalog<TestEntity> catalog = Catalog.of(entities);
 
 		// Build the expected JSON structure
-		Map<String, Object> contents = new LinkedHashMap<>();
-		entities.forEach(e1 -> contents.put(e1.id().toString(), plainObjectFor(e1, e1.getClass())));
-		Map<String, Object> expected = new LinkedHashMap<>();
-		expected.put("contents", contents);
-		expected.put("order", ids);
+		List<Map<String, Object>> expected = new ArrayList<>();
+		entities.forEach(e1 -> expected.add(singletonMap(e1.id().toString(), plainObjectFor(e1, e1.getClass()))));
 
-		Map<String, Object> actual = assertGsonWorks(expected, catalog, new TypeToken<Catalog<TestEntity>>(){}.getType(), Path.just(TestRoot.Fields.entities));
-		assertMapKeyOrder(ids, actual.get("contents"));
+		assertGsonWorks(expected, catalog, new TypeToken<Catalog<TestEntity>>(){}.getType(), Path.just(TestRoot.Fields.entities));
 	}
 
 	static Stream<Arguments> catalogArguments() {
@@ -113,49 +109,13 @@ class GsonPluginTest extends AbstractBoskTest {
 		return Arguments.of(asList(ids));
 	}
 
-	@Test
-	void testCatalogOrder_noOrderField() {
-		List<Identifier> expectedIDs = Stream.of("b", "o", "s", "k").map(Identifier::from).collect(toList());
-		String json = plainGson.toJson(plainCatalogWithEntities(expectedIDs), parameterizedType(Map.class, String.class, Object.class));
-		Catalog<TestEntity> actual;
-		try (DeserializationScope scope = gsonPlugin.newDeserializationScope(Path.just(TestRoot.Fields.entities))) {
-			actual = boskGson.fromJson(json, parameterizedType(Catalog.class, TestEntity.class));
-		}
-		assertEquals(expectedIDs, actual.ids());
-	}
-
-	@Test
-	void testCatalogOrder_overridingOrderField() {
-		List<String> expectedIDs = asList("b", "o", "s", "k");
-		List<Identifier> idsInWrongOrder = Stream.of("s", "k", "b", "o").map(Identifier::from).collect(toList());
-		Map<String, Object> map = plainCatalogWithEntities(idsInWrongOrder);
-		map.put("order", expectedIDs);
-
-		String json = plainGson.toJson(map, parameterizedType(Map.class, String.class, Object.class));
-		Catalog<TestEntity> actual;
-		try (DeserializationScope scope = gsonPlugin.newDeserializationScope(Path.just(TestRoot.Fields.entities))) {
-			actual = boskGson.fromJson(json, parameterizedType(Catalog.class, TestEntity.class));
-		}
-		assertEquals(expectedIDs.stream().map(Identifier::from).collect(toList()), actual.ids());
-	}
-
-	private Map<String, Object> plainCatalogWithEntities(List<Identifier> expectedIDs) {
-		Map<String, Object> expectedContents = new LinkedHashMap<>();
-		for (Identifier id : expectedIDs) {
-			expectedContents.put(id.toString(), plainObjectFor(teb.blankEntity(id, OK), TestEntity.class));
-		}
-		Map<String, Object> expected = new LinkedHashMap<>();
-		expected.put("contents", expectedContents);
-		return expected;
-	}
-
 	@ParameterizedTest
 	@MethodSource("listingArguments")
 	void testToJson_listing(List<String> strings, List<Identifier> ids) {
 		Listing<TestEntity> listing = Listing.of(entitiesRef, ids);
 
 		Map<String, Object> expected = new HashMap<>();
-		expected.put("catalog", entitiesRef.pathString());
+		expected.put("domain", entitiesRef.pathString());
 		expected.put("ids", strings);
 
 		assertGsonWorks(expected, listing, new TypeToken<Listing<TestEntity>>(){}.getType(), Path.just("doesn't matter"));
@@ -183,20 +143,19 @@ class GsonPluginTest extends AbstractBoskTest {
 	void testToJson_mapping(List<String> keys, Map<String,String> valuesByString, Map<Identifier, String> valuesById) {
 		Mapping<TestEntity, String> mapping = Mapping.fromOrderedMap(entitiesRef, valuesById);
 
-		Map<String, Object> expected = new LinkedHashMap<>();
-		expected.put("catalog", entitiesRef.pathString());
-		expected.put("order", keys);
-		expected.put("valuesById", valuesByString);
+		List<Map<String, Object>> expectedList = new ArrayList<>();
+		valuesByString.forEach((key, value) -> expectedList.add(singletonMap(key, value)));
 
-		Map<String, Object> actual = assertGsonWorks(
+		Map<String, Object> expected = new LinkedHashMap<>();
+		expected.put("domain", entitiesRef.pathString());
+		expected.put("valuesById", expectedList);
+
+		assertGsonWorks(
 			expected,
 			mapping,
 			new TypeToken<Mapping<TestEntity, String>>(){}.getType(),
 			Path.just("doesn't matter")
 		);
-
-		List<String> expectedKeys = valuesById.keySet().stream().map(Identifier::toString).collect(toList());
-		assertMapKeyOrder(expectedKeys, actual.get("valuesById"));
 	}
 
 	static Stream<Arguments> mappingArguments() {
@@ -223,37 +182,10 @@ class GsonPluginTest extends AbstractBoskTest {
 	}
 
 	@Test
-	void testMappingOrder_noOrderField() {
-		List<String> expectedIDs = asList("b","o","s","k");
-		String json = plainGson.toJson(plainMapping(expectedIDs), parameterizedType(Map.class, String.class, Object.class));
-		Mapping<TestEntity, String> actual;
-		try (DeserializationScope scope = gsonPlugin.newDeserializationScope(Path.just("doesn't matter"))) {
-			actual = boskGson.fromJson(json, parameterizedType(Mapping.class, TestEntity.class, String.class));
-		}
-		assertEquals(expectedIDs.stream().map(Identifier::from).collect(toList()), actual.ids());
-	}
-
-	@Test
-	void testMappingOrder_overridingOrderField() {
-		List<String> expectedIDs = asList("b", "o", "s", "k");
-		Map<String, Object> map = plainMapping(asList("s", "k", "b", "o"));
-		map.put("order", expectedIDs);
-
-		String json = plainGson.toJson(map, parameterizedType(Map.class, String.class, Object.class));
-		Mapping<TestEntity, String> actual;
-		try (DeserializationScope scope = gsonPlugin.newDeserializationScope(Path.just(TestRoot.Fields.entities))) {
-			actual = boskGson.fromJson(json, parameterizedType(Mapping.class, TestEntity.class, String.class));
-		}
-		assertEquals(expectedIDs.stream().map(Identifier::from).collect(toList()), actual.ids());
-	}
-
-	private Map<String, Object> plainMapping(List<String> ids) {
-		Map<String, Object> valuesById = new LinkedHashMap<>();
-		ids.forEach(id -> valuesById.put(id, id));
-		Map<String, Object> result = new LinkedHashMap<>();
-		result.put("catalog", TestRoot.Fields.entities);
-		result.put("valuesById", valuesById);
-		return result;
+	void testPhantomIsOmitted() throws InvalidTypeException {
+		TestEntity entity = makeEntityWithOptionalString(Optional.empty());
+		String json = boskGson.toJson(entity);
+		assertThat(json, not(containsString(Phantoms.Fields.phantomString)));
 	}
 
 	@Test
@@ -336,8 +268,20 @@ class GsonPluginTest extends AbstractBoskTest {
 			reflectiveEntity = iref.value();
 		}
 
-		String expectedJSON = boskGson.toJson(new ExpectedBasic(iref, "stringValue"));
-		String actualJSON = boskGson.toJson(new ActualBasic(reflectiveEntity, "stringValue"));
+		String expectedJSON = boskGson.toJson(new ExpectedBasic(
+			iref,
+			"stringValue",
+			iref,
+			"stringValue"
+		));
+		String actualJSON = boskGson.toJson(new ActualBasic(
+			reflectiveEntity,
+			"stringValue",
+			Optional.of(reflectiveEntity),
+			Optional.of("stringValue"),
+			Optional.empty(),
+			Optional.empty()
+		));
 
 		assertEquals(expectedJSON, actualJSON);
 
@@ -356,6 +300,8 @@ class GsonPluginTest extends AbstractBoskTest {
 	public static class ExpectedBasic implements ConfigurationNode {
 		final Reference<ImplicitRefs> entity;
 		final String nonEntity;
+		final Reference<ImplicitRefs> optionalEntity;
+		final String optionalNonEntity;
 	}
 
 	@RequiredArgsConstructor @Getter @Accessors(fluent = true)
@@ -363,6 +309,10 @@ class GsonPluginTest extends AbstractBoskTest {
 	public static class ActualBasic {
 		final ImplicitRefs entity;
 		final String nonEntity;
+		final Optional<ImplicitRefs> optionalEntity;
+		final Optional<String> optionalNonEntity;
+		final Optional<ImplicitRefs> emptyEntity;
+		final Optional<String> emptyNonEntity;
 	}
 
 	@Test
@@ -430,10 +380,10 @@ class GsonPluginTest extends AbstractBoskTest {
 	@Accessors(fluent = true)
 	@FieldNameConstants
 	public static class DeserializationPathContainer implements ConfigurationNode {
-		@DeserializationPath("entities/-entity1-/implicitRefs")
+		@DeserializationPath("/entities/-entity1-/implicitRefs")
 		ImplicitRefs firstField;
 
-		@DeserializationPath("entities/-entity2-/implicitRefs")
+		@DeserializationPath("/entities/-entity2-/implicitRefs")
 		ImplicitRefs secondField;
 	}
 
@@ -444,21 +394,33 @@ class GsonPluginTest extends AbstractBoskTest {
 		CatalogReference<TestChild> childrenRef = entityRef.thenCatalog(TestChild.class, TestEntity.Fields.children);
 		Reference<ImplicitRefs> implicitRefsRef = entityRef.then(ImplicitRefs.class, "implicitRefs");
 		return new TestEntity(entityID, entityID.toString(), OK, Catalog.empty(), Listing.empty(childrenRef), Mapping.empty(childrenRef),
+				Phantoms.empty(Identifier.unique("phantoms")),
 				new Optionals(Identifier.unique("optionals"), optionalString, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()),
 				new ImplicitRefs(Identifier.unique("implicitRefs"), implicitRefsRef, entityRef, implicitRefsRef, entityRef));
 	}
 
-	private Map<String, Object> assertGsonWorks(Map<String,?> plainObject, Object boskObject, Type boskObjectType, Path path) {
+	private void assertGsonWorks(Map<String,?> plainObject, Object boskObject, Type boskObjectType, Path path) {
 		Map<String, Object> actualPlainObject = plainObjectFor(boskObject, boskObjectType);
 		assertEquals(plainObject, actualPlainObject, "Serialized object should match expected");
 
-		Object deserializedBoskObject = bsonObjectFor(plainObject, boskObjectType, path);
+		Object deserializedBoskObject = boskGsonObjectFor(plainObject, boskObjectType, path);
 		assertEquals(boskObject, deserializedBoskObject, "Deserialized object should match expected");
 
 		Map<String, Object> roundTripPlainObject = plainObjectFor(deserializedBoskObject, boskObjectType);
 		assertEquals(plainObject, roundTripPlainObject, "Round-trip serialized object should match expected");
 
-		return actualPlainObject;
+	}
+
+	private void assertGsonWorks(List<?> plainList, Object boskObject, Type boskObjectType, Path path) {
+		List<Object> actualPlainList = plainListFor(boskObject, boskObjectType);
+		assertEquals(plainList, actualPlainList, "Serialized object should match expected");
+
+		Object deserializedBoskObject = boskGsonListFor(plainList, boskObjectType, path);
+		assertEquals(boskObject, deserializedBoskObject, "Deserialized object should match expected");
+
+		List<Object> roundTripPlainObject = plainListFor(deserializedBoskObject, boskObjectType);
+		assertEquals(plainList, roundTripPlainObject, "Round-trip serialized object should match expected");
+
 	}
 
 	private Map<String, Object> plainObjectFor(Object bsonObject, Type bsonObjectType) {
@@ -466,17 +428,23 @@ class GsonPluginTest extends AbstractBoskTest {
 		return plainGson.fromJson(json, parameterizedType(Map.class, String.class, Object.class));
 	}
 
-	private Object bsonObjectFor(Map<String, ?> plainObject, Type bsonObjectType, Path path) {
+	private List<Object> plainListFor(Object bsonObject, Type bsonObjectType) {
+		String json = boskGson.toJson(bsonObject, bsonObjectType);
+		return plainGson.fromJson(json, parameterizedType(List.class, Object.class));
+	}
+
+	private Object boskGsonObjectFor(Map<String, ?> plainObject, Type bsonObjectType, Path path) {
 		String json = plainGson.toJson(plainObject, new TypeToken<Map<String, Object>>(){}.getType());
 		try (DeserializationScope scope = gsonPlugin.newDeserializationScope(path)) {
 			return boskGson.fromJson(json, bsonObjectType);
 		}
 	}
 
-	private void assertMapKeyOrder(List<String> expectedKeys, Object map) {
-		@SuppressWarnings("unchecked")
-		Map<String, Object> actualContents = (Map<String, Object>) map;
-		assertEquals(expectedKeys, new ArrayList<>(actualContents.keySet()), "Order of keys must be preserved by serialization");
+	private Object boskGsonListFor(List<?> plainList, Type bsonListType, Path path) {
+		String json = plainGson.toJson(plainList, new TypeToken<List<Object>>(){}.getType());
+		try (DeserializationScope scope = gsonPlugin.newDeserializationScope(path)) {
+			return boskGson.fromJson(json, bsonListType);
+		}
 	}
 
 	// Sad paths
@@ -484,32 +452,17 @@ class GsonPluginTest extends AbstractBoskTest {
 	@Test
 	void testBadJson_badReference() {
 		assertThrows(UnexpectedPathException.class, () ->
-			boskGson.fromJson("\"some/nonexistent/path\"", parameterizedType(Reference.class, String.class)));
+			boskGson.fromJson("\"/some/nonexistent/path\"", parameterizedType(Reference.class, String.class)));
 	}
 
 	@Test
-	void testBadJson_catalogWithNoContents() {
-		assertJsonException("{ \"order\": [] }", Catalog.class, TestEntity.class);
-	}
-
-	@Test
-	void testBadJson_catalogWithTwoContents() {
-		assertJsonException("{ \"contents\": {}, \"contents\": {} }", Catalog.class, TestEntity.class);
-	}
-
-	@Test
-	void testBadJson_catalogWithTwoOrders() {
-		assertJsonException("{ \"order\": {}, \"order\": {} }", Catalog.class, TestEntity.class);
+	void testBadJson_catalogFromEmptyMap() {
+		assertJsonException("{}", Catalog.class, TestEntity.class);
 	}
 
 	@Test
 	void testBadJson_catalogWithContentsArray() {
 		assertJsonException("{ \"contents\": [] }", Catalog.class, TestEntity.class);
-	}
-
-	@Test
-	void testBadJson_catalogWithMismatchedContentsAndOrder() {
-		assertJsonException("{ \"order\": [\"a\"], \"contents\": { } }", Catalog.class, TestEntity.class);
 	}
 
 	@Test
@@ -519,62 +472,52 @@ class GsonPluginTest extends AbstractBoskTest {
 
 	@Test
 	void testBadJson_listingWithNoIds() {
-		assertJsonException("{ \"catalog\": \"entities\" }", Listing.class, TestEntity.class);
+		assertJsonException("{ \"domain\": \"/entities\" }", Listing.class, TestEntity.class);
 	}
 
 	@Test
 	void testBadJson_listingWithExtraneousField() {
-		assertJsonException("{ \"catalog\": \"entities\", \"extraneous\": 0, \"ids\": [] }", Listing.class, TestEntity.class);
+		assertJsonException("{ \"domain\": \"/entities\", \"extraneous\": 0, \"ids\": [] }", Listing.class, TestEntity.class);
 	}
 
 	@Test
-	void testBadJson_listingWithTwoCatalogs() {
-		assertJsonException("{ \"catalog\": \"entities\", \"catalog\": \"entities\", \"ids\": [] }", Listing.class, TestEntity.class);
+	void testBadJson_listingWithTwoDomains() {
+		assertJsonException("{ \"domain\": \"/entities\", \"domain\": \"/entities\", \"ids\": [] }", Listing.class, TestEntity.class);
 	}
 
 	@Test
 	void testBadJson_listingWithTwoIdsFields() {
-		assertJsonException("{ \"catalog\": \"entities\", \"ids\": [], \"ids\": [] }", Listing.class, TestEntity.class);
+		assertJsonException("{ \"domain\": \"/entities\", \"ids\": [], \"ids\": [] }", Listing.class, TestEntity.class);
 	}
 
 	@Test
-	void testBadJson_mappingWithNoCatalog() {
-		assertJsonException("{ \"valuesById\": {} }", Mapping.class, TestEntity.class, String.class);
+	void testBadJson_mappingWithNoDomain() {
+		assertJsonException("{ \"valuesById\": [] }", Mapping.class, TestEntity.class, String.class);
 	}
 
 	@Test
 	void testBadJson_mappingWithNoValues() {
-		assertJsonException("{ \"catalog\": \"entities\" }", Mapping.class, TestEntity.class, String.class);
+		assertJsonException("{ \"domain\": \"/entities\" }", Mapping.class, TestEntity.class, String.class);
 	}
 
 	@Test
 	void testBadJson_mappingWithExtraneousField() {
-		assertJsonException("{ \"catalog\": \"entities\", \"valuesById\": {}, \"extraneous\": 0 }", Mapping.class, TestEntity.class, String.class);
+		assertJsonException("{ \"domain\": \"/entities\", \"valuesById\": [], \"extraneous\": 0 }", Mapping.class, TestEntity.class, String.class);
 	}
 
 	@Test
-	void testBadJson_mappingWithTwoCatalogs() {
-		assertJsonException("{ \"catalog\": \"entities\", \"catalog\": \"entities\", \"valuesById\": {} }", Mapping.class, TestEntity.class, String.class);
+	void testBadJson_mappingWithTwoDomains() {
+		assertJsonException("{ \"domain\": \"/entities\", \"domain\": \"/entities\", \"valuesById\": [] }", Mapping.class, TestEntity.class, String.class);
 	}
 
 	@Test
-	void testBadJson_mappingWithValuesList() {
-		assertJsonException("{ \"catalog\": \"entities\", \"valuesById\": [] }", Mapping.class, TestEntity.class, String.class);
+	void testBadJson_mappingWithValuesMap() {
+		assertJsonException("{ \"domain\": \"/entities\", \"valuesById\": {} }", Mapping.class, TestEntity.class, String.class);
 	}
 
 	@Test
 	void testBadJson_mappingWithTwoValuesFields() {
-		assertJsonException("{ \"catalog\": \"entities\", \"valuesById\": {}, \"valuesById\": {} }", Mapping.class, TestEntity.class, String.class);
-	}
-
-	@Test
-	void testBadJson_mappingWithTwoOrderFields() {
-		assertJsonException("{ \"catalog\": \"entities\", \"order\": [], \"order\": [], \"valuesById\": {} }", Mapping.class, TestEntity.class, String.class);
-	}
-
-	@Test
-	void testBadJson_mappingWithMismatchedValuesAndOrder() {
-		assertJsonException("{ \"catalog\": \"entities\", \"valuesById\": {}, \"order\": [\"a\"] }", Mapping.class, TestEntity.class, String.class);
+		assertJsonException("{ \"domain\": \"/entities\", \"valuesById\": [], \"valuesById\": [] }", Mapping.class, TestEntity.class, String.class);
 	}
 
 	private void assertJsonException(String json, Class<?> rawClass, Type... parameters) {
@@ -591,7 +534,7 @@ class GsonPluginTest extends AbstractBoskTest {
 	@Value
 	@Accessors(fluent = true)
 	public static class WrongType implements ConfigurationNode {
-		@DeserializationPath("entities/123/string")
+		@DeserializationPath("/entities/123/string")
 		ImplicitRefs notAString;
 	}
 
@@ -605,7 +548,7 @@ class GsonPluginTest extends AbstractBoskTest {
 	@Value
 	@Accessors(fluent = true)
 	public static class EntityParameter implements ConfigurationNode {
-		@DeserializationPath("entities/-entity-")
+		@DeserializationPath("/entities/-entity-")
 		ImplicitRefs field;
 	}
 
@@ -619,7 +562,7 @@ class GsonPluginTest extends AbstractBoskTest {
 	@Value
 	@Accessors(fluent = true)
 	public static class MalformedPath implements ConfigurationNode {
-		@DeserializationPath("malformed////path")
+		@DeserializationPath("/malformed////path")
 		ImplicitRefs field;
 	}
 
@@ -633,7 +576,7 @@ class GsonPluginTest extends AbstractBoskTest {
 	@Value
 	@Accessors(fluent = true)
 	public static class NonexistentPath implements ConfigurationNode {
-		@DeserializationPath("nonexistent/path")
+		@DeserializationPath("/nonexistent/path")
 		ImplicitRefs field;
 	}
 }

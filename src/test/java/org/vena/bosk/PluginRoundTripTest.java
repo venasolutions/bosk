@@ -7,7 +7,7 @@ import org.vena.bosk.exceptions.InvalidTypeException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-public class PluginRoundTripTest extends AbstractBoskTest {
+public class PluginRoundTripTest extends AbstractRoundTripTest {
 	@ParameterizedTest
 	@MethodSource("driverFactories")
 	void testRoundTrip(DriverFactory<TestRoot> driverFactory) throws InvalidTypeException {

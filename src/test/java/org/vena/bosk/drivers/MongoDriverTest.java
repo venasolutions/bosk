@@ -1,8 +1,12 @@
 package org.vena.bosk.drivers;
 
 import com.mongodb.MongoClient;
+import com.mongodb.MongoClientOptions;
+import com.mongodb.MongoException;
+import com.mongodb.ServerAddress;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
+import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.Optional;
@@ -16,9 +20,12 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.containers.Network;
+import org.testcontainers.containers.ToxiproxyContainer;
 import org.testcontainers.images.builder.ImageFromDockerfile;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.utility.DockerImageName;
 import org.vena.bosk.Bosk;
 import org.vena.bosk.BoskDriver;
 import org.vena.bosk.BsonPlugin;
@@ -37,6 +44,7 @@ import static java.lang.Long.max;
 import static java.lang.System.currentTimeMillis;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.vena.bosk.ListingEntry.LISTING_ENTRY;
 
 @Testcontainers
@@ -48,21 +56,40 @@ class MongoDriverTest extends DriverConformanceTest {
 
 	private final Deque<Runnable> tearDownActions = new ArrayDeque<>();
 
+	private static final Network NETWORK = Network.newNetwork();
+
 	@Container
-	private static final GenericContainer<?> mongo = new GenericContainer<>(
-			new ImageFromDockerfile().withDockerfileFromBuilder(builder -> builder
-					.from("mongo:4.0")
-					.run("echo \"rs.initiate()\" > /docker-entrypoint-initdb.d/rs-initiate.js")
-					.cmd("mongod", "--replSet", "rsLonesome", "--port", "27017", "--bind_ip_all")
-					.build()))
-			.withExposedPorts(27017);
+	private static final GenericContainer<?> MONGO_CONTAINER = new GenericContainer<>(
+		new ImageFromDockerfile().withDockerfileFromBuilder(builder -> builder
+			.from("mongo:4.0")
+			.run("echo \"rs.initiate()\" > /docker-entrypoint-initdb.d/rs-initiate.js")
+			.cmd("mongod", "--replSet", "rsLonesome", "--port", "27017", "--bind_ip_all")
+			.build()))
+		.withNetwork(NETWORK)
+		.withExposedPorts(27017);
+
+	@Container
+	private static final ToxiproxyContainer TOXIPROXY_CONTAINER = new ToxiproxyContainer(
+		DockerImageName.parse("ghcr.io/shopify/toxiproxy:2.2.0").asCompatibleSubstituteFor("shopify/toxiproxy"))
+		.withNetwork(NETWORK);
+
+	private static ToxiproxyContainer.ContainerProxy proxy;
 
 	private static MongoClient mongoClient;
 	private static MongoDatabase database;
 
 	@BeforeAll
 	static void setupDatabase() {
-		mongoClient = new MongoClient(mongo.getHost(), mongo.getFirstMappedPort());
+		proxy = TOXIPROXY_CONTAINER.getProxy(MONGO_CONTAINER, 27017);
+		mongoClient = new MongoClient(
+			new ServerAddress(proxy.getContainerIpAddress(), proxy.getProxyPort()),
+			MongoClientOptions.builder()
+				.serverSelectionTimeout(1000)
+				.heartbeatConnectTimeout(1000)
+				.connectTimeout(1000)
+				.socketTimeout(1000)
+				.build()
+		);
 		database = mongoClient.getDatabase(TEST_DB);
 	}
 
@@ -194,6 +221,36 @@ class MongoDriverTest extends DriverConformanceTest {
 			Listing<TestEntity> expected = Listing.of(catalogRef, entity124);
 			assertEquals(expected, actual);
 		}
+	}
+
+	@Test
+	void testNetworkOutage() throws InvalidTypeException, InterruptedException, IOException {
+		Bosk<TestEntity> bosk = new Bosk<TestEntity>("Test bosk", TestEntity.class, this::initialRoot, driverFactory);
+		BoskDriver<TestEntity> driver = bosk.driver();
+		CatalogReference<TestEntity> catalogRef = bosk.catalogReference(TestEntity.class, Path.just(TestEntity.Fields.catalog));
+		ListingReference<TestEntity> listingRef = bosk.listingReference(TestEntity.class, Path.just(TestEntity.Fields.listing));
+
+		// Wait till MongoDB is up and running
+		driver.flush();
+
+		proxy.setConnectionCut(true);
+
+		assertThrows(MongoException.class, driver::flush);
+
+		proxy.setConnectionCut(false);
+
+		// Make a change to the bosk and verify that it gets through
+		driver.submitReplacement(listingRef.then(entity123), LISTING_ENTRY);
+		TestEntity expected = initialRoot(bosk)
+			.withListing(Listing.of(catalogRef, entity123));
+
+
+		driver.flush();
+		TestEntity actual;
+		try (@SuppressWarnings("unused") Bosk<?>.ReadContext readContext = bosk.readContext()) {
+			actual = bosk.rootReference().value();
+		}
+		assertEquals(expected, actual);
 	}
 
 	private BiFunction<BoskDriver<TestEntity>, Bosk<TestEntity>, BoskDriver<TestEntity>> createDriverFactory() {

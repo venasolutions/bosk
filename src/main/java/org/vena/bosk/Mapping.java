@@ -27,9 +27,9 @@ import static java.util.Collections.unmodifiableMap;
 @Accessors(fluent = true)
 @EqualsAndHashCode
 @RequiredArgsConstructor(access=AccessLevel.PRIVATE)
-public final class Mapping<K extends Entity, V> implements AddressableByIdentifier<V> {
+public final class Mapping<K extends Entity, V> implements EnumerableByIdentifier<V> {
 	@Getter
-	private final CatalogReference<K> catalog;
+	private final CatalogReference<K> domain;
 	private final Map<Identifier, V> valuesById;
 
 	public V get(Identifier id) { return valuesById.get(id); }
@@ -41,28 +41,28 @@ public final class Mapping<K extends Entity, V> implements AddressableByIdentifi
 	public boolean isEmpty() { return valuesById.isEmpty(); }
 	public int size() { return valuesById.size(); }
 	public List<Identifier> ids() { return unmodifiableList(new ArrayList<>(valuesById.keySet())); }
-	public Listing<K> keys() { return new Listing<>(catalog, valuesById.keySet()); }
+	public Listing<K> keys() { return new Listing<>(domain, valuesById.keySet()); }
 	public Collection<V> values() { return valuesById.values(); }
 	public Set<Entry<Identifier, V>> idEntrySet() { return valuesById.entrySet(); }
 
 	public Map<Identifier, V> asMap() { return valuesById; }
 
 	public Stream<Entry<K, V>> valueEntryStream() {
-		Catalog<K> catalogValue = catalog.value();
+		AddressableByIdentifier<K> domainValue = domain.value();
 		return idEntrySet().stream().map(e -> new SimpleImmutableEntry<>(
-			catalogValue.get(e.getKey()),
+			domainValue.get(e.getKey()),
 			e.getValue()));
 	}
 
 	public void forEach(BiConsumer<? super K, ? super V> action) {
-		Catalog<K> keys = catalog.value();
-		valuesById.forEach((id, value) -> action.accept(keys.get(id), value));
+		AddressableByIdentifier<K> domainValue = domain.value();
+		valuesById.forEach((id, value) -> action.accept(domainValue.get(id), value));
 	}
 
 	public Mapping<K,V> with(Identifier id, V value) {
 		Map<Identifier, V> newMapping = new LinkedHashMap<>(this.valuesById);
 		newMapping.put(id, value);
-		return new Mapping<>(this.catalog, unmodifiableMap(newMapping));
+		return new Mapping<>(this.domain, unmodifiableMap(newMapping));
 	}
 
 	public Mapping<K,V> with(K key, V value) {
@@ -83,7 +83,7 @@ public final class Mapping<K extends Entity, V> implements AddressableByIdentifi
 	public Mapping<K,V> without(Identifier id) {
 		Map<Identifier, V> newMapping = new LinkedHashMap<>(this.valuesById);
 		newMapping.remove(id);
-		return new Mapping<>(this.catalog, unmodifiableMap(newMapping));
+		return new Mapping<>(this.domain, unmodifiableMap(newMapping));
 	}
 
 	public Mapping<K,V> without(K key) {
@@ -94,35 +94,35 @@ public final class Mapping<K extends Entity, V> implements AddressableByIdentifi
 	 * If you get type inference errors with this one, try specifying the value class
 	 * with {@link #empty(Reference, Class)}.
 	 */
-	public static <KK extends Entity,VV> Mapping<KK,VV> empty(Reference<Catalog<KK>> catalog) {
-		return new Mapping<>(CatalogReference.from(catalog), emptyMap());
+	public static <KK extends Entity,VV> Mapping<KK,VV> empty(Reference<Catalog<KK>> domain) {
+		return new Mapping<>(CatalogReference.from(domain), emptyMap());
 	}
 
-	public static <KK extends Entity,VV> Mapping<KK,VV> empty(Reference<Catalog<KK>> catalog, Class<VV> ignored) {
-		return empty(catalog);
+	public static <KK extends Entity,VV> Mapping<KK,VV> empty(Reference<Catalog<KK>> domain, Class<VV> ignored) {
+		return empty(domain);
 	}
 
-	public static <KK extends Entity, VV> Mapping<KK,VV> of(Reference<Catalog<KK>> catalog, Identifier id, VV value) {
-		return new Mapping<>(CatalogReference.from(catalog), singletonMap(id, value));
+	public static <KK extends Entity, VV> Mapping<KK,VV> of(Reference<Catalog<KK>> domain, Identifier id, VV value) {
+		return new Mapping<>(CatalogReference.from(domain), singletonMap(id, value));
 	}
 
-	public static <KK extends Entity, VV> Mapping<KK,VV> of(Reference<Catalog<KK>> catalog, KK key, VV value) {
-		return Mapping.of(catalog, key.id(), value);
+	public static <KK extends Entity, VV> Mapping<KK,VV> of(Reference<Catalog<KK>> domain, KK key, VV value) {
+		return Mapping.of(domain, key.id(), value);
 	}
 
-	public static <KK extends Entity,VV> Mapping<KK,VV> fromOrderedMap(Reference<Catalog<KK>> catalog, Map<Identifier, VV> contents) {
-		return new Mapping<>(CatalogReference.from(catalog), unmodifiableMap(new LinkedHashMap<>(contents)));
+	public static <KK extends Entity,VV> Mapping<KK,VV> fromOrderedMap(Reference<Catalog<KK>> domain, Map<Identifier, VV> contents) {
+		return new Mapping<>(CatalogReference.from(domain), unmodifiableMap(new LinkedHashMap<>(contents)));
 	}
 
-	public static <KK extends Entity,VV> Mapping<KK,VV> fromFunction(Reference<Catalog<KK>> catalog, Stream<Identifier> ids, Function<Identifier, VV> function) {
+	public static <KK extends Entity,VV> Mapping<KK,VV> fromFunction(Reference<Catalog<KK>> domain, Stream<Identifier> ids, Function<Identifier, VV> function) {
 		LinkedHashMap<Identifier,VV> map = new LinkedHashMap<>();
 		ids.forEachOrdered(id -> map.put(id, function.apply(id)));
-		return new Mapping<>(CatalogReference.from(catalog), unmodifiableMap(map));
+		return new Mapping<>(CatalogReference.from(domain), unmodifiableMap(map));
 	}
 
 	@Override
 	public String toString() {
-		return catalog + "/" + valuesById;
+		return domain + "/" + valuesById;
 	}
 
 }
