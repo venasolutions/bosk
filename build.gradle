@@ -1,13 +1,89 @@
 
 plugins {
 	id 'java-library'
-	id 'info.solidsoft.pitest'
+	id 'application'
+	//id 'com.jfrog.artifactory' version '4.24.16'
+	id 'maven-publish'
+	id 'info.solidsoft.pitest' version '1.6.0'
+	id 'com.github.spotbugs' version '4.5.0' // 4.6 drops support for Java 8
+	id 'com.diffplug.gradle.spotless' version '3.25.0'
 }
 
 compileTestJava.options.encoding = 'UTF-8'
 
+group = 'org.vena'
+archivesBaseName = 'bosk'
+jar.archiveBaseName = "${archivesBaseName}"
+version = '0.0.1-SNAPSHOT'
 sourceCompatibility = 1.8
 targetCompatibility = 1.8
+
+allprojects {
+	buildscript {
+		// Global project variables
+		ext {
+			asmVersion = '9.1'
+			gsonVersion = '2.8.6'
+			hamcrestVersion = '2.2'
+			jUnitVersion = '5.6.2'
+			jUnitPlatformVersion = '1.6.2'
+			logbackVersion = '1.2.3'
+			lombokVersion = '1.18.20'
+			mongoDriverVersion = '3.11.2'
+			slf4jVersion = '1.7.31'
+			testcontainersVersion = '1.16.0'
+
+			// Spotbugs version is different from the gradle plugin version
+			// https://github.com/spotbugs/spotbugs-gradle-plugin#spotbugs-version-mapping
+			spotbugsVersion = '4.1.1'
+		}
+	}
+	repositories {
+		maven {
+			url 'https://plugins.gradle.org/m2/'
+		}
+		mavenCentral()
+	}
+
+	apply plugin: 'java'
+	apply plugin: 'eclipse'
+	apply plugin: 'idea'
+	apply plugin: 'jacoco'
+	apply plugin: 'com.github.spotbugs'
+	apply plugin: 'com.diffplug.gradle.spotless'
+	apply plugin: 'maven-publish'
+
+	spotless {
+		enforceCheck false
+		java {
+			importOrder '', '\\#' // Static imports after regular imports, as per mt-server standard and IntelliJ default
+			removeUnusedImports()
+			trimTrailingWhitespace()
+			indentWithTabs()
+			replaceRegex 'class-level javadoc indentation fix', /^\*/, ' *'
+			replaceRegex 'method-level javadoc indentation fix', /\t\*/, '\t *'
+			paddedCell()
+		}
+		format 'misc', {
+			target '**/*.gradle', '**/*.md', '**/.gitignore'
+
+			trimTrailingWhitespace()
+			indentWithTabs()
+			replaceRegex 'class-level javadoc indentation fix', /^\*/, ' *'
+			replaceRegex 'method-level javadoc indentation fix', /\t\*/, '\t *'
+			endWithNewline()
+		}
+	}
+
+	spotbugs {
+		// Won't fail the build if errors are found
+		ignoreFailures = true
+	}
+
+	tasks.withType(Tar) {
+		enabled = false
+	}
+}
 
 dependencies {
 	compileJava {
@@ -48,6 +124,10 @@ dependencies {
 test {
 	useJUnitPlatform()
 
+	// High-performance code sometimes uses `assert` statements instead of explicit checks.
+	// Our unit tests should be able to check for the presence of these assertions.
+	enableAssertions = true
+
 	testLogging.showStandardStreams = true
 
 	reports {
@@ -65,4 +145,57 @@ pitest {
 	threads = 4
 	outputFormats = ['XML', 'HTML']
 	timestampedReports = false
+}
+
+publishing {
+	publications {
+		mavenJava(MavenPublication) {
+			artifactId = 'bosk'
+			from components.java
+			versionMapping {
+				usage('java-api') {
+					fromResolutionOf('runtimeClasspath')
+				}
+				usage('java-runtime') {
+					fromResolutionResult()
+				}
+			}
+			pom {
+				name = 'Bosk'
+				description = 'Control plane state management library'
+				url = 'http://bosk.works'
+				licenses {
+					license {
+						name = 'The Apache License, Version 2.0'
+						url = 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+					}
+				}
+				developers {
+					developer {
+						id = 'pdoyle'
+						name = 'Patrick Doyle'
+						email = 'pdoyle@venacorp.com'
+					}
+					developer {
+						id = 'gjohnson'
+						name = 'Grady Johnson'
+						email = 'gjohnson@venacorp.com'
+					}
+				}
+//				scm {
+//					connection = 'scm:git:git://example.com/my-library.git'
+//					developerConnection = 'scm:git:ssh://example.com/my-library.git'
+//					url = 'http://example.com/my-library/'
+//				}
+			}
+		}
+	}
+	repositories {
+		maven {
+			name = "VenaArtifactory"
+			credentials( PasswordCredentials )
+			allowInsecureProtocol = true
+			url = 'http://artifactory.devops.vena.vpn:8081/artifactory/libs-snapshot-local/'
+		}
+	}
 }
