@@ -367,10 +367,10 @@ class BoskTest {
 				try (ReadContext unrelatedContext = bosk.readContext()) {
 					assertSame(firstValue, ref.value(), "Separate thread should see the latest state");
 				}
-				try (ReadContext inheritedContext = bosk.usingContext(context)) {
+				try (ReadContext inheritedContext = context.adopt()) {
 					assertSame(secondValue, ref.value(), "Inherited scope should see the same state");
 
-					try (ReadContext reinheritedContext = bosk.usingContext(inheritedContext)) {
+					try (ReadContext reinheritedContext = inheritedContext.adopt()) {
 						// Harmless to re-assert a scope you're already in
 						assertSame(secondValue, ref.value(), "Inner scope should see the same state");
 					}

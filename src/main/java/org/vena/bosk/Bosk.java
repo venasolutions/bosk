@@ -272,9 +272,9 @@ public class Bosk<R extends Entity> {
 		/**
 		 * Run the given hook on every existing object that matches its scope.
 		 */
-		public void triggerEverywhere(HookRegistration<?> reg) {
+		void triggerEverywhere(HookRegistration<?> reg) {
 			synchronized (this) {
-				localDriver.triggerQueueingOfHooks(rootReference(), null, currentRoot, reg);
+				triggerQueueingOfHooks(rootReference(), null, currentRoot, reg);
 			}
 			drainQueueIfAllowed();
 		}
@@ -332,8 +332,8 @@ public class Bosk<R extends Entity> {
 		}
 
 		/**
-		 * For a given {@link HookRegistration}, adds to the queue calls to {@link BoskHook#onChanged}
-		 * on each matching object that changed between <code>priorRoot</code> and <code>rootForHook</code>
+		 * For a given {@link HookRegistration}, queues up a call to {@link BoskHook#onChanged}
+		 * for each matching object that changed between <code>priorRoot</code> and <code>rootForHook</code>
 		 * when <code>target</code> was updated. If <code>priorRoot</code> is null, the hook is called
 		 * on every matching object that exists in <code>rootForHook</code>.
 		 */
@@ -349,6 +349,33 @@ public class Bosk<R extends Entity> {
 			});
 		}
 
+		/**
+		 * Runs queued hooks in a "breadth-first" fashion: all hooks "H" triggered by
+		 * any single hook "G" will run before any consequent hooks triggered by "H".
+		 *
+		 * <p>
+		 * The <a href="https://en.wikipedia.org/w/index.php?title=Breadth-first_search&oldid=1059916234#Pseudocode">classic BFS algorithm</a>
+		 * has an outer loop that dequeues nodes for processing; however, we have an
+		 * "inversion of control" situation here, where the bosk is not in control of
+		 * the outermost loop.
+		 *
+		 * <p>
+		 * Instead, we maintain a semaphore to distinguish "outermost calls" from
+		 * "recursive calls", and dequeue nodes only at the outermost level, thereby
+		 * effectively implementing the classic BFS algorithm despite not having access
+		 * to the outermost loop of the application. The dequeuing is "allowed" only
+		 * at the outermost level.
+		 *
+		 * <p>
+		 * As a side-benefit, this also provides thread safety, as well as intuitive behaviour
+		 * in the presence of parallelism.
+		 *
+		 * <p>
+		 * Note: don't call while holding this object's monitor (ie. from a synchronized
+		 * block). Running hooks means running arbitrary user code, which can take an
+		 * arbitrary amount of time, and if the monitor is held, that blocks other
+		 * threads from submitting updates.
+		 */
 		private void drainQueueIfAllowed() {
 			do {
 				if (hookExecutionPermit.tryAcquire()) {
@@ -373,10 +400,10 @@ public class Bosk<R extends Entity> {
 				//
 				// Events:
 				//  - Q: Queue a hook
-				//  - A: Acquire permit
-				//  - D: Drain queue till it's empty
-				//  - R: Release permit
-				//  - F: Try to acquire permit and fail
+				//  - A: Acquire the permit
+				//  - D: Drain the queue till it's empty
+				//  - R: Release the permit
+				//  - F: Try to acquire the permit and fail
 				//
 				// The two threads:
 				//   This thread        Other thread
@@ -490,7 +517,7 @@ public class Bosk<R extends Entity> {
 				// We do them in reverse order just because that's likely to be the preferred
 				// order for cleanup activities.
 				//
-				// TODO: Should we actually process the hooks themselves in reverse order for the ABSENT calls?
+				// TODO: Should we actually process the hooks themselves in reverse order for the same reason?
 				//
 				if (priorContainer != null) {
 					List<Identifier> priorIDs = priorContainer.ids();
@@ -629,6 +656,15 @@ try (ReadContext originalThReadContext = bosk.new ReadContext()) {
 			LOGGER.trace("Using " + this);
 		}
 
+		/**
+		 * Establish a new context on the current thread using the same state
+		 * as <code>this</code> context.
+		 * @return a <code>ReadContext</code> representing the new context.
+		 */
+		public ReadContext adopt() {
+			return new ReadContext(this);
+		}
+
 		@Override
 		public void close() {
 			LOGGER.trace("Exiting " + this + "; restoring " + System.identityHashCode(originalRoot));
@@ -643,10 +679,6 @@ try (ReadContext originalThReadContext = bosk.new ReadContext()) {
 
 	public ReadContext readContext() {
 		return new ReadContext();
-	}
-
-	public ReadContext usingContext(ReadContext toInherit) {
-		return new ReadContext(toInherit);
 	}
 
 	/**

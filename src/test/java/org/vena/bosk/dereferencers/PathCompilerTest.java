@@ -303,7 +303,7 @@ public class PathCompilerTest extends AbstractBoskTest {
 	}
 
 	private void usingContext(Bosk<TestRoot>.ReadContext context, Runnable action) {
-		try (@SuppressWarnings("unused") Bosk<TestRoot>.ReadContext rc = bosk.usingContext(context)) {
+		try (@SuppressWarnings("unused") Bosk<TestRoot>.ReadContext rc = context.adopt()) {
 			action.run();
 		}
 	}

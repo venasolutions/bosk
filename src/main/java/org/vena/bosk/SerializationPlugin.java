@@ -115,15 +115,15 @@ public abstract class SerializationPlugin {
 	public static abstract class DeserializationScope implements AutoCloseable {
 		DeserializationScope(){}
 
-		abstract Path path();
-		abstract BindingEnvironment bindingEnvironment();
+		public abstract Path path();
+		public abstract BindingEnvironment bindingEnvironment();
 
 		@Override public abstract void close();
 	}
 
 	private static final class OutermostDeserializationScope extends DeserializationScope {
-		@Override Path path() { return Path.empty(); }
-		@Override BindingEnvironment bindingEnvironment() { return BindingEnvironment.empty(); }
+		@Override public Path path() { return Path.empty(); }
+		@Override public BindingEnvironment bindingEnvironment() { return BindingEnvironment.empty(); }
 
 		@Override
 		public void close() {

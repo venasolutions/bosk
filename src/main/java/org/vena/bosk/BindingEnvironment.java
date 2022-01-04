@@ -30,6 +30,9 @@ public final class BindingEnvironment {
 	}
 
 	public static BindingEnvironment singleton(String name, Identifier value) {
+		if (!isValidParameterName(name)) {
+			throw new IllegalArgumentException("Invalid parameter name \"" + name + "\"");
+		}
 		return new BindingEnvironment(singletonMap(name, value));
 	}
 

@@ -103,9 +103,9 @@ public class TodoBoskTest extends AbstractRoundTripTest {
 				try (val unrelatedContext = bosk.readContext()) {
 					assertEquals(item1.value().status(), Status.CANCELED);
 				}
-				try (val inheritedContext = bosk.usingContext(context)) {
+				try (val inheritedContext = context.adopt()) {
 					assertEquals(item1.value().status(), Status.DONE); // Time travel!
-					try (val reinheritedContext = bosk.usingContext(inheritedContext)) {
+					try (val reinheritedContext = inheritedContext.adopt()) {
 						// Harmless to re-assert a scope you're already in
 						assertEquals(item1.value().status(), Status.DONE);
 					}
