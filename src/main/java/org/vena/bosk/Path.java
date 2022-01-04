@@ -305,7 +305,7 @@ public abstract class Path implements Iterable<String> {
 				env.bind(parameterNameFromSegment(parameterIter.next()), id);
 			}
 		} catch (NoSuchElementException e) {
-			throw new MalformedPathException("Path has fewer than " + ids.size() + " parameters: " + this, e);
+			throw new IllegalArgumentException("Path has fewer than " + ids.size() + " parameters: " + this, e);
 		}
 		return env.build();
 	}

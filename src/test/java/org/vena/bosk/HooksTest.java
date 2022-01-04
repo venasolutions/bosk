@@ -249,16 +249,22 @@ public class HooksTest extends AbstractBoskTest {
 		bosk.registerHook(child2StringRef, recorder.hookNamed("C2", ref -> {
 			bosk.driver().submitReplacement(child3StringRef, ref.value() + "+C2");
 		}));
+		bosk.registerHook(child3StringRef, recorder.hookNamed("C3"));
 
 		List<Event> expectedEvents = asList(
-				new Event("P", CHANGED, parentStringRef, "replacement"),
-				// P triggers C1, C2, C3
-				// C1 triggers C2, C3
-				// C2 triggers C3
-				// So C2 changes twice and C3 changes three times (but we have no hook on C3)
-				new Event("C1", CHANGED, child1StringRef, "replacement+P"),
-				new Event("C2", CHANGED, child2StringRef, "replacement+P"),
-				new Event("C2", CHANGED, child2StringRef, "replacement+P+C1")
+			new Event("P", CHANGED, parentStringRef, "replacement"),
+			// P triggers C1, C2, C3
+			// C1 triggers C2, C3
+			// C2 triggers C3 (caused by P)
+			// C2 triggers C3 (caused by C1)
+			// So C2 changes twice and C3 changes four times
+			new Event("C1", CHANGED, child1StringRef, "replacement+P"),
+			new Event("C2", CHANGED, child2StringRef, "replacement+P"),
+			new Event("C3", CHANGED, child3StringRef, "replacement+P"),
+			new Event("C2", CHANGED, child2StringRef, "replacement+P+C1"),
+			new Event("C3", CHANGED, child3StringRef, "replacement+P+C1"),
+			new Event("C3", CHANGED, child3StringRef, "replacement+P+C2"), // This is interesting if you ponder it
+			new Event("C3", CHANGED, child3StringRef, "replacement+P+C1+C2")
 		);
 		TestEntity expectedParent = originalParent.withString("replacement").withChildren(Catalog.of(
 				originalChild1.withString("replacement+P"),

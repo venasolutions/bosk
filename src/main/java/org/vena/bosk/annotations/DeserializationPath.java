@@ -2,6 +2,8 @@ package org.vena.bosk.annotations;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
+import org.vena.bosk.SerializationPlugin;
+import org.vena.bosk.SerializationPlugin.DeserializationScope;
 
 import static java.lang.annotation.ElementType.FIELD;
 import static java.lang.annotation.ElementType.PARAMETER;
@@ -16,7 +18,7 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
  *
  * <pre>
  *     public class MyDTO implements ConfigurationNode {
- *        &#64DeserializeAt("a/b/c")
+ *        &#64DeserializationPath("a/b/c")
  *        MyObject field;
  *     }
  *
@@ -29,6 +31,12 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
  * If we deserialize an instance <code>x</code> of <code>MyDTO</code>, then
  * the reference <code>x.field.self</code> will have a path of <code>"a/b/c"</code>,
  * and <code>x.field.nested.get().self</code> will have a path of <code>"a/b/c/nested"</code>.
+ *
+ * <p>
+ * If the path contains parameters, their values will be taken from the
+ * {@link DeserializationScope#bindingEnvironment binding environment} on the
+ * {@link DeserializationScope deserialization scope}, which can be set using
+ * {@link SerializationPlugin#overlayScope}.
  */
 @Retention(RUNTIME)
 @Target({ FIELD, PARAMETER })

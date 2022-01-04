@@ -14,7 +14,7 @@ compileTestJava.options.encoding = 'UTF-8'
 group = 'org.vena'
 archivesBaseName = 'bosk'
 jar.archiveBaseName = "${archivesBaseName}"
-version = '0.0.2-SNAPSHOT'
+version = '0.0.3-SNAPSHOT'
 sourceCompatibility = 1.8
 targetCompatibility = 1.8
 
@@ -138,10 +138,10 @@ test {
 }
 
 pitest {
-	junit5PluginVersion = '0.12'
+	junit5PluginVersion = '0.15'
 	jvmArgs = ['-ea'] // Our unit tests check for assert statements
-	targetClasses = ['org.vena.bosk.drivers.MongoDriver']  //by default "${project.group}.*"
-	targetTests   = ['org.vena.bosk.drivers.MongoDriverTest']
+	targetClasses = ['org.vena.bosk.Path*']  //by default "${project.group}.*"
+	targetTests   = ['org.vena.bosk.PathTest*']
 	threads = 4
 	outputFormats = ['XML', 'HTML']
 	timestampedReports = false

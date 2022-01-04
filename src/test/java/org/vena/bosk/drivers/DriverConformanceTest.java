@@ -22,7 +22,7 @@ import static org.vena.bosk.util.Classes.mapValue;
 
 public abstract class DriverConformanceTest extends AbstractDriverTest {
 	// Subclass can initialize this as desired
-	BiFunction<BoskDriver<TestEntity>, Bosk<TestEntity>, BoskDriver<TestEntity>> driverFactory;
+	protected BiFunction<BoskDriver<TestEntity>, Bosk<TestEntity>, BoskDriver<TestEntity>> driverFactory;
 
 	@ParametersByName
 	void testInitialState(Path enclosingCatalogPath) throws InvalidTypeException {

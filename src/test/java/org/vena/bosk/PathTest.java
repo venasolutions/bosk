@@ -1,195 +1,233 @@
 package org.vena.bosk;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.stream.Stream;
-import org.junit.jupiter.api.DynamicTest;
-import org.junit.jupiter.api.TestFactory;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.vena.bosk.exceptions.MalformedPathException;
 
-import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
-import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.DynamicTest.dynamicTest;
+import static org.vena.bosk.BindingEnvironment.empty;
+import static org.vena.bosk.PathTest.ValidityKind.ALWAYS;
+import static org.vena.bosk.PathTest.ValidityKind.NEVER;
+import static org.vena.bosk.PathTest.ValidityKind.NOT_IF_PARSED;
 
 @SuppressWarnings("Convert2MethodRef") // We use lambda syntax for consistency in here
 class PathTest {
 
-	@TestFactory
-	Stream<DynamicTest> testPaths() {
+	static Stream<Arguments> validSegments() {
 		return Stream.of(
-			validPathTest(), // empty
-			validPathTest("a"),
-			validPathTest("a","b"),
-			validPathTest("a/b"),
-			validPathTest("-parameter-"),
-			validPathTest("-p1-"),
-			validPathTest("-p1-", "-p2-"),
-			validPathTest("-parameter_with_underscores-"),
-			validPathTest("-abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-"),
-			validPathTest("tables", "-table-"),
-			validPathTest("tables", "-table-", "columns", "-column-"),
+			segments(), // empty
+			segments("a"),
+			segments("a","b"),
+			segments("a/b"),
+			segments("a%2Fb"), // Not a slash! Literally percent-2-F
+			segments("-parameter-"),
+			segments("-p1-"),
+			segments("-p1-", "-p2-"),
+			segments("-parameter_with_underscores-"),
+			segments("-abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-"),
+			segments("tables", "-table-"),
+			segments("tables", "-table-", "columns", "-column-")
+		);
+	}
 
-			// "-" used to be a wildcard, but we no longer accept it
-			invalidPathTest("-"),
-			invalidPathTest("a", "-"),
-			invalidPathTest("-", "a"),
-			invalidPathTest("a", "-", "b"),
+	private static Arguments segments(String... segments) {
+		return Arguments.of((Object) segments);
+	}
+
+	@ParameterizedTest
+	@MethodSource("validSegments")
+	void validSegments_stream_matches(String... segments) {
+		assertEquals(asList(segments),
+			Path.of(segments).segmentStream().collect(toList()));
+	}
+
+	@ParameterizedTest
+	@MethodSource("validSegments")
+	void validSegments_length_matches(String... segments) {
+		assertEquals(segments.length,
+			Path.of(segments).length());
+	}
+
+	@ParameterizedTest
+	@MethodSource("validSegments")
+	void validSegments_isEmpty_correct(String... segments) {
+		assertEquals(segments.length == 0,
+			Path.of(segments).isEmpty());
+	}
+
+	@ParameterizedTest
+	@MethodSource("validSegments")
+	void validSegments_parseRoundTrip_matches(String... segments) {
+		Path path = Path.of(segments);
+		assertEquals(path,
+			Path.parseParameterized(path.urlEncoded()));
+	}
+
+	@ParameterizedTest
+	@MethodSource("validSegments")
+	void validSegments_toString_equalsUrlEncoded(String... segments) {
+		Path path = Path.of(segments);
+		String expected = path.urlEncoded();
+		assertEquals(expected,
+			path.toString());
+	}
+
+	@ParameterizedTest
+	@MethodSource("validSegments")
+	void validSegments_iterator_equalsStream(String... segments) {
+		Path path = Path.of(segments);
+		Iterator<String> expected = path.segmentStream().iterator();
+		assertIteratorEquals(expected,
+			path.iterator());
+	}
+
+	@Test
+	void miscellaneous_length_matches() {
+		assertEquals(0, Path.empty().length());
+		assertEquals(0, Path.of(emptyList()).length());
+		assertEquals(1, Path.just("a").length());
+		assertEquals(2, Path.of("a","b").length());
+		assertEquals(3, Path.of("a","-p1-","b").length());
+	}
+
+	@ParameterizedTest
+	@MethodSource("malformedCases")
+	void malformedPath_throws(String... segments) {
+		assertThrows(MalformedPathException.class, () ->
+			Path.of(segments));
+	}
+
+	static Stream<Arguments> malformedCases() {
+		// "-" used to be a wildcard, but we no longer accept it
+		return Stream.of(
+			segments("-"),
+			segments("a", "-"),
+			segments("-", "a"),
+			segments("a", "-", "b"),
 
 			// Various invalid parameter names
-			invalidPathTest("noName", "--"),
-			invalidPathTest("missingDelimiter", "-bad"),
-			invalidPathTest("extraCharacters", "-bad-x"),
-			invalidPathTest("poop", "-💩-"),
-			invalidPathTest("number", "-5-"),
-			invalidPathTest("leadingUnderscore", "-_bad-"),
-			invalidPathTest("dollarSign", "-not$allowed-"),
-			invalidPathTest("nonLatin", "-bäd-"),
-			invalidPathTest("duplicateName", "-p1-", "-p1-")
+			segments("noName", "--"),
+			segments("missingDelimiter", "-bad"),
+			segments("extraCharacters", "-bad-x"),
+			segments("poop", "-💩-"),
+			segments("number", "-5-"),
+			segments("leadingUnderscore", "-_bad-"),
+			segments("dollarSign", "-not$allowed-"),
+			segments("nonLatin", "-bäd-"),
+			segments("duplicateName", "-p1-", "-p1-")
 		);
 	}
 
-	private DynamicTest validPathTest(String... segments) {
-		return dynamicTest("Path.of(" + Arrays.toString(segments) + ")", () ->
-			assertEquals(asList(segments), Path.of(segments).segmentStream().collect(toList())));
+	@Test
+	void parse_slash() {
+		assertEquals(Path.empty(), Path.parse("/"));
 	}
 
-	private DynamicTest invalidPathTest(String... segments) {
-		return dynamicTest("Path.of(" + Arrays.toString(segments) + ")", () ->
-			assertThrows(MalformedPathException.class, ()->Path.of(segments)));
+	@Test
+	void noLeadingSlash_throws() {
+		assertThrows(MalformedPathException.class, () ->
+			Path.parse("x"));
+		assertThrows(MalformedPathException.class, () ->
+			Path.parse("%2F")); // Not a slash! Literally percent-2-F
 	}
 
-	@TestFactory
-	Stream<DynamicTest> testLength() {
-		return Stream.of(
-			lengthTests(0, Path.empty()),
-			lengthTests(0, Path.of(emptyList())),
-			lengthTests(1, Path.just("a")),
-			lengthTests(2, Path.of("a","b")),
-			lengthTests(3, Path.of("a","-p1-","b"))
-		).flatMap(identity());
+	@Test
+	void parse_A() {
+		assertEquals(Path.just("a"), Path.parse("/a"));
 	}
 
-	private Stream<DynamicTest> lengthTests(int expectedLength, Path path) {
-		return Stream.of(
-			dynamicTest("(" + path + ").length()", () -> assertEquals(expectedLength, path.length())),
-			dynamicTest("(" + path + ").isEmpty()", () -> assertEquals((expectedLength == 0), path.isEmpty()))
-		);
+	@Test
+	void parse_AB() {
+		assertEquals(Path.of("a","b"), Path.parse("/a/b"));
 	}
 
-	@TestFactory
-	Iterable<DynamicTest> testParse() {
-		return asList(
-			parseTest(Path.empty(), "/"),
-			parseTest(Path.just("a"), "/a"),
-			parseTest(Path.of("a","b"), "/a/b"),
-			parseTest(Path.just("a/b"), "/a%2Fb"),
-
-			invalidParseTest(""),
-			invalidParseTest("//"),
-			invalidParseTest("a//"),
-			invalidParseTest("/a//"),
-			invalidParseTest("/a/"),
-			invalidParseTest("//a"),
-
-			// For safety, parsed paths can't have parameters; they're only to be used programmatically
-			invalidParseTest("a/-/b"),
-			invalidParseTest("a/-p1-/b")
-		);
+	@Test
+	void parse_AslashB() {
+		assertEquals(Path.just("a/b"), Path.parse("/a%2Fb"));
 	}
 
-	private DynamicTest parseTest(Path expected, String urlEncoded) {
-		return dynamicTest("parse(" + urlEncoded + ")", () -> assertEquals(expected, Path.parse(urlEncoded)));
+	@ParameterizedTest
+	@ValueSource(strings = {
+		"", "//", "a//", "/a//", "/a/", "//a",
+
+		// For safety, parsed paths can't have parameters; they're only to be used programmatically
+		"a/-/b", "a/-p1-/b"
+	})
+	void parse_invalid_throws(String urlEncoded) {
+		assertThrows(MalformedPathException.class, ()->
+			Path.parse(urlEncoded));
 	}
 
-	private DynamicTest invalidParseTest(String urlEncoded) {
-		return dynamicTest("!parse(" + urlEncoded + ")", () -> assertThrows(MalformedPathException.class, ()-> Path.parse(urlEncoded)));
+	@Test
+	void twoSegments_urlEncoded() {
+		assertEquals("/a/b", Path.of("a","b").urlEncoded());
+		assertEquals("/a/b", Path.of("a","b").toString());
 	}
 
-	@TestFactory
-	Stream<DynamicTest> testURLEncode() {
-		return Stream.of(
-			urlEncodeTest("/a/b", "a", "b"),
-			urlEncodeTest("/a%2Fb", "a/b"),
-			urlEncodeTest("/a%20b", "a b") // We follow RFC 3986, which is not what Java's URLEncoder implements!
-		).flatMap(s->s);
+	@Test
+	void segmentWithSlash_urlEncoded() {
+		assertEquals("/a%2Fb", Path.just("a/b").urlEncoded());
+		assertEquals("/a%2Fb", Path.just("a/b").toString());
 	}
 
-	private Stream<DynamicTest> urlEncodeTest(String expected, String... segments) {
-		return Stream.of(
-			dynamicTest("urlEncoded(" + Arrays.toString(segments) + ")", () ->
-				assertEquals(expected, Path.of(segments).urlEncoded())),
-			dynamicTest("toString(" + Arrays.toString(segments) + ")", () ->
-				assertEquals(expected, Path.of(segments).toString()))
-
-		);
+	@Test
+	void segmentWithSpace_urlEncoded() {
+		// We follow RFC 3986, which is not what Java's URLEncoder implements!
+		assertEquals("/a%20b", Path.just("a b").urlEncoded());
+		assertEquals("/a%20b", Path.just("a b").toString());
 	}
 
-	@TestFactory
-	Iterable<DynamicTest> testSundryProperties() {
-		return Stream.of(Path.empty(),
-			Path.just("a"),
-			Path.of("a","b"),
-			Path.just("a%2Fb"))
-			.flatMap(p->Stream.of(
-				dynamicTest(format("Round trip \"%s\"", p), ()->assertEquals(p, Path.parse(p.urlEncoded()))),
-				dynamicTest(format("toString \"%s\"", p),   ()->assertEquals(p.urlEncoded(), p.toString())),
-				dynamicTest(format("iterator \"%s\"", p),   ()->assertIteratorEquals(p.segmentStream().iterator(), p.iterator()))
-			))
-			.collect(toList());
+	@ParameterizedTest
+	@MethodSource("validSegments")
+	void validSegments_ofList_correctSegments(String... segments) {
+		List<String> expected = asList(segments);
+		assertEquals(expected,
+			Path.of(segments).segmentStream().collect(toList()));
 	}
 
-	@TestFactory
-	Iterable<DynamicTest> testOfListOfString() {
-		return Stream.of(new String[][] {{}, {"a"}, {"a","b"}, {"a", "-p1-", "b"}})
-			.map(ss->dynamicTest("List vs array [" + Arrays.toString(ss) + "]", ()->assertEquals(Path.empty().then(ss), Path.of(asList(ss)))))
-			.collect(toList());
+	@ParameterizedTest
+	@MethodSource("validSegments")
+	void validSegments_thenArray_correctSegments(String... segments) {
+		List<String> expected = asList(segments);
+		assertEquals(expected,
+			Path.empty().then(segments).segmentStream().collect(toList()));
 	}
 
-	@TestFactory
-	Iterable<DynamicTest> testThen() {
-		String[] nothing = new String[0];
-		String[] a = new String[] { "a" };
-		String[] b = new String[] { "b" };
-		String[] ab = new String[] { "a", "b" };
-		String[] cd = new String[] { "c", "d" };
-		String[] slash = new String[] { "a/b" };
-		Stream<Stream<DynamicTest>> testStreams = Stream.of(
-			thenTests(nothing, nothing),
-			thenTests(nothing, a, "a"),
-			thenTests(nothing, ab, "a", "b"),
-			thenTests(nothing, slash, "a/b"),
-			thenTests(a, nothing, "a"),
-			thenTests(a, b, "a", "b"),
-			thenTests(a, cd, "a", "c", "d"),
-			thenTests(a, slash, "a", "a/b"),
-			thenTests(ab, nothing, "a", "b"),
-			thenTests(cd, a, "c", "d", "a"),
-			thenTests(ab, cd, "a", "b", "c", "d"),
-			thenTests(cd, slash, "c", "d", "a/b")
-		);
-		return testStreams.flatMap(identity())
-			.collect(toList());
+	@ParameterizedTest
+	@MethodSource("validSegments")
+	void validSegments_thenList_correctSegments(String... segments) {
+		List<String> expected = asList(segments);
+		assertEquals(expected,
+			Path.empty().then(expected).segmentStream().collect(toList()));
 	}
 
-	private Stream<DynamicTest> thenTests(String[] base, String[] then, String...expectedSegments) {
-		String[] actualArraySegments = Path.empty().then(base).then(then).segmentStream().toArray(String[]::new);
-		String[] actualListSegments  = Path.empty().then(base).then(asList(then)).segmentStream().toArray(String[]::new);
-		return Stream.of(
-			dynamicTest(format("(%s).then(%s)", Arrays.toString(base), Arrays.toString(then)), ()->assertArrayEquals(expectedSegments, actualArraySegments)),
-			dynamicTest(format("(%s).then(asList(%s))", Arrays.toString(base), Arrays.toString(then)), ()->assertArrayEquals(expectedSegments, actualListSegments))
-		);
+	@ParameterizedTest
+	@MethodSource("validSegments")
+	void validSegments_ofList_equalsThenArray(String... segments) {
+		Path expected = Path.empty().then(segments);
+		assertEquals(expected,
+			Path.of(segments));
 	}
 
 	private static <T> void assertIteratorEquals(Iterator<? super T> expected, Iterator<? super T> actual) {
@@ -200,266 +238,350 @@ class PathTest {
 		assertFalse(actual.hasNext());
 	}
 
-	@TestFactory
-	Stream<DynamicTest> testIsPrefixOf() {
+	@ParameterizedTest
+	@MethodSource("validSegments")
+	void validPath_isPrefixOfItself(String... segments) {
+		Path path = Path.of(segments);
+		assertTrue(path.isPrefixOf(path));
+	}
+
+	@ParameterizedTest
+	@MethodSource("prefixPairs")
+	void isPrefix(Path left, Path right) {
+		assertTrue(left.isPrefixOf(right));
+	}
+
+	static Stream<Arguments> prefixPairs() {
 		return Stream.of(
-			prefixTest(Path.empty(), Path.empty()),
-			prefixTest(Path.empty(), Path.just("a")),
-			prefixTest(Path.empty(), Path.of("a","b")),
-			prefixTest(Path.empty(), Path.just("a/b")),
+			Arguments.of(Path.empty(), Path.just("a")),
+			Arguments.of(Path.empty(), Path.of("a","b")),
+			Arguments.of(Path.empty(), Path.just("a/b")),
+			Arguments.of(Path.just("a"), Path.of("a","b")),
+			Arguments.of(Path.of("a","b"), Path.of("a","b","c")),
+			Arguments.of(Path.of("a","b","c"), Path.of("a","b","c","d")),
+			Arguments.of(Path.of("a","-p1-","c"), Path.of("a","-p1-","c","d"))
+		);
+	}
 
-			notPrefixTest(Path.just("a"), Path.empty()),
-			prefixTest(Path.just("a"), Path.just("a")),
-			prefixTest(Path.just("a"), Path.of("a","b")),
+	@ParameterizedTest
+	@MethodSource("notPrefixPairs")
+	void isNotPrefix(Path left, Path right) {
+		assertFalse(left.isPrefixOf(right));
+	}
 
-			notPrefixTest(Path.of("a","b"), Path.empty()),
-			notPrefixTest(Path.of("a","b"), Path.just("a")),
-			prefixTest(Path.of("a","b"), Path.of("a","b")),
-			prefixTest(Path.of("a","b"), Path.of("a","b","c")),
-			notPrefixTest(Path.of("a","b"), Path.of("a","c")),
+	static Stream<Arguments> notPrefixPairs() {
+		return Stream.of(
+			Arguments.of(Path.just("a"), Path.empty()),
 
-			notPrefixTest(Path.of("a","b","c"), Path.empty()),
-			notPrefixTest(Path.of("a","b","c"), Path.just("a")),
-			notPrefixTest(Path.of("a","b","c"), Path.of("a","b")),
-			prefixTest(Path.of("a","b","c"), Path.of("a","b","c")),
-			prefixTest(Path.of("a","b","c"), Path.of("a","b","c","d")),
-			notPrefixTest(Path.of("a","b","c"), Path.of("a","b","d")),
+			Arguments.of(Path.of("a","b"), Path.empty()),
+			Arguments.of(Path.of("a","b"), Path.just("a")),
+			Arguments.of(Path.of("a","b"), Path.of("a","c")),
 
-			notPrefixTest(Path.of("a","-p1-","c"), Path.empty()),
-			notPrefixTest(Path.of("a","-p1-","c"), Path.just("a")),
-			notPrefixTest(Path.of("a","-p1-","c"), Path.of("a","-p1-")),
-			prefixTest(Path.of("a","-p1-","c"), Path.of("a","-p1-","c")),
-			prefixTest(Path.of("a","-p1-","c"), Path.of("a","-p1-","c","d")),
-			notPrefixTest(Path.of("a","-p1-","c"), Path.of("a","-p1-","d")),
-			notPrefixTest(Path.of("a","-p1-","c"), Path.of("a","b","c")),
-			notPrefixTest(Path.of("a","-p1-","c"), Path.of("a","b","c","d")),
+			Arguments.of(Path.of("a","b","c"), Path.empty()),
+			Arguments.of(Path.of("a","b","c"), Path.just("a")),
+			Arguments.of(Path.of("a","b","c"), Path.of("a","b")),
+			Arguments.of(Path.of("a","b","c"), Path.of("a","b","d")),
+
+			Arguments.of(Path.of("a","-p1-","c"), Path.empty()),
+			Arguments.of(Path.of("a","-p1-","c"), Path.just("a")),
+			Arguments.of(Path.of("a","-p1-","c"), Path.of("a","-p1-")),
+			Arguments.of(Path.of("a","-p1-","c"), Path.of("a","-p1-","d")),
+			Arguments.of(Path.of("a","-p1-","c"), Path.of("a","b","c")),
+			Arguments.of(Path.of("a","-p1-","c"), Path.of("a","b","c","d")),
 
 			// Some other oddball cases
-			notPrefixTest(Path.of("a","b"), Path.just("b")),
-			notPrefixTest(Path.just("a"), Path.just("a/b")),
-			notPrefixTest(Path.just("a/b"), Path.just("a")),
-			notPrefixTest(Path.of("a","b"), Path.just("a/b")),
-			notPrefixTest(Path.just("a/b"), Path.of("a","b"))
+			Arguments.of(Path.of("a","b"), Path.just("b")),
+			Arguments.of(Path.just("a"),   Path.just("a/b")),
+			Arguments.of(Path.just("a/b"), Path.just("a")),
+			Arguments.of(Path.of("a","b"), Path.just("a/b")),
+			Arguments.of(Path.just("a/b"), Path.of("a","b"))
 		);
 	}
 
-	private DynamicTest prefixTest(Path prefix, Path path) {
-		return dynamicTest("(" + prefix + ").isPrefixOf(" + path + ")", () -> assertTrue(prefix.isPrefixOf(path)));
-	}
-
-	private DynamicTest notPrefixTest(Path prefix, Path path) {
-		return dynamicTest("!(" + prefix + ").isPrefixOf(" + path + ")", () -> assertFalse(prefix.isPrefixOf(path)));
-	}
-
-
-	@TestFactory
-	Stream<DynamicTest> testTruncation() {
-		return Stream.of(
-			truncationTests(Path.empty(),     Path.empty(),     0),
-			truncationTests(Path.just("a"),   Path.just("a"),   0),
-			truncationTests(Path.empty(),     Path.just("a"),   1),
-			truncationTests(Path.of("a","b"), Path.of("a","b"), 0),
-			truncationTests(Path.just("a"),   Path.of("a","b"), 1),
-			truncationTests(Path.empty(),     Path.of("a","b"), 2),
-
-			illegalTruncationTests(Path.empty(), 1),
-			illegalTruncationTests(Path.of("a","b"), 3),
-			illegalTruncationTests(Path.of("a","b"), -1)
-		).flatMap(identity());
-	}
-
-	private Stream<DynamicTest> truncationTests(Path expected, Path given, int numTruncatedBy) {
-		int numTruncatedTo = given.length() - numTruncatedBy;
-		return Stream.of(
-			dynamicTest("(" + given + ").truncatedBy(" + numTruncatedBy + ")", () -> assertEquals(expected, given.truncatedBy(numTruncatedBy))),
-			dynamicTest("(" + given + ").truncatedTo(" + numTruncatedTo + ")", () -> assertEquals(expected, given.truncatedTo(numTruncatedTo)))
-		);
-	}
-
-	private Stream<DynamicTest> illegalTruncationTests(Path given, int numTruncatedBy) {
-		int numTruncatedTo = given.length() - numTruncatedBy;
-		return Stream.of(
-			dynamicTest("!(" + given + ").truncatedBy(" + numTruncatedBy + ")", () -> assertThrows(IllegalArgumentException.class, () -> given.truncatedBy(numTruncatedBy))),
-			dynamicTest("!(" + given + ").truncatedTo(" + numTruncatedTo + ")", () -> assertThrows(IllegalArgumentException.class, () -> given.truncatedTo(numTruncatedTo)))
-		);
-	}
-
-	@TestFactory
-	Iterable<DynamicTest> testSegment() {
-		return asList(
-			dynamicTest("(a).segment(0)",     () -> assertEquals("a", Path.just("a").segment(0))),
-			dynamicTest("(a/b).segment(0)",   () -> assertEquals("a", Path.of("a","b").segment(0))),
-			dynamicTest("(a/b).segment(1)",   () -> assertEquals("b", Path.of("a","b").segment(1))),
-			dynamicTest("('a/b').segment(0)", () -> assertEquals("a/b", Path.just("a/b").segment(0))),
-
-			dynamicTest("!(a).segment(1)",
-				()->assertThrows(IllegalArgumentException.class, () -> Path.just("a").segment(1))),
-			dynamicTest("!(a).segment(-1)",
-				()->assertThrows(IllegalArgumentException.class, () -> Path.just("a").segment(-1)))
-		);
-	}
-
-	@TestFactory
-	Iterable<DynamicTest> testSegmentStream() {
-		return asList(
-			dynamicTest("().segmentStream",    () -> assertEquals(emptyList(), Path.empty().segmentStream().collect(toList()))),
-			dynamicTest("(a).segmentStream",   () -> assertEquals(singletonList("a"), Path.just("a").segmentStream().collect(toList()))),
-			dynamicTest("(a/b).segmentStream", () -> assertEquals(asList("a","b"), Path.of("a","b").segmentStream().collect(toList())))
-		);
-	}
-
-	@TestFactory
-	Iterable<DynamicTest> testLastSegment() {
-		return asList(
-			dynamicTest("!().lastSegment",    ()->assertThrows(IllegalArgumentException.class, ()-> Path.empty().lastSegment())),
-			dynamicTest("(a).lastSegment", () -> assertEquals("a", Path.just("a").lastSegment())),
-			dynamicTest("(a/b).lastSegment", ()->assertEquals("b", Path.of("a","b").lastSegment()))
-		);
-	}
-
-	@TestFactory
-	@SuppressWarnings({"SimplifiableAssertion", "EqualsWithItself"})// We're explicitly calling "equals" here, and that's ok
-	Iterable<DynamicTest> testEquals() {
-		return asList(
-			dynamicTest("empty.equals()",         () -> assertTrue(Path.empty().equals(Path.empty().then()))),
-			dynamicTest("empty.equals(empty)",    () -> assertTrue(Path.empty().equals(Path.empty()))),
-			dynamicTest("(a).equals(a)",          () -> assertTrue(Path.just("a").equals(Path.just("a")))),
-			dynamicTest("(a).equals((a/b).truncatedBy(1))", () -> assertTrue(Path.just("a").equals(Path.of("a", "b").truncatedBy(1)))),
-			dynamicTest("(a/b).equals(a/b)",      () -> assertTrue(Path.of("a","b").equals(Path.of("a","b")))),
-			dynamicTest("(a/-p1-/b).equals(a/-p1-/b)",  () -> assertTrue(Path.of("a","-p1-","b").equals(Path.of("a","-p1-","b")))),
-
-			dynamicTest("!(a/b).equals(a)", () -> assertFalse(Path.of("a","b").equals(Path.just("a")))),
-			dynamicTest("!(a).equals(a/b)", () -> assertFalse(Path.just("a").equals(Path.of("a","b")))),
-			dynamicTest("!(a/b).equals('a/b')", () -> assertFalse(Path.of("a","b").equals(Path.just("a/b")))),
-			dynamicTest("!(a/-p1-).equals('a/b')", () -> assertFalse(Path.of("a","-p1-").equals(Path.just("a/b")))),
-			dynamicTest("!(a/-p1-).equals('a/-p2-')", () -> assertFalse(Path.of("a","-p1-").equals(Path.of("a","-p2-"))))
-		);
-	}
-
-	@TestFactory
-	@SuppressWarnings("deprecation") // We're intentionally testing methods that are never meant to be called
-	Iterable<DynamicTest> testInvalidOf() {
-		return asList(
-			dynamicTest("of()",  ()->assertThrows(IllegalArgumentException.class, () -> Path.of())),
-			dynamicTest("of(a)", ()->assertThrows(IllegalArgumentException.class, () -> Path.of("a")))
-		);
-	}
-
-	@TestFactory
-	Stream<DynamicTest> testParameters() {
-		Stream<DynamicTest> parameterTests = Stream.of(
-			parameterTests(1, 0, "-p1-"),
-			parameterTests(2, 0, "-p1-", "-p2-"),
-			parameterTests(3, 0, "-p1-", "-p2-", "-p3-"),
-			parameterTests(1, 3, "a", "b", "c", "-p1-"),
-			parameterTests(2, 3, "a", "b", "c", "-p1-", "-p2-"),
-			parameterTests(2, 1, "a", "-p1-", "b", "c", "-p2-")
-		).flatMap(identity());
-		Stream<DynamicTest> oneOffTests = Stream.of(
-			dynamicTest("# /a/b",         () -> assertEquals(0, Path.parse("/a/b").numParameters())),
-			dynamicTest("# /a/-p-",       () -> assertEquals(1, Path.of("a","-p-").numParameters())),
-			dynamicTest("# /a/-p- bound", () -> assertEquals(0, Path.of("a","-p-").boundBy(singletonBinding("p","b")).numParameters()))
-
-		);
-		Stream<DynamicTest> sadPath = Stream.of(
-			noFirstParameterTest(Path.empty()),
-			noFirstParameterTest(Path.just("a")),
-			noFirstParameterTest(Path.of("a","b")),
-			noFirstParameterTest(Path.of("a","b","-p1-").boundBy(singletonBinding("p1", "c")))
-		);
-		return Stream.of(parameterTests, oneOffTests, sadPath).flatMap(identity());
-	}
-
-	private Stream<DynamicTest> parameterTests(int numParameters, int firstParameterIndex, String... segments) {
+	@ParameterizedTest
+	@MethodSource("validSegments")
+	void validSegments_truncationWorks(String... segments) {
 		Path path = Path.of(segments);
+		assertEquals(path, path.truncatedBy(0));
+		assertEquals(path, path.truncatedTo(path.length()));
+		for (int numTruncatedBy = 0; numTruncatedBy < segments.length; numTruncatedBy++) {
+			int numTruncatedTo = segments.length - numTruncatedBy;
+			String[] truncated = Arrays.copyOf(segments, numTruncatedTo);
+			Path expected = Path.of(truncated);
+			assertEquals(expected,
+				path.truncatedBy(numTruncatedBy));
+			assertEquals(expected,
+				path.truncatedTo(numTruncatedTo));
+		}
+		assertThrows(IllegalArgumentException.class, () ->
+			path.truncatedBy(-1));
+		assertThrows(IllegalArgumentException.class, () ->
+			path.truncatedTo(-1));
+		assertThrows(IllegalArgumentException.class, () ->
+			path.truncatedBy(path.length()+1));
+		assertThrows(IllegalArgumentException.class, () ->
+			path.truncatedTo(path.length()+1));
+	}
+
+	@ParameterizedTest
+	@MethodSource("validSegments")
+	void validSegments_segmentWorks(String... segments) {
+		Path path = Path.of(segments);
+		for (int i = 0; i < segments.length; i++) {
+			assertEquals(segments[i], path.segment(i));
+		}
+		assertThrows(IllegalArgumentException.class, () ->
+			path.segment(-1));
+		assertThrows(IllegalArgumentException.class, () ->
+			path.segment(path.length()));
+	}
+
+	@ParameterizedTest
+	@MethodSource("validSegments")
+	void validSegments_lastSegmentWorks(String... segments) {
+		Path path = Path.of(segments);
+		if (segments.length == 0) {
+			assertThrows(IllegalArgumentException.class, () ->
+				path.lastSegment());
+		} else {
+			String expected = segments[segments.length - 1];
+			assertEquals(expected,
+				path.lastSegment());
+		}
+	}
+
+	@ParameterizedTest
+	@MethodSource("validSegments")
+	@SuppressWarnings({"SimplifiableAssertion", "EqualsWithItself"}) // We're explicitly calling "equals" here, and that's ok
+	void validSegments_equalsItself(String... segments) {
+		Path path = Path.of(segments);
+		assertTrue(path.equals(path));
+	}
+
+	@ParameterizedTest
+	@MethodSource("unequalPaths")
+	@SuppressWarnings({"SimplifiableAssertion"}) // We're explicitly calling "equals" here, and that's ok
+	void unequalPaths_notEqual(Path left, Path right) {
+		assertFalse(left.equals(right));
+	}
+
+	static Stream<Arguments> unequalPaths() {
 		return Stream.of(
-			dynamicTest("numParameters(" + path + ")", ()->assertEquals(numParameters, path.numParameters())),
-			dynamicTest("firstParameterIndex(" + path + ")", ()->assertEquals(firstParameterIndex, path.firstParameterIndex()))
+			Arguments.of(Path.of("a","b"), Path.just("a")),
+			Arguments.of(Path.just("a"), Path.of("a","b")),
+			Arguments.of(Path.of("a","b"), Path.just("a/b")),
+			Arguments.of(Path.of("a","-p1-"), Path.just("a/b")),
+			Arguments.of(Path.of("a","-p1-"), Path.of("a","-p2-"))
 		);
 	}
 
-	private DynamicTest noFirstParameterTest(Path path) {
-		return dynamicTest("!firstParameterIndex(" + path + ")", () -> assertThrows(IllegalArgumentException.class, () -> path.firstParameterIndex()));
+	@Test
+	@SuppressWarnings("deprecation") // We're intentionally testing methods that are never meant to be called
+	void invalidOf_throws() {
+		assertThrows(IllegalArgumentException.class, () -> Path.of());
+		assertThrows(IllegalArgumentException.class, () -> Path.of("a"));
 	}
 
-	@TestFactory
-	Stream<DynamicTest> testParametersFrom() {
+	@ParameterizedTest
+	@MethodSource("parameterCases")
+	void testParameters(int numParameters, Integer firstParameterIndex, Path path) {
+		assertEquals(numParameters, path.numParameters());
+		if (firstParameterIndex == null) {
+			assertThrows(IllegalArgumentException.class, () ->
+				path.firstParameterIndex());
+		} else {
+			assertEquals(firstParameterIndex,
+				path.firstParameterIndex());
+		}
+	}
+
+	static Stream<Arguments> parameterCases() {
 		return Stream.of(
-			parametersFromTest("/a", Path.just("-p-"), singletonBinding("p", "a")),
-			parametersFromTest("/a/b", Path.just("-p-"), singletonBinding("p", "a")),
-			parametersFromTest("/a/b", Path.of("a", "-p-"), singletonBinding("p", "b")),
-			parametersFromTest("/a/b", Path.of("-p-", "b"), singletonBinding("p", "a")),
-			parametersFromTest("/a", Path.of("-p-", "b"), singletonBinding("p", "a")),
-			parametersFromTest("/", Path.of("-p1-", "-p2-"), BindingEnvironment.empty()),
-			parametersFromTest("/a", Path.of("-p1-", "-p2-"), singletonBinding("p1", "a")),
-			parametersFromTest("/a/b", Path.of("-p1-", "-p2-"), doubletonBinding("p1", "a", "p2", "b")),
-			parametersFromTest("/a/b/c/d", Path.of("-p1-", "-p2-"), doubletonBinding("p1", "a", "p2", "b")),
-			parametersFromTest("/", Path.empty(), BindingEnvironment.empty()),
-			parametersFromTest("/a/b", Path.of("a", "b"), BindingEnvironment.empty()),
-
-			badParametersFromTest("/a", Path.just("b")),
-			badParametersFromTest("/a/b", Path.of("b", "-p-"))
+			Arguments.of(0, null, Path.parse("/a/b")),
+			Arguments.of(1, 1, Path.of("a", "-p-")),
+			Arguments.of(0, null, Path.of("a","-p-").boundBy(singletonBinding("p","b"))),
+			Arguments.of(1, 0, Path.just("-p1-")),
+			Arguments.of(2, 0, Path.of("-p1-", "-p2-")),
+			Arguments.of(3, 0, Path.of("-p1-", "-p2-", "-p3-")),
+			Arguments.of(1, 3, Path.of("a", "b", "c", "-p1-")),
+			Arguments.of(2, 3, Path.of("a", "b", "c", "-p1-", "-p2-")),
+			Arguments.of(2, 1, Path.of("a", "-p1-", "b", "c", "-p2-")),
+			Arguments.of(0, null, Path.empty()),
+			Arguments.of(0, null, Path.just("a")),
+			Arguments.of(0, null, Path.of("a","b"))
 		);
 	}
 
-	private BindingEnvironment singletonBinding(String name, String value) {
-		return BindingEnvironment.singleton(name, Identifier.from(value));
+	@ParameterizedTest
+	@MethodSource("parametersFromPathCases")
+	void testParametersFromPath(BindingEnvironment expected, String parameterized, String concrete) {
+		Path concretePath = Path.parse(concrete);
+		Path parameterizedPath = Path.parseParameterized(parameterized);
+		if (expected == null) {
+			assertThrows(AssertionError.class, () ->
+				parameterizedPath.parametersFrom(concretePath));
+		} else {
+			assertEquals(expected,
+				parameterizedPath.parametersFrom(concretePath));
+		}
 	}
 
-	private BindingEnvironment doubletonBinding(String name1, String value1, String name2, String value2) {
-		return BindingEnvironment.empty().builder()
-			.bind(name1, Identifier.from(value1))
-			.bind(name2, Identifier.from(value2))
-			.build();
-	}
-
-	private DynamicTest parametersFromTest(String concretePath, Path parameterizedPath, BindingEnvironment expected) {
-		return dynamicTest("(" + parameterizedPath + ").parametersFrom(" + concretePath + ")", () ->
-			assertEquals(expected, parameterizedPath.parametersFrom(Path.parse(concretePath))));
-	}
-
-	private DynamicTest badParametersFromTest(String concretePath, Path parameterizedPath) {
-		return dynamicTest("!(" + parameterizedPath + ").parametersFrom(" + concretePath + ")", () ->
-			assertThrows(AssertionError.class, () -> parameterizedPath.parametersFrom(Path.parse(concretePath))));
-	}
-
-	@TestFactory
-	Iterable<DynamicTest> testBoundBy() {
-		Path definite = Path.of("a", "b");
-		Path indefinite = Path.of("a", "-p1-", "b", "-p2-");
-		Identifier id1 = Identifier.from("1");
-		Identifier id2 = Identifier.from("2");
-		return asList(
-			dynamicTest(definite + " ()",      () -> assertEquals(definite, definite.boundBy(BindingEnvironment.empty()))),
-			dynamicTest(definite + " (x)",     () -> assertEquals(definite, definite.boundBy(singletonBinding("p1", "x")))),
-			dynamicTest(definite + " (y)",     () -> assertEquals(definite, definite.boundBy(singletonBinding("p2", "y")))),
-			dynamicTest(definite + " (x,y)",   () -> assertEquals(definite, definite.boundBy(doubletonBinding("p1", "x", "p2", "y")))),
-			dynamicTest(indefinite + " ()",    () -> assertEquals(indefinite, indefinite.boundBy(BindingEnvironment.empty()))),
-			dynamicTest(indefinite + " (x)",   () -> assertEquals(Path.of("a","x","b","-p2-"), indefinite.boundBy(singletonBinding("p1", "x")))),
-			dynamicTest(indefinite + " (x)",   () -> assertEquals(Path.of("a","-p1-","b","y"), indefinite.boundBy(singletonBinding("p2", "y")))),
-			dynamicTest(indefinite + " (x,y)", () -> assertEquals(Path.of("a","x","b","y"), indefinite.boundBy(doubletonBinding("p1", "x", "p2", "y"))))
+	static Stream<Arguments> parametersFromPathCases() {
+		return Stream.of(
+			Arguments.of(singletonBinding("p", "a"), "/-p-", "/a"),
+			Arguments.of(singletonBinding("p", "a"), "/-p-", "/a/b"),
+			Arguments.of(singletonBinding("p", "b"), "/a/-p-", "/a/b"),
+			Arguments.of(singletonBinding("p", "a"), "/-p-/b", "/a/b"),
+			Arguments.of(singletonBinding("p", "a"), "/-p-/b", "/a"),
+			Arguments.of(empty(), "/-p1-/-p2-", "/"),
+			Arguments.of(singletonBinding("p1", "a"), "/-p1-/-p2-", "/a"),
+			Arguments.of(doubletonBinding("p1", "a", "p2", "b"), "/-p1-/-p2-", "/a/b"),
+			Arguments.of(doubletonBinding("p1", "a", "p2", "b"), "/-p1-/-p2-", "/a/b/c/d"),
+			Arguments.of(doubletonBinding("p1", "b", "p2", "d"), "/a/-p1-/c/-p2-/e", "/a/b/c/d/e"),
+			Arguments.of(empty(), "/", "/"),
+			Arguments.of(empty(), "/a/b", "/a/b"),
+			Arguments.of(null, "/b", "/a"),
+			Arguments.of(null, "/b/-p-", "/a/b")
 		);
 	}
 
-	@TestFactory
-	Iterable<DynamicTest> testValidSegment() {
-		Stream<DynamicTest> valid = Stream.of("a", "a/b").flatMap(s -> Stream.of(
-				dynamicTest("validSegment(" + s + ")", () -> assertEquals(s, Path.validSegment(s))),
-				dynamicTest("validParsedSegment(" + s + ")", () -> assertEquals(s, Path.validParsedSegment(s)))
-		));
-		Stream<DynamicTest> invalid = Stream.of(null, "", "-", "-a", "-123", "-123-", "-💩-").flatMap(s -> Stream.of(
-				dynamicTest("!validSegment(" + s + ")", () -> assertThrows(IllegalArgumentException.class, () -> Path.validSegment(s))),
-				dynamicTest("!validParsedSegment(" + s + ")", () -> assertThrows(IllegalArgumentException.class, () -> Path.validParsedSegment(s)))
-		));
-		Stream<DynamicTest> validUnlessParsed = Stream.of("-p1-").flatMap(s -> Stream.of(
-				dynamicTest("validSegment(" + s + ")", () -> assertEquals(s, Path.validSegment(s))),
-				dynamicTest("!validParsedSegment(" + s + ")", () -> assertThrows(IllegalArgumentException.class, () -> Path.validParsedSegment(s)))
-		));
-		return Stream.of(valid, invalid, validUnlessParsed).flatMap(identity()).collect(toList());
+	@ParameterizedTest
+	@MethodSource("parametersFromListCases")
+	void testParametersFromPath(BindingEnvironment expected, String parameterized, Collection<String> idStrings) {
+		Collection<Identifier> ids = idStrings.stream().map(Identifier::from).collect(toList());
+		Path parameterizedPath = Path.parseParameterized(parameterized);
+		if (expected == null) {
+			assertThrows(IllegalArgumentException.class, () ->
+				parameterizedPath.parametersFrom(ids));
+		} else {
+			assertEquals(expected,
+				parameterizedPath.parametersFrom(ids));
+		}
 	}
 
-	@TestFactory
-	Stream<DynamicTest> testMatches() {
+	static Stream<Arguments> parametersFromListCases() {
+		return Stream.of(
+			Arguments.of(empty(), "/", emptyList()),
+			Arguments.of(empty(), "/-p-", emptyList()),
+			Arguments.of(empty(), "/-p1-/-p2-", emptyList()),
+			Arguments.of(singletonBinding("p", "x"), "/a/-p-", singletonList("x")),
+			Arguments.of(singletonBinding("p", "x"), "/-p-/b", singletonList("x")),
+			Arguments.of(singletonBinding("p", "x"), "/a/-p-/b", singletonList("x")),
+			Arguments.of(singletonBinding("p1", "x"), "/-p1-/-p2-", singletonList("x")),
+			Arguments.of(singletonBinding("p1", "x"), "/a/-p1-/-p2-", singletonList("x")),
+			Arguments.of(singletonBinding("p1", "x"), "/-p1-/b/-p2-", singletonList("x")),
+			Arguments.of(singletonBinding("p1", "x"), "/-p1-/-p2-/c", singletonList("x")),
+			Arguments.of(singletonBinding("p1", "x"), "/a/-p1-/b/-p2-/c", singletonList("x")),
+			Arguments.of(doubletonBinding("p1", "x", "p2", "y"), "/-p1-/-p2-", asList("x","y")),
+			Arguments.of(doubletonBinding("p1", "x", "p2", "y"), "/a/-p1-/-p2-", asList("x","y")),
+			Arguments.of(doubletonBinding("p1", "x", "p2", "y"), "/-p1-/b/-p2-", asList("x","y")),
+			Arguments.of(doubletonBinding("p1", "x", "p2", "y"), "/-p1-/-p2-/c", asList("x","y")),
+			Arguments.of(doubletonBinding("p1", "x", "p2", "y"), "/a/-p1-/b/-p2-/c", asList("x","y")),
+
+			// Too many parameters
+			Arguments.of(null, "/", asList("x", "y")),
+			Arguments.of(null, "/-p-", asList("x", "y")),
+			Arguments.of(null, "/a/-p-", asList("x", "y")),
+			Arguments.of(null, "/-p-/b", asList("x", "y")),
+			Arguments.of(null, "/a/-p-/b", asList("x", "y")),
+			Arguments.of(null, "/-p1-/-p2-", asList("x", "y", "z")),
+			Arguments.of(null, "/a/-p1-/-p2-", asList("x", "y", "z")),
+			Arguments.of(null, "/-p1-/b/-p2-", asList("x", "y", "z")),
+			Arguments.of(null, "/-p1-/-p2-/c", asList("x", "y", "z")),
+			Arguments.of(null, "/a/-p1-/b/-p2-/c", asList("x", "y", "z"))
+		);
+	}
+
+	@ParameterizedTest
+	@MethodSource("bindingCases")
+	void testBoundBy(Path expected, Path path, BindingEnvironment env) {
+		assertEquals(expected,
+			path.boundBy(env));
+	}
+
+	static Stream<Arguments> bindingCases() {
+		Path def = Path.of("a", "b");
+		Path indef = Path.of("a", "-p1-", "b", "-p2-");
+		return Stream.of(
+			Arguments.of(indef, indef, empty()),
+			Arguments.of(Path.of("a","x","b","-p2-"), indef, singletonBinding("p1", "x")),
+			Arguments.of(Path.of("a","-p1-","b","y"), indef, singletonBinding("p2", "y")),
+			Arguments.of(Path.of("a","x","b","y"), indef, doubletonBinding("p1", "x", "p2", "y")),
+			// Binding has no effect on a definite reference
+			Arguments.of(def, def, empty()),
+			Arguments.of(def, def, singletonBinding("p1", "x")),
+			Arguments.of(def, def, singletonBinding("p2", "y")),
+			Arguments.of(def, def, doubletonBinding("p1", "x", "p2", "y"))
+		);
+	}
+
+	@Test
+	void emptyParameterName_throws() {
+		assertThrows(IllegalArgumentException.class, () ->
+			singletonBinding("", "x"));
+	}
+
+	@Disabled("Identifiers are currently not validated at all!")
+	@Test
+	void emptyParameterValue_throws() {
+		assertThrows(IllegalArgumentException.class, () ->
+			singletonBinding("p", ""));
+	}
+
+	@ParameterizedTest
+	@MethodSource("validSegmentCases")
+	void testValidSegment(ValidityKind kind, String segment) {
+		switch (kind) {
+			case NEVER:
+				assertThrows(IllegalArgumentException.class, () ->
+					Path.validSegment(segment));
+				assertThrows(IllegalArgumentException.class, () ->
+					Path.validParsedSegment(segment));
+				break;
+			case ALWAYS:
+				assertEquals(segment,
+					Path.validSegment(segment));
+				assertEquals(segment,
+					Path.validParsedSegment(segment));
+				break;
+			case NOT_IF_PARSED:
+				assertEquals(segment,
+					Path.validSegment(segment));
+				assertThrows(IllegalArgumentException.class, () ->
+					Path.validParsedSegment(segment));
+				break;
+		}
+	}
+
+	static Stream<Arguments> validSegmentCases() {
+		return Stream.of(
+			Arguments.of(ALWAYS, "a"),
+			Arguments.of(ALWAYS, "a/b"),
+			Arguments.of(NEVER, null),
+			Arguments.of(NEVER, ""),
+			Arguments.of(NEVER, "-"),
+			Arguments.of(NEVER, "-a"),
+			Arguments.of(NEVER, "-123"),
+			Arguments.of(NEVER, "-123-"),
+			Arguments.of(NEVER, "-💩-"),
+			Arguments.of(NOT_IF_PARSED, "-p1-")
+		);
+	}
+
+	enum ValidityKind {
+		NEVER,
+		ALWAYS,
+		NOT_IF_PARSED
+	}
+
+	@ParameterizedTest
+	@MethodSource("matchesCases")
+	void testMatches(boolean expected, Path pattern, Path path) {
+		assertEquals(expected,
+			pattern.matches(path));
+	}
+
+	static Stream<Arguments> matchesCases() {
 		Path empty = Path.empty();
 		Path a_b = Path.of("a", "b");
 		Path a_p1_b = Path.of("a", "-p1-", "b");
@@ -483,11 +605,43 @@ class PathTest {
 
 		// Exhaustively test all pairs against the expected results
 		return all.stream().flatMap(pattern -> all.stream().map(path ->
-				matchesTest(pattern, path, matches.get(pattern).contains(path))));
+				Arguments.of(matches.get(pattern).contains(path), pattern, path)));
 	}
 
-	private DynamicTest matchesTest(Path pattern, Path other, boolean result) {
-		return dynamicTest((result? "":"!") + "(" + pattern + ").matches(" + other + ")", () -> assertEquals(result, pattern.matches(other), pattern + " should " + (result? "" : "not ") + "match " + other));
+	@Test
+	void testInterning() {
+		Path outerPath = Path.of("outer", "-outer-");
+		Path innerPath = outerPath.then("inner", "-inner-");
+		List<Path> paths = new ArrayList<>();
+		Random random = new Random(123);
+		for (int i = 0; i < 20; i++) {
+			BindingEnvironment env = BindingEnvironment.singleton("outer", Identifier.from("outer_" + random.nextInt(10)));
+			paths.add(outerPath.boundBy(env));
+			for (int j = 0; j < 10; j++) {
+				paths.add(innerPath.boundBy(
+					env.builder()
+						.bind("inner", Identifier.from("inner_" + random.nextInt(10)))
+						.build()));
+			}
+
+			// Try to fool the Path interning logic into messing up its internal WeakHashMaps
+			System.gc();
+		}
+
+		for (Path p: paths) {
+			assertSame(p, Path.parse(p.urlEncoded()));
+		}
+	}
+
+	private static BindingEnvironment singletonBinding(String name, String value) {
+		return BindingEnvironment.singleton(name, Identifier.from(value));
+	}
+
+	private static BindingEnvironment doubletonBinding(String name1, String value1, String name2, String value2) {
+		return empty().builder()
+			.bind(name1, Identifier.from(value1))
+			.bind(name2, Identifier.from(value2))
+			.build();
 	}
 
 }
