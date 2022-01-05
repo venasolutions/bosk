@@ -14,7 +14,7 @@ compileTestJava.options.encoding = 'UTF-8'
 group = 'org.vena'
 archivesBaseName = 'bosk'
 jar.archiveBaseName = "${archivesBaseName}"
-version = '0.0.3-SNAPSHOT'
+version = '0.0.4-SNAPSHOT'
 sourceCompatibility = 1.8
 targetCompatibility = 1.8
 
@@ -145,6 +145,10 @@ pitest {
 	threads = 4
 	outputFormats = ['XML', 'HTML']
 	timestampedReports = false
+}
+
+java {
+	withSourcesJar()
 }
 
 publishing {
