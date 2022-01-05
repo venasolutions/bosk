@@ -83,7 +83,7 @@ class MongoDriverTest extends DriverConformanceTest {
 	static void setupDatabase() {
 		proxy = TOXIPROXY_CONTAINER.getProxy(MONGO_CONTAINER, 27017);
 		int initialTimeoutMS = 60_000;
-		int queryTimeoutMS = 2_000; // Don't wait an inordinately long time for network outage testing
+		int queryTimeoutMS = 5_000; // Don't wait an inordinately long time for network outage testing
 		mongoClient = new MongoClient(
 			new ServerAddress(proxy.getContainerIpAddress(), proxy.getProxyPort()),
 			MongoClientOptions.builder()
