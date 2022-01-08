@@ -1,8 +1,11 @@
 package org.vena.bosk.drivers.mongo;
 
 import com.mongodb.ErrorCategory;
+import com.mongodb.MongoClientSettings;
 import com.mongodb.MongoException;
 import com.mongodb.MongoWriteException;
+import com.mongodb.client.MongoClient;
+import com.mongodb.client.MongoClients;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoCursor;
 import com.mongodb.client.model.UpdateOptions;
@@ -39,19 +42,24 @@ import static org.vena.bosk.drivers.mongo.Formatter.enclosingReference;
 public final class MongoDriver<R extends Entity> implements BoskDriver<R> {
 	private final Formatter formatter;
 	private final MongoReceiver<R> receiver;
+	private final MongoClient mongoClient;
 	private final MongoCollection<Document> collection;
 	private final BsonString tenantID;
 	private final Reference<R> rootRef;
 	private final String echoPrefix;
 	private final AtomicLong echoCounter = new AtomicLong(1_000_000_000_000L); // Start with a big number so the length doesn't change often
 
-	public MongoDriver(BoskDriver<R> downstream, Bosk<R> bosk, MongoCollection<Document> collection, Identifier tenantID, BsonPlugin bsonPlugin) {
+	public MongoDriver(BoskDriver<R> downstream, Bosk<R> bosk, MongoClientSettings clientSettings, MongoDriverSettings driverSettings, Identifier tenantID, BsonPlugin bsonPlugin) {
+		this.mongoClient = MongoClients.create(clientSettings);
 		this.formatter = new Formatter(bosk, bsonPlugin);
+		this.collection = mongoClient
+			.getDatabase(driverSettings.database())
+			.getCollection(driverSettings.collection());
 		this.receiver = new ChangeStreamMongoReceiver<>(downstream, bosk.rootReference(), collection, formatter);
-		this.collection = collection;
 		this.echoPrefix = bosk.instanceID().toString();
 		this.tenantID = new BsonString(tenantID.toString());
 		this.rootRef = bosk.rootReference();
+
 	}
 
 	@Override
@@ -127,7 +135,11 @@ public final class MongoDriver<R extends Entity> implements BoskDriver<R> {
 	}
 
 	public void close() {
-		receiver.close();
+		try {
+			receiver.close();
+		} finally {
+			mongoClient.close();
+		}
 	}
 
 	//

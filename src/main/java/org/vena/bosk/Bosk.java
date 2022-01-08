@@ -41,7 +41,7 @@ import static org.vena.bosk.ReferenceUtils.rawClass;
 import static org.vena.bosk.TypeValidation.validateType;
 
 /**
- * A mutable container for an an immutable object tree with cross-tree {@link
+ * A mutable container for an immutable object tree with cross-tree {@link
  * Reference}s, providing snapshot-at-start semantics via {@link ReadContext}, and
  * managing updates via {@link BoskDriver}.
  *
@@ -167,7 +167,7 @@ public class Bosk<R extends Entity> {
 	 * </li></ol>
 	 *
 	 * Satisfying all of these simultaneously is tricky, especially because we can't just put
-	 * "synchronized" on the submit updates because that could cause deadlock.
+	 * "synchronized" on the submit methods because that could cause deadlock.
 	 *
 	 * @author pdoyle
 	 */
@@ -508,7 +508,7 @@ public class Bosk<R extends Entity> {
 				// could correspond to changed objects and then recursing.
 				//
 				Path containerPath = effectiveScope.path().truncatedTo(effectiveScope.path().firstParameterIndex());
-				Reference<EnumerableByIdentifier<?>> containerRef = reference(ENUMERABLE_BY_IDENTIFIER, containerPath);
+				Reference<EnumerableByIdentifier<?>> containerRef = reference(enumerableByIdentifierClass(), containerPath);
 				EnumerableByIdentifier<?> priorContainer = refValueIfExists(containerRef, priorRoot);
 				EnumerableByIdentifier<?> newContainer = refValueIfExists(containerRef, newRoot);
 
@@ -866,7 +866,7 @@ try (ReadContext originalThReadContext = bosk.new ReadContext()) {
 			Path containerPath = path.truncatedTo(firstParameterIndex);
 			Reference<EnumerableByIdentifier<?>> containerRef;
 			try {
-				containerRef = reference(ENUMERABLE_BY_IDENTIFIER, containerPath);
+				containerRef = reference(enumerableByIdentifierClass(), containerPath);
 			} catch (InvalidTypeException e) {
 				throw new NotYetImplementedException("Parameter reference should come after a " + EnumerableByIdentifier.class, e);
 			}
@@ -977,9 +977,9 @@ try (ReadContext originalThReadContext = bosk.new ReadContext()) {
 		return currentRoot;
 	}
 
-	// Not sure why EnumerableByIdentifier.class doesn't already return a Class<EnumerableByIdentifier<?>>
 	@SuppressWarnings({"unchecked","rawtypes"})
-	private static final Class<EnumerableByIdentifier<?>> ENUMERABLE_BY_IDENTIFIER = (Class) EnumerableByIdentifier.class;
-
+	private static Class<EnumerableByIdentifier<?>> enumerableByIdentifierClass() {
+		return (Class) EnumerableByIdentifier.class;
+	}
 	private static final Logger LOGGER = LoggerFactory.getLogger(Bosk.class);
 }

@@ -48,11 +48,13 @@ public class ListValue<T> extends AbstractList<T> {
 	}
 
 	@SafeVarargs
+	@SuppressWarnings("varargs")
 	public static <TT> ListValue<TT> of(TT... entries) {
 		if (entries.length == 0) {
 			return empty();
 		} else {
-			return new ListValue<>(entries.clone());
+			// Let's just be super cautious, and make a copy of the array.
+			return new ListValue<>(Arrays.copyOf(entries, entries.length));
 		}
 	}
 

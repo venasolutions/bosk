@@ -79,6 +79,11 @@ abstract class SkeletonDereferencerBuilder implements DereferencerBuilder {
 	protected final void swap() { cb.swap(); }
 
 	/**
+	 * Discards the top operand on the stack.
+	 */
+	protected final void pop() { cb.pop(); }
+
+	/**
 	 * Treats the top value on the stack as the given type.
 	 */
 	protected final void castTo(Class<?> expectedType) {

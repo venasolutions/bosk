@@ -3,6 +3,7 @@ package org.vena.bosk.util;
 import org.vena.bosk.Catalog;
 import org.vena.bosk.CatalogReference;
 import org.vena.bosk.Entity;
+import org.vena.bosk.EnumerableByIdentifier;
 import org.vena.bosk.ListValue;
 import org.vena.bosk.Listing;
 import org.vena.bosk.ListingReference;
@@ -32,6 +33,11 @@ public abstract class Classes {
 	@SuppressWarnings({"unchecked","rawtypes","unused"})
 	public static <K extends Entity,V> Class<Mapping<K,V>> mapping(Class<K> keyClass, Class<V> valueClass) {
 		return (Class)Mapping.class;
+	}
+
+	@SuppressWarnings({"unchecked","rawtypes","unused"})
+	public static <E extends Entity> Class<EnumerableByIdentifier<E>> enumerableByIdentifier(Class<E> entryClass) {
+		return (Class) EnumerableByIdentifier.class;
 	}
 
 	@SuppressWarnings({"unchecked","rawtypes","unused"})

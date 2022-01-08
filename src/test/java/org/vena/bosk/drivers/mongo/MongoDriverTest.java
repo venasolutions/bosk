@@ -1,18 +1,17 @@
 package org.vena.bosk.drivers.mongo;
 
-import com.mongodb.MongoClient;
-import com.mongodb.MongoClientOptions;
+import com.mongodb.MongoClientSettings;
 import com.mongodb.MongoException;
 import com.mongodb.ServerAddress;
-import com.mongodb.client.MongoCollection;
-import com.mongodb.client.MongoDatabase;
+import com.mongodb.client.MongoClient;
+import com.mongodb.client.MongoClients;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.Optional;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.function.BiFunction;
-import org.bson.Document;
+import java.util.function.Consumer;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -41,8 +40,10 @@ import org.vena.bosk.drivers.BufferingDriver;
 import org.vena.bosk.drivers.DriverConformanceTest;
 import org.vena.bosk.exceptions.InvalidTypeException;
 
+import static com.mongodb.ReadPreference.secondaryPreferred;
 import static java.lang.Long.max;
 import static java.lang.System.currentTimeMillis;
+import static java.util.Collections.singletonList;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -51,11 +52,12 @@ import static org.vena.bosk.ListingEntry.LISTING_ENTRY;
 @Testcontainers
 class MongoDriverTest extends DriverConformanceTest {
 	public static final String TEST_DB = "testDB";
+	public static final String TEST_COLLECTION = "testCollection";
 	protected static final Identifier entity123 = Identifier.from("123");
 	protected static final Identifier entity124 = Identifier.from("124");
 	protected static final Identifier rootID = Identifier.from("root");
 
-	private final Deque<Runnable> tearDownActions = new ArrayDeque<>();
+	private final Deque<Consumer<MongoClient>> tearDownActions = new ArrayDeque<>();
 
 	private static final Network NETWORK = Network.newNetwork();
 
@@ -76,29 +78,35 @@ class MongoDriverTest extends DriverConformanceTest {
 
 	private static ToxiproxyContainer.ContainerProxy proxy;
 
-	private static MongoClient mongoClient;
-	private static MongoDatabase database;
+	private static MongoClientSettings clientSettings;
+	private static MongoDriverSettings driverConfig;
 
 	@BeforeAll
 	static void setupDatabase() {
 		proxy = TOXIPROXY_CONTAINER.getProxy(MONGO_CONTAINER, 27017);
 		int initialTimeoutMS = 60_000;
 		int queryTimeoutMS = 5_000; // Don't wait an inordinately long time for network outage testing
-		mongoClient = new MongoClient(
-			new ServerAddress(proxy.getContainerIpAddress(), proxy.getProxyPort()),
-			MongoClientOptions.builder()
-				.serverSelectionTimeout(initialTimeoutMS)
-				.heartbeatConnectTimeout(initialTimeoutMS)
-				.connectTimeout(initialTimeoutMS)
-				.socketTimeout(queryTimeoutMS)
-				.build()
-		);
-		database = mongoClient.getDatabase(TEST_DB);
+		clientSettings = MongoClientSettings.builder()
+			.readPreference(secondaryPreferred())
+			.applyToClusterSettings(builder -> {
+				builder.hosts(singletonList(new ServerAddress(proxy.getContainerIpAddress(), proxy.getProxyPort())));
+				builder.serverSelectionTimeout(initialTimeoutMS, MILLISECONDS);
+			})
+			.applyToSocketSettings(builder -> {
+				builder.connectTimeout(initialTimeoutMS, MILLISECONDS);
+				builder.readTimeout(queryTimeoutMS, MILLISECONDS);
+			})
+			.build();
+		driverConfig = MongoDriverSettings.builder()
+			.database(TEST_DB)
+			.collection(TEST_COLLECTION)
+			.build();
 	}
 
 	@AfterAll
 	static void deleteDatabase() {
-		database.drop();
+		MongoClient mongoClient = MongoClients.create(clientSettings);
+		mongoClient.getDatabase(TEST_DB).drop();
 		mongoClient.close();
 	}
 
@@ -109,7 +117,9 @@ class MongoDriverTest extends DriverConformanceTest {
 
 	@AfterEach
 	void runTearDown() {
-		tearDownActions.forEach(Runnable::run);
+		MongoClient mongoClient = MongoClients.create(clientSettings);
+		tearDownActions.forEach(a -> a.accept(mongoClient));
+		mongoClient.close();
 	}
 
 	@Test
@@ -258,16 +268,19 @@ class MongoDriverTest extends DriverConformanceTest {
 
 	private BiFunction<BoskDriver<TestEntity>, Bosk<TestEntity>, BoskDriver<TestEntity>> createDriverFactory() {
 		return (downstream, bosk) -> {
-			MongoCollection<Document> collection = database.getCollection("testCollection");
 			MongoDriver<TestEntity> driver = new MongoDriver<>(
 				downstream,
 				bosk,
-				collection,
+				clientSettings,
+				driverConfig,
 				rootID,
 				new BsonPlugin());
-			tearDownActions.addFirst(()->{
+			tearDownActions.addFirst(mongoClient->{
 				driver.close();
-				collection.drop();
+				mongoClient
+					.getDatabase(driverConfig.database())
+					.getCollection(driverConfig.collection())
+					.drop();
 			});
 			return driver;
 		};
