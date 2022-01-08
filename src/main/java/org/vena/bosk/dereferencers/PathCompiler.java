@@ -21,6 +21,7 @@ import org.vena.bosk.Listing;
 import org.vena.bosk.ListingEntry;
 import org.vena.bosk.Mapping;
 import org.vena.bosk.Path;
+import org.vena.bosk.Phantom;
 import org.vena.bosk.Reference;
 import org.vena.bosk.bytecode.LocalVariable;
 import org.vena.bosk.exceptions.InvalidTypeException;
@@ -174,8 +175,11 @@ public final class PathCompiler {
 				getters.put(segment, getterMethod(currentClass, segment));
 
 				FieldStep fieldStep = new FieldStep(segment, getters, theOnlyConstructorFor(currentClass));
-				if (Optional.class.isAssignableFrom(rawClass(fieldStep.targetType()))) {
+				Class<?> fieldClass = rawClass(fieldStep.targetType());
+				if (Optional.class.isAssignableFrom(fieldClass)) {
 					return new OptionalValueStep(parameterType(fieldStep.targetType(), Optional.class, 0), fieldStep);
+				} else if (Phantom.class.isAssignableFrom(fieldClass)) {
+					return new PhantomValueStep(parameterType(fieldStep.targetType(), Phantom.class, 0));
 				} else {
 					return fieldStep;
 				}
@@ -350,6 +354,16 @@ public final class PathCompiler {
 			@Override public void generate_without() { invoke(OPTIONAL_EMPTY); fieldStep.generate_with(); }
 		}
 
+		@Value
+		@Accessors(fluent = true)
+		public class PhantomValueStep implements DeletableStep {
+			Type targetType;
+
+			@Override public void generate_get() { pop(); pushReference(); invoke(THROW_NONEXISTENT_ENTRY); }
+			@Override public void generate_with() { pop(); pop(); pushReference(); invoke(THROW_CANNOT_REPLACE_PHANTOM); }
+			@Override public void generate_without() { /* No effect */ }
+		}
+
 	}
 
 	/**
@@ -376,6 +390,7 @@ public final class PathCompiler {
 	static final Method LISTING_GET, LISTING_WITH, LISTING_WITHOUT;
 	static final Method MAPPING_GET, MAPPING_WITH, MAPPING_WITHOUT;
 	static final Method OPTIONAL_OF, OPTIONAL_OR_THROW, OPTIONAL_EMPTY;
+	static final Method THROW_NONEXISTENT_ENTRY, THROW_CANNOT_REPLACE_PHANTOM;
 	static final Method INVALID_WITHOUT;
 
 	static {
@@ -392,6 +407,8 @@ public final class PathCompiler {
 			OPTIONAL_OF = Optional.class.getDeclaredMethod("ofNullable", Object.class);
 			OPTIONAL_OR_THROW = DereferencerRuntime.class.getDeclaredMethod("optionalOrThrow", Optional.class, Reference.class);
 			OPTIONAL_EMPTY = Optional.class.getDeclaredMethod("empty");
+			THROW_NONEXISTENT_ENTRY = DereferencerRuntime.class.getDeclaredMethod("throwNonexistentEntry", Reference.class);
+			THROW_CANNOT_REPLACE_PHANTOM = DereferencerRuntime.class.getDeclaredMethod("throwCannotReplacePhantom", Reference.class);
 			INVALID_WITHOUT = DereferencerRuntime.class.getDeclaredMethod("invalidWithout", Object.class, Reference.class);
 		} catch (NoSuchMethodException e) {
 			throw new AssertionError(e);

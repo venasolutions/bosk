@@ -22,7 +22,7 @@ import static lombok.AccessLevel.PROTECTED;
 
 /**
  * An ordered collection of entities included by value (as opposed to by {@link
- * Reference}, for which you'd want {@link Listing}.
+ * Reference}, for which you'd want {@link Listing}).
  *
  * @author pdoyle
  *
@@ -113,6 +113,7 @@ public class Catalog<E extends Entity> implements Iterable<E>, EnumerableByIdent
 	}
 
 	@SafeVarargs
+	@SuppressWarnings("varargs")
 	public static <TT extends Entity> Catalog<TT> of(TT... entities) {
 		return Catalog.of(asList(entities));
 	}

@@ -23,6 +23,14 @@ public abstract class DereferencerRuntime implements Dereferencer {
 		throw new IllegalArgumentException("Cannot remove " + ref.path() + " from " + notCollection.getClass().getSimpleName());
 	}
 
+	protected static Object throwNonexistentEntry(Reference<?> ref) throws NonexistentEntryException {
+		throw new NonexistentEntryException(ref.path());
+	}
+
+	protected static Object throwCannotReplacePhantom(Reference<?> ref) {
+		throw new IllegalArgumentException("Cannot replace phantom " + ref);
+	}
+
 	protected static Object optionalOrThrow(Optional<?> optional, Reference<?> ref) throws NonexistentEntryException {
 		return optional.orElseThrow(() -> new NonexistentEntryException(ref.path()));
 	}
