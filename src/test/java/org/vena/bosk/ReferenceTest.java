@@ -57,7 +57,7 @@ class ReferenceTest extends AbstractBoskTest {
 		TestEntity parent = root.entities().get(Identifier.from("parent"));
 		assertSame(parent, parentRef.value());
 
-		assertSame(parent.string(), parentRef.then(String.class, TestEntity.Fields.string).value());
+		assertEquals(parent.string(), parentRef.then(String.class, TestEntity.Fields.string).value());
 		assertSame(parent.testEnum(), parentRef.then(TestEnum.class, TestEntity.Fields.testEnum).value());
 		assertSame(parent.children(), parentRef.thenCatalog(TestChild.class, TestEntity.Fields.children).value());
 		assertSame(parent.oddChildren(), parentRef.thenListing(TestChild.class, TestEntity.Fields.oddChildren).value());

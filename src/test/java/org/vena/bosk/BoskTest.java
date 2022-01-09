@@ -88,7 +88,7 @@ class BoskTest {
 
 	@Accessors(fluent=true) @Getter @With @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
 	@EqualsAndHashCode(callSuper = false) @ToString @FieldNameConstants
-	public static class Root extends Entity {
+	public static class Root implements Entity {
 		Identifier id;
 		int version;
 		Catalog<TestEntity> entities;
@@ -96,7 +96,7 @@ class BoskTest {
 
 	@Accessors(fluent=true) @Getter @With @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
 	@EqualsAndHashCode(callSuper = false) @ToString @FieldNameConstants
-	public static class TestEntity extends Entity {
+	public static class TestEntity implements Entity {
 		Identifier id;
 		int version;
 		Reference<TestEntity> refField;
@@ -248,6 +248,7 @@ class BoskTest {
 
 	@Test
 	void testValidation() {
+		@EqualsAndHashCode(callSuper = true)
 		class InvalidRoot extends Root {
 			@SuppressWarnings("unused")
 			final String mutableString;

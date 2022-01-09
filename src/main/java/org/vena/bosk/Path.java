@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.WeakHashMap;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.function.UnaryOperator;
@@ -35,19 +36,30 @@ import static lombok.AccessLevel.PACKAGE;
  * Represents a sequence of steps from one object to another object via fields.
  *
  * <p>
- * Invalid paths (meaning paths that don't actually point to anything) are
- * explicitly allowed.  Validity is checked when a Path is turned into a {@link
- * Reference} via methods such as {@link Bosk#reference(Class, Path)
+ * {@link MalformedPathException} is thrown for syntactically nonsensical paths,
+ * like paths with two consecutive slashes, or two parameter segments with the
+ * same name.
+ * Semantically invalid paths
+ * (meaning paths that couldn't possibly point to anything in a Bosk's state tree)
+ * are explicitly allowed; that kind of validity is checked when a Path is turned
+ * into a {@link Reference} via methods such as {@link Bosk#reference(Class, Path)
  * Bosk.reference}.
  *
  * <p>
- * Path objects are interned and reused. If you implement a {@link
- * ReflectiveEntity} that holds a {@link Reference} to itself, that will be
- * sufficient to make the entity's Path a suitable key for a {@link WeakHashMap}
- * to hold local state for that object (because {@link Reference}s contain Path
- * objects.) TODO: Seems like if you make a mistake on this, you're in for a bug
- * that's very hard to reproduce and diagnose. We need a better story for
- * managing local state.
+ * Path objects are interned and reused. The {@link #equals} and {@link #hashCode}
+ * methods have a low cost comparable to the identity-based implementations inherited
+ * from {@link Object}.
+ *
+ * <p>
+ * Furthermore, if you implement a {@link ReflectiveEntity} that holds a {@link Reference}
+ * to itself, that will be sufficient to make the entity's Path a suitable key for
+ * a {@link WeakHashMap} to hold local state for that object (because {@link Reference}s
+ * contain Path objects.)
+ *
+ * <p>
+ * (TODO: Seems like if you make a mistake on this, you're in for a bug
+ * that's very hard to reproduce and diagnose. Maybe we need a better story for
+ * managing local state.)
  *
  * @author pdoyle
  */
@@ -68,33 +80,27 @@ public abstract class Path implements Iterable<String> {
 	 * to the illegal path with a single blank segment.)
 	 *
 	 * @throws MalformedPathException if the given string contains any
-	 * paths that are invalid according to {@link #validParsedSegment(String)}.
+	 * segments that are invalid according to {@link #validParsedSegment(String)}.
 	 */
 	public static Path parse(String urlEncoded) {
-		if ("/".equals(urlEncoded)) {
-			return ROOT_PATH;
-		} else if (urlEncoded.startsWith("/")) {
-			String afterFirstSlash = urlEncoded.substring(1);
-			return Path.of(Stream.of(afterFirstSlash.split("/", Integer.MAX_VALUE))
-				.map(DECODER)
-				.map(Path::validParsedSegment)
-				.collect(toList()));
-		} else {
-			throw new MalformedPathException(format("Path must start with leading slash: \"%s\"", urlEncoded));
-		}
+		return parseAndValidateSegments(urlEncoded, Path::validParsedSegment);
 	}
 
 	/**
 	 * Like {@link #parse} but permits parameter segments.
 	 */
 	public static Path parseParameterized(String urlEncoded) {
+		return parseAndValidateSegments(urlEncoded, Path::validSegment);
+	}
+
+	private static Path parseAndValidateSegments(String urlEncoded, Function<String, String> validityChecker) {
 		if ("/".equals(urlEncoded)) {
 			return ROOT_PATH;
 		} else if (urlEncoded.startsWith("/")) {
 			String afterFirstSlash = urlEncoded.substring(1);
 			return Path.of(Stream.of(afterFirstSlash.split("/", Integer.MAX_VALUE))
 				.map(DECODER)
-				.map(Path::validSegment)
+				.map(validityChecker)
 				.collect(toList()));
 		} else {
 			throw new MalformedPathException(format("Path must start with leading slash: \"%s\"", urlEncoded));
@@ -129,8 +135,9 @@ public abstract class Path implements Iterable<String> {
 	}
 
 	/**
-	 * @deprecated Call {@link #just} if you want a path with one segment. Call {@link #parse} if you
-	 * want to process a full URL-encoded path string.
+	 * @deprecated This method is ambiguous.
+	 * Call {@link #just} if you want a path with just one segment.
+	 * Call {@link #parse} if you want to supply a full URL-encoded path string.
 	 */
 	@Deprecated
 	@SuppressWarnings("unused")
@@ -139,7 +146,8 @@ public abstract class Path implements Iterable<String> {
 	}
 
 	/**
-	 * @deprecated Call {@link #empty} if you want an empty Path.
+	 * @deprecated A call to this method is likely to me a mistake.
+	 * Call {@link #empty} if you want an empty Path.
 	 */
 	@Deprecated
 	public static Path of() {
@@ -398,6 +406,10 @@ public abstract class Path implements Iterable<String> {
 			|| (ch == '_');
 	}
 
+	/**
+	 * A {@link Path} that isn't the root path <code>"/"</code>.
+	 * Implemented as a linked list.
+	 */
 	@RequiredArgsConstructor
 	private static final class NestedPath extends Path {
 		private final Path prefix;
@@ -485,6 +497,13 @@ public abstract class Path implements Iterable<String> {
 
 	}
 
+	/**
+	 * Special subclass of {@link Path} representing the root path <code>"/"</code>.
+	 *
+	 * <p>
+	 * Implementing this as its own subclass prevents lots of
+	 * corner-case <code>if</code> statements elsewhere.
+	 */
 	@RequiredArgsConstructor
 	private static final class RootPath extends Path {
 		@Override public int length() { return 0; }
@@ -564,7 +583,7 @@ public abstract class Path implements Iterable<String> {
 				// We need to use the same key object that we put into the KEEP_ALIVE map,
 				// even though the old key is supposedly equivalent as per equals and hashCode.
 				INTERNED.remove(key);
-				INTERNED.put(key, new WeakReference<V>(newValue));
+				INTERNED.put(key, new WeakReference<>(newValue));
 
 				if (oldKey == null) {
 					logMapContents(this::isPathOfLength1, "New entry in KEEP_ALIVE for {}: {}->{}", key, identityHashCode(newValue), identityHashCode(key));

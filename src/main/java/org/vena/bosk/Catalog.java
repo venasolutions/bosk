@@ -21,12 +21,20 @@ import static java.util.stream.Collectors.toList;
 import static lombok.AccessLevel.PROTECTED;
 
 /**
- * An ordered collection of entities included by value (as opposed to by {@link
- * Reference}, for which you'd want {@link Listing}).
+ * An ordered collection of entities included by value. Mainly useful to represent
+ * one-to-many containment relationships in the Bosk state tree, but also occasionally
+ * handy as a data structure on its own.
+ *
+ * <p>
+ * Behaves like a {@link LinkedHashMap}, except immutable, and we automatically
+ * know the key for each entry: its {@link Entity#id}.
+ *
+ * <p>
+ * Because a <code>Catalog</code> <em>contains</em> its entries, a {@link org.vena.bosk.Bosk.ReadContext}
+ * is not required to access them.
  *
  * @author pdoyle
  *
- * @param <E>
  */
 @RequiredArgsConstructor(access=PROTECTED)
 @EqualsAndHashCode

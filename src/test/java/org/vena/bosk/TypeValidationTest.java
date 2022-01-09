@@ -3,6 +3,7 @@ package org.vena.bosk;
 import java.util.ArrayList;
 import java.util.Optional;
 import lombok.AccessLevel;
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Value;
@@ -26,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
+@SuppressWarnings("unused") // The classes here are for type analysis, not to be instantiated and used
 class TypeValidationTest {
 
 	@ParameterizedTest
@@ -118,7 +120,7 @@ class TypeValidationTest {
 	//
 
 	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
-	public static final class Primitives extends Entity {
+	public static final class Primitives implements Entity {
 		Identifier id;
 		boolean booleanPrimitive;
 		byte bytePrimitive;
@@ -137,7 +139,7 @@ class TypeValidationTest {
 	}
 
 	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
-	public static final class SimpleTypes extends Entity {
+	public static final class SimpleTypes implements Entity {
 		Identifier id;
 		String string;
 		MyEnum myEnum;
@@ -148,7 +150,7 @@ class TypeValidationTest {
 	}
 
 	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
-	public static final class BoskyTypes extends Entity {
+	public static final class BoskyTypes implements Entity {
 		Identifier id;
 		Reference<SimpleTypes> ref;
 		Optional<SimpleTypes> optional;
@@ -163,15 +165,16 @@ class TypeValidationTest {
 	}
 
 	@Value @Accessors(fluent=true)
-	public static class ValueStruct implements ConfigurationNode {
+	public static class ValueStruct implements StateTreeNode {
 		String string;
 		ListValue<String> innerList;
 	}
 
+	@EqualsAndHashCode(callSuper = true)
 	public static final class ListValueSubclass extends ListValue<String> {
 		final String extraField;
 
-		protected ListValueSubclass(String[] entries) {
+		ListValueSubclass(String[] entries) {
 			super(entries);
 			this.extraField = "Hello";
 		}
@@ -183,7 +186,7 @@ class TypeValidationTest {
 	}
 
 	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
-	public static final class AllowedFieldNames extends Entity {
+	public static final class AllowedFieldNames implements Entity {
 		Identifier id;
 		int justLetters;
 		int someNumbers4U2C;
@@ -191,16 +194,16 @@ class TypeValidationTest {
 	}
 
 	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true)
-	public static final class ImplicitReferences_onConstructorParameters extends Entity {
+	public static final class ImplicitReferences_onConstructorParameters implements Entity {
 		Identifier id;
 		Reference<ImplicitReferences_onConstructorParameters> selfRef;
-		Reference<ConfigurationNode> selfSupertype;
+		Reference<StateTreeNode> selfSupertype;
 		Reference<ImplicitReferences_onConstructorParameters> enclosingRef;
 
 		public ImplicitReferences_onConstructorParameters(
 			Identifier id,
 			@Self Reference<ImplicitReferences_onConstructorParameters> selfRef,
-			@Self Reference<ConfigurationNode> selfSupertype,
+			@Self Reference<StateTreeNode> selfSupertype,
 			@Enclosing Reference<ImplicitReferences_onConstructorParameters> enclosingRef
 		) {
 			this.id = id;
@@ -212,21 +215,21 @@ class TypeValidationTest {
 
 	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true)
 	@RequiredArgsConstructor
-	public static final class ImplicitReferences_onFields extends Entity {
+	public static final class ImplicitReferences_onFields implements Entity {
 		Identifier id;
 		@Self Reference<ImplicitReferences_onFields> selfRef;
-		@Self Reference<ConfigurationNode> selfSupertype;
+		@Self Reference<StateTreeNode> selfSupertype;
 		@Enclosing Reference<ImplicitReferences_onFields> enclosingRef;
 	}
 
 	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
-	public static final class MissingConstructorArgument extends Entity {
+	public static final class MissingConstructorArgument implements Entity {
 		Identifier id;
 		String field = "fieldValue";
 	}
 
 	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
-	public static final class ExtraConstructor extends Entity {
+	public static final class ExtraConstructor implements Entity {
 		Identifier id;
 
 		public ExtraConstructor(String extra) {
@@ -239,7 +242,7 @@ class TypeValidationTest {
 	}
 
 	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true)
-	public static final class ExtraConstructorArgument extends Entity {
+	public static final class ExtraConstructorArgument implements Entity {
 		Identifier id;
 
 		public ExtraConstructorArgument(Identifier id, String extra) {
@@ -257,7 +260,7 @@ class TypeValidationTest {
 	}
 
 	@Accessors(fluent=true) @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
-	public static final class GetterHasParameter extends Entity {
+	public static final class GetterHasParameter implements Entity {
 		Identifier id;
 		String field;
 
@@ -271,7 +274,7 @@ class TypeValidationTest {
 	}
 
 	@Accessors(fluent=true) @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
-	public static final class GetterReturnsWrongType extends Entity {
+	public static final class GetterReturnsWrongType implements Entity {
 		Identifier id;
 		String field;
 
@@ -284,7 +287,7 @@ class TypeValidationTest {
 	}
 
 	@Accessors(fluent=true) @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
-	public static final class GetterReturnsSupertype extends Entity {
+	public static final class GetterReturnsSupertype implements Entity {
 		Identifier id;
 		Integer field;
 
@@ -297,7 +300,7 @@ class TypeValidationTest {
 	}
 
 	@Accessors(fluent=true) @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
-	public static final class GetterReturnsSubtype extends Entity {
+	public static final class GetterReturnsSubtype implements Entity {
 		Identifier id;
 		Number field;
 
@@ -310,7 +313,7 @@ class TypeValidationTest {
 	}
 
 	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE) @RequiredArgsConstructor
-	public static class MutableField extends Entity {
+	public static class MutableField implements Entity {
 		Identifier id;
 
 		public static void testException(InvalidTypeException e) {
@@ -326,7 +329,7 @@ class TypeValidationTest {
 	}
 
 	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
-	public static final class NestedError extends Entity {
+	public static final class NestedError implements Entity {
 		Identifier id;
 		GetterReturnsWrongType field;
 
@@ -337,7 +340,7 @@ class TypeValidationTest {
 	}
 
 	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
-	public static final class ArrayField extends Entity {
+	public static final class ArrayField implements Entity {
 		Identifier id;
 		String[] strings;
 
@@ -348,7 +351,7 @@ class TypeValidationTest {
 	}
 
 	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
-	public static final class ReferenceToInvalidType extends Entity {
+	public static final class ReferenceToInvalidType implements Entity {
 		Identifier id;
 		Reference<ArrayField> ref;
 
@@ -358,7 +361,7 @@ class TypeValidationTest {
 	}
 
 	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
-	public static final class CatalogOfInvalidType extends Entity {
+	public static final class CatalogOfInvalidType implements Entity {
 		Identifier id;
 		Catalog<ArrayField> catalog;
 
@@ -368,7 +371,7 @@ class TypeValidationTest {
 	}
 
 	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
-	public static final class ListingOfInvalidType extends Entity {
+	public static final class ListingOfInvalidType implements Entity {
 		Identifier id;
 		Listing<ArrayField> listing;
 
@@ -378,7 +381,7 @@ class TypeValidationTest {
 	}
 
 	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
-	public static final class OptionalOfInvalidType extends Entity {
+	public static final class OptionalOfInvalidType implements Entity {
 		Identifier id;
 		Optional<ArrayField> optional;
 
@@ -388,7 +391,7 @@ class TypeValidationTest {
 	}
 
 	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
-	public static final class MappingWithInvalidKey extends Entity {
+	public static final class MappingWithInvalidKey implements Entity {
 		Identifier id;
 		Mapping<ArrayField,String> mapping;
 
@@ -398,7 +401,7 @@ class TypeValidationTest {
 	}
 
 	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
-	public static final class MappingWithInvalidValue extends Entity {
+	public static final class MappingWithInvalidValue implements Entity {
 		Identifier id;
 		Mapping<SimpleTypes,ArrayField> mapping;
 
@@ -408,7 +411,7 @@ class TypeValidationTest {
 	}
 
 	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
-	public static final class FieldNameWithDollarSign extends Entity {
+	public static final class FieldNameWithDollarSign implements Entity {
 		Identifier id;
 		int weird$name;
 
@@ -418,7 +421,7 @@ class TypeValidationTest {
 	}
 
 	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
-	public static final class FieldNameWithNonAsciiLetters extends Entity {
+	public static final class FieldNameWithNonAsciiLetters implements Entity {
 		Identifier id;
 		int trèsCassé;
 
@@ -428,7 +431,7 @@ class TypeValidationTest {
 	}
 
 	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true)
-	public static final class EnclosingNonReference extends Entity {
+	public static final class EnclosingNonReference implements Entity {
 		Identifier id;
 		String enclosingString;
 
@@ -443,7 +446,7 @@ class TypeValidationTest {
 	}
 
 	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true)
-	public static final class EnclosingReferenceToString extends Entity {
+	public static final class EnclosingReferenceToString implements Entity {
 		Identifier id;
 		Reference<String> enclosingStringReference;
 
@@ -458,7 +461,7 @@ class TypeValidationTest {
 	}
 
 	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true)
-	public static final class EnclosingReferenceToCatalog extends Entity {
+	public static final class EnclosingReferenceToCatalog implements Entity {
 		Identifier id;
 		Reference<Catalog<SimpleTypes>> enclosingCatalogReference;
 
@@ -473,7 +476,7 @@ class TypeValidationTest {
 	}
 
 	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true)
-	public static final class EnclosingReferenceToOptional extends Entity {
+	public static final class EnclosingReferenceToOptional implements Entity {
 		Identifier id;
 		Reference<Optional<SimpleTypes>> enclosingOptionalReference;
 
@@ -488,7 +491,7 @@ class TypeValidationTest {
 	}
 
 	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true)
-	public static final class SelfNonReference extends Entity {
+	public static final class SelfNonReference implements Entity {
 		Identifier id;
 		String str;
 
@@ -503,7 +506,7 @@ class TypeValidationTest {
 	}
 
 	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true)
-	public static final class SelfWrongType extends Entity {
+	public static final class SelfWrongType implements Entity {
 		Identifier id;
 		Reference<SimpleTypes> ref;
 
@@ -518,7 +521,7 @@ class TypeValidationTest {
 	}
 
 	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true)
-	public static class SelfSubtype extends Entity {
+	public static class SelfSubtype implements Entity {
 		Identifier id;
 		Reference<TheSubtype> ref;
 
@@ -540,7 +543,7 @@ class TypeValidationTest {
 
 	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true)
 	@RequiredArgsConstructor
-	public static final class HasDeserializationPath extends Entity {
+	public static final class HasDeserializationPath implements Entity {
 		Identifier id;
 		@DeserializationPath("")
 		SimpleTypes badField;
@@ -552,7 +555,7 @@ class TypeValidationTest {
 
 	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true)
 	@RequiredArgsConstructor
-	public static final class ListValueOfIdentifier extends Entity {
+	public static final class ListValueOfIdentifier implements Entity {
 		Identifier id;
 		ListValue<Identifier> badField;
 
@@ -563,7 +566,7 @@ class TypeValidationTest {
 
 	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true)
 	@RequiredArgsConstructor
-	public static final class ListValueOfReference extends Entity {
+	public static final class ListValueOfReference implements Entity {
 		Identifier id;
 		ListValue<Reference<String>> badField;
 
@@ -574,7 +577,7 @@ class TypeValidationTest {
 
 	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true)
 	@RequiredArgsConstructor
-	public static final class ListValueOfEntity extends Entity {
+	public static final class ListValueOfEntity implements Entity {
 		Identifier id;
 		ListValue<SimpleTypes> badField;
 
@@ -585,7 +588,7 @@ class TypeValidationTest {
 
 	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true)
 	@RequiredArgsConstructor
-	public static final class ListValueOfOptional extends Entity {
+	public static final class ListValueOfOptional implements Entity {
 		Identifier id;
 		ListValue<Optional<SimpleTypes>> badField;
 
@@ -596,7 +599,7 @@ class TypeValidationTest {
 
 	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true)
 	@RequiredArgsConstructor
-	public static final class ListValueInvalidSubclass extends Entity {
+	public static final class ListValueInvalidSubclass implements Entity {
 		Identifier id;
 		InvalidSubclass badField;
 
@@ -604,6 +607,7 @@ class TypeValidationTest {
 			assertThat(e.getMessage(), containsString("ListValueInvalidSubclass.badField"));
 		}
 
+		@EqualsAndHashCode(callSuper = true)
 		public static class InvalidSubclass extends ListValue<Identifier> {
 			protected InvalidSubclass(Identifier[] entries) {
 				super(entries);
@@ -613,7 +617,7 @@ class TypeValidationTest {
 
 	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true)
 	@RequiredArgsConstructor
-	public static final class ListValueMutableSubclass extends Entity {
+	public static final class ListValueMutableSubclass implements Entity {
 		Identifier id;
 		MutableSubclass badField;
 
@@ -622,6 +626,7 @@ class TypeValidationTest {
 			assertThat(e.getMessage(), containsString("MutableSubclass.mutableField"));
 		}
 
+		@EqualsAndHashCode(callSuper = true)
 		public static class MutableSubclass extends ListValue<String> {
 			String mutableField;
 
@@ -634,7 +639,7 @@ class TypeValidationTest {
 
 	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true)
 	@RequiredArgsConstructor
-	public static final class ListValueOfInvalidType extends Entity {
+	public static final class ListValueOfInvalidType implements Entity {
 		Identifier id;
 		ListValue<ArrayList<Object>> badField;
 
@@ -645,15 +650,16 @@ class TypeValidationTest {
 
 	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true)
 	@RequiredArgsConstructor
-	public static final class ListValueSubclassWithMutableField extends Entity {
+	public static final class ListValueSubclassWithMutableField implements Entity {
 		Identifier id;
 		Subclass badField;
 
 		@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE)
+		@EqualsAndHashCode(callSuper = true)
 		public static final class Subclass extends ListValue<String> {
 			int mutableField;
 
-			protected Subclass(String[] entries) {
+			Subclass(String[] entries) {
 				super(entries);
 			}
 		}
@@ -666,16 +672,17 @@ class TypeValidationTest {
 
 	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true)
 	@RequiredArgsConstructor
-	public static final class ListValueSubclassWithTwoConstructors extends Entity {
+	public static final class ListValueSubclassWithTwoConstructors implements Entity {
 		Identifier id;
 		Subclass badField;
 
 		@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE)
+		@EqualsAndHashCode(callSuper = true)
 		public static final class Subclass extends ListValue<String> {
-			protected Subclass(String[] entries) {
+			Subclass(String[] entries) {
 				super(entries);
 			}
-			protected Subclass() {
+			Subclass() {
 				super(new String[]{"Hello"});
 			}
 		}
@@ -689,13 +696,14 @@ class TypeValidationTest {
 
 	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true)
 	@RequiredArgsConstructor
-	public static final class ListValueSubclassWithWrongConstructor extends Entity {
+	public static final class ListValueSubclassWithWrongConstructor implements Entity {
 		Identifier id;
 		Subclass badField;
 
 		@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE)
+		@EqualsAndHashCode(callSuper = true)
 		public static final class Subclass extends ListValue<String> {
-			protected Subclass() {
+			Subclass() {
 				super(new String[]{"Hello"});
 			}
 		}
@@ -710,7 +718,7 @@ class TypeValidationTest {
 	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true)
 	@RequiredArgsConstructor
 	@DerivedRecord
-	public static final class DerivedRecordType extends Entity {
+	public static final class DerivedRecordType implements Entity {
 		Identifier id;
 
 		public static void testException(InvalidTypeException e) {
@@ -720,7 +728,7 @@ class TypeValidationTest {
 
 	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true)
 	@RequiredArgsConstructor
-	public static final class DerivedRecordField extends Entity {
+	public static final class DerivedRecordField implements Entity {
 		Identifier id;
 		DerivedRecordType badField;
 
@@ -732,7 +740,7 @@ class TypeValidationTest {
 
 	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true)
 	@RequiredArgsConstructor
-	public static final class ReferenceToReference extends Entity {
+	public static final class ReferenceToReference implements Entity {
 		Identifier id;
 		Reference<Reference<String>> ref;
 
@@ -743,7 +751,7 @@ class TypeValidationTest {
 
 	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true)
 	@RequiredArgsConstructor
-	public static final class ReferenceWithMutableField extends Entity {
+	public static final class ReferenceWithMutableField implements Entity {
 		Identifier id;
 		BadReferenceSubclass ref;
 
@@ -758,14 +766,14 @@ class TypeValidationTest {
 	}
 
 	/**
-	 * Catches a case of overexuberant memoization we were doing, where we'd
+	 * Catches a case of over-exuberant memoization we were doing, where we'd
 	 * only validate each class once.
 	 *
 	 * @author Patrick Doyle
 	 */
 	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true)
 	@RequiredArgsConstructor
-	public static final class ValidThenInvalidOfTheSameClass extends Entity {
+	public static final class ValidThenInvalidOfTheSameClass implements Entity {
 		Identifier id;
 		ListValue<String> good;
 		ListValue<Identifier> bad;

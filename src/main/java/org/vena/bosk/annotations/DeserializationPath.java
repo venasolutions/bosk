@@ -4,20 +4,21 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 import org.vena.bosk.SerializationPlugin;
 import org.vena.bosk.SerializationPlugin.DeserializationScope;
+import org.vena.bosk.StateTreeNode;
 
 import static java.lang.annotation.ElementType.FIELD;
 import static java.lang.annotation.ElementType.PARAMETER;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
 
 /**
- * On a {@link org.vena.bosk.ConfigurationNode} field, indicates that implicit references
+ * On a {@link StateTreeNode} field, indicates that implicit references
  * enclosed by that field should be constructed using the supplied path string as a prefix.
  *
  * <p>
  * For example:
  *
  * <pre>
- *     public class MyDTO implements ConfigurationNode {
+ *     public class MyDTO implements StateTreeNode {
  *        &#64DeserializationPath("a/b/c")
  *        MyObject field;
  *     }

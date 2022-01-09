@@ -16,16 +16,15 @@ import org.vena.bosk.Bosk;
 import org.vena.bosk.BoskDriver;
 import org.vena.bosk.Catalog;
 import org.vena.bosk.CatalogReference;
-import org.vena.bosk.ConfigurationNode;
 import org.vena.bosk.Entity;
 import org.vena.bosk.Identifier;
 import org.vena.bosk.ListValue;
 import org.vena.bosk.Listing;
-import org.vena.bosk.ListingEntry;
 import org.vena.bosk.MapValue;
 import org.vena.bosk.Mapping;
 import org.vena.bosk.Path;
 import org.vena.bosk.Reference;
+import org.vena.bosk.StateTreeNode;
 import org.vena.bosk.exceptions.InvalidTypeException;
 
 import static java.lang.Thread.currentThread;
@@ -36,20 +35,11 @@ public class AbstractDriverTest {
 	protected final Identifier rootID = Identifier.from("root");
 	protected final Identifier child1ID = Identifier.from("child1");
 	protected final Identifier child2ID = Identifier.from("child2");
-	protected final Identifier grandchild11ID = Identifier.from("grandchild11");
-	protected final Identifier grandchild12ID = Identifier.from("grandchild12");
 	protected Bosk<TestEntity> canonicalBosk;
 	protected Bosk<TestEntity> bosk;
 	protected BoskDriver<TestEntity> driver;
-	protected TestEntity initialRoot;
-	protected Reference<TestEntity> anyChild;
-	protected Reference<TestEntity> anyGrandchild;
-	protected CatalogReference<TestEntity> anyChildCatalog;
-	protected CatalogReference<TestEntity> anyGrandchildCatalog;
-	private Reference<ListingEntry> anyListingEntry;
-	private Reference<TestEntity> anyMappingEntry;
 
-	protected void setupBosksAndReferences(BiFunction<BoskDriver<TestEntity>, Bosk<TestEntity>, BoskDriver<TestEntity>> driverFactory) throws InvalidTypeException {
+	protected void setupBosksAndReferences(BiFunction<BoskDriver<TestEntity>, Bosk<TestEntity>, BoskDriver<TestEntity>> driverFactory) {
 		// This is the bosk whose behaviour we'll consider to be correct by definition
 		canonicalBosk = new Bosk<TestEntity>("Canonical bosk", TestEntity.class, this::initialRoot, Bosk::simpleDriver);
 
@@ -59,23 +49,6 @@ public class AbstractDriverTest {
 			driverFactory.apply(d, b)
 		)));
 		driver = bosk.driver();
-
-		anyChild = bosk.reference(TestEntity.class, Path.of(
-			TestEntity.Fields.catalog, "-child-"));
-		anyGrandchild = bosk.reference(TestEntity.class, Path.of(
-			TestEntity.Fields.catalog, "-child-", TestEntity.Fields.catalog, "-grandchild-"));
-		anyChildCatalog = bosk.catalogReference(TestEntity.class, Path.of(
-			TestEntity.Fields.catalog, "-child-", TestEntity.Fields.catalog));
-		anyGrandchildCatalog = bosk.catalogReference(TestEntity.class, Path.of(
-			TestEntity.Fields.catalog, "-child-", TestEntity.Fields.catalog, "-grandchild-", TestEntity.Fields.catalog));
-		anyListingEntry = bosk.reference(ListingEntry.class, Path.of(
-			TestEntity.Fields.listing, "-entity-"));
-		anyMappingEntry = bosk.reference(TestEntity.class, Path.of(
-			TestEntity.Fields.mapping, "-entity-"));
-
-		try (@SuppressWarnings("unused") Bosk<TestEntity>.ReadContext context = bosk.readContext()) {
-			initialRoot = bosk.rootReference().value();
-		}
 	}
 
 	@Nonnull
@@ -137,7 +110,7 @@ public class AbstractDriverTest {
 	@Accessors(fluent=true) @Getter @With
 	@FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
 	@FieldNameConstants
-	public static class TestEntity extends Entity {
+	public static class TestEntity implements Entity {
 		Identifier id;
 		String string;
 		Catalog<TestEntity> catalog;
@@ -154,16 +127,13 @@ public class AbstractDriverTest {
 				Optional.empty());
 		}
 
-		public TestEntity withChild(TestEntity child) {
-			return this.withCatalog(catalog.with(child));
-		}
 	}
 
 	@EqualsAndHashCode(callSuper=false) @ToString
 	@Accessors(fluent=true) @Getter @With
 	@FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
 	@FieldNameConstants
-	public static class TestValues implements ConfigurationNode {
+	public static class TestValues implements StateTreeNode {
 		String string;
 		ListValue<String> list;
 		MapValue<String> map;

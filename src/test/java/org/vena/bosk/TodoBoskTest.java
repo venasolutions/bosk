@@ -223,7 +223,7 @@ public class TodoBoskTest extends AbstractRoundTripTest {
 	@With
 	@FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true)
 	@RequiredArgsConstructor
-	public static class TodoList extends Entity {
+	public static class TodoList implements Entity {
 		Identifier id;
 		Catalog<TodoItem> items;
 		Optional<MoreInfo> moreInfo;
@@ -234,7 +234,7 @@ public class TodoBoskTest extends AbstractRoundTripTest {
 	@With
 	@FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true)
 	@RequiredArgsConstructor
-	public static class TodoItem extends Entity {
+	public static class TodoItem implements Entity {
 		Identifier id;
 		String description;
 		Status status;
@@ -250,7 +250,7 @@ public class TodoBoskTest extends AbstractRoundTripTest {
 	@RequiredArgsConstructor
 	@EqualsAndHashCode
 	@ToString
-	public static class MoreInfo implements ConfigurationNode {
+	public static class MoreInfo implements StateTreeNode {
 		String remark;
 		Mapping<TodoItem,String> owners;
 		ListValue<String> externalTickets;

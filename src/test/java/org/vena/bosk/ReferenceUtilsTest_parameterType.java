@@ -17,6 +17,7 @@ class ReferenceUtilsTest_parameterType {
 
 	@Test
 	void testDirectClassParameters() throws SecurityException {
+		@SuppressWarnings("unused")
 		abstract class BinaryClass<T0,T1> {}
 		Type type = new BinaryClass<String,Integer>() {}.getClass().getGenericSuperclass();
 		checkStringAndIntegerParameters(type, BinaryClass.class);
@@ -24,6 +25,7 @@ class ReferenceUtilsTest_parameterType {
 
 	@Test
 	void testExtendedClassConcrete() throws SecurityException {
+		@SuppressWarnings("unused")
 		abstract class BinaryClass<T0,T1> {}
 
 		// BinaryClass parameters are concrete types
@@ -50,6 +52,7 @@ class ReferenceUtilsTest_parameterType {
 
 	@Test
 	void testExtendedClassVariable() throws SecurityException {
+		@SuppressWarnings("unused")
 		abstract class BinaryClass<T0,T1> {}
 
 		// BinaryClass parameters are type variables
@@ -76,6 +79,7 @@ class ReferenceUtilsTest_parameterType {
 
 	@Test
 	void testExtendedClassSwitcheroo() throws SecurityException {
+		@SuppressWarnings("unused")
 		abstract class BinaryClass<T0,T1> {}
 
 		// Type parameters are reversed
@@ -95,8 +99,10 @@ class ReferenceUtilsTest_parameterType {
 
 	// Can't declare method-local interfaces
 
-	interface UnaryInterface<T0> {}
+	@SuppressWarnings("unused") // Type parameters T0 and T1 aren't used, but that's ok
 	interface BinaryInterface<T0,T1> {}
+
 	interface ConcreteSub extends BinaryInterface<String, Integer> {}
+
 	interface VariableSub<T0,T1> extends BinaryInterface<T0, T1> {}
 }

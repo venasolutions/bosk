@@ -77,8 +77,8 @@ public final class GsonPlugin extends SerializationPlugin {
 					return listingEntryAdapter();
 				} else if (Mapping.class.isAssignableFrom(theClass)) {
 					return mappingAdapter(gson, typeToken);
-				} else if (ConfigurationNode.class.isAssignableFrom(theClass)) {
-					return configurationNodeAdapter(gson, typeToken, bosk);
+				} else if (StateTreeNode.class.isAssignableFrom(theClass)) {
+					return stateTreeNodeAdapter(gson, typeToken, bosk);
 				} else if (Optional.class.isAssignableFrom(theClass)) {
 					// Optional.empty() can't be serialized on its own because the field name itself must also be omitted
 					throw new IllegalArgumentException("Cannot serialize an Optional on its own; only as a field of another object");
@@ -510,8 +510,8 @@ public final class GsonPlugin extends SerializationPlugin {
 		};
 	}
 
-	<N extends ConfigurationNode> TypeAdapter<N> configurationNodeAdapter(Gson gson, TypeToken<N> typeToken, Bosk<?> bosk) {
-		ConfigurationNodeFieldModerator moderator = new ConfigurationNodeFieldModerator(typeToken.getType());
+	<N extends StateTreeNode> TypeAdapter<N> stateTreeNodeAdapter(Gson gson, TypeToken<N> typeToken, Bosk<?> bosk) {
+		StateTreeNodeFieldModerator moderator = new StateTreeNodeFieldModerator(typeToken.getType());
 		return compiler.compiled(typeToken, bosk, gson, moderator);
 	}
 
@@ -602,7 +602,7 @@ public final class GsonPlugin extends SerializationPlugin {
 	 * @author Patrick Doyle
 	 */
 	@Value
-	private static class ConfigurationNodeFieldModerator implements FieldModerator {
+	private static class StateTreeNodeFieldModerator implements FieldModerator {
 		Type nodeType;
 
 		@Override
