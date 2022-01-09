@@ -138,9 +138,9 @@ public final class BsonPlugin extends SerializationPlugin {
 			return enumCodec(targetClass);
 		} else if (Listing.class.isAssignableFrom(targetClass)) {
 			return listingCodec(targetClass, registry);
-		} else if (ConfigurationNode.class.isAssignableFrom(targetClass)) {
-			// TODO: What about generic configuration nodes?
-			return configurationNodeCodec(targetClass, registry, bosk);
+		} else if (StateTreeNode.class.isAssignableFrom(targetClass)) {
+			// TODO: What about generic node classes?
+			return stateTreeNodeCodec(targetClass, registry, bosk);
 		} else if (Catalog.class.isAssignableFrom(targetClass)) {
 			return catalogCodec(targetType, targetClass, registry, bosk);
 		} else if (Mapping.class.isAssignableFrom(targetClass)) {
@@ -385,7 +385,7 @@ public final class BsonPlugin extends SerializationPlugin {
 		};
 	}
 
-	private <T extends ConfigurationNode, R extends Entity> Codec<T> configurationNodeCodec(Class<T> nodeClass, CodecRegistry registry, Bosk<R> bosk) {
+	private <T extends StateTreeNode, R extends Entity> Codec<T> stateTreeNodeCodec(Class<T> nodeClass, CodecRegistry registry, Bosk<R> bosk) {
 		// Pre-compute some reflection-based stuff
 		//
 		Constructor<?> constructor = theOnlyConstructorFor(nodeClass);
@@ -543,7 +543,7 @@ public final class BsonPlugin extends SerializationPlugin {
 	/**
 	 * @return Map not necessarily in any particular order; caller is expected to apply any desired ordering.
 	 */
-	private <R extends Entity> Map<String, Object> gatherParameterValuesByName(Class<? extends ConfigurationNode> nodeClass, Map<String, Parameter> parametersByName, BsonReader reader, DecoderContext decoderContext, CodecRegistry registry, Bosk<R> bosk) {
+	private <R extends Entity> Map<String, Object> gatherParameterValuesByName(Class<? extends StateTreeNode> nodeClass, Map<String, Parameter> parametersByName, BsonReader reader, DecoderContext decoderContext, CodecRegistry registry, Bosk<R> bosk) {
 		Map<String, Object> parameterValuesByName = new HashMap<>();
 		while (reader.readBsonType() != BsonType.END_OF_DOCUMENT) {
 			String fieldName = reader.readName();
@@ -575,7 +575,7 @@ public final class BsonPlugin extends SerializationPlugin {
 		return value;
 	}
 
-	private <T extends ConfigurationNode, R extends Entity> MethodHandle computeAllFieldsWriterHandle(Class<T> nodeClass, Map<String, Parameter> parametersByName, CodecRegistry codecRegistry, Bosk<R> bosk) {
+	private <T extends StateTreeNode, R extends Entity> MethodHandle computeAllFieldsWriterHandle(Class<T> nodeClass, Map<String, Parameter> parametersByName, CodecRegistry codecRegistry, Bosk<R> bosk) {
 		MethodHandle handleUnderConstruction = writeNothingHandle(nodeClass);
 		for (Entry<String, Parameter> e: parametersByName.entrySet()) {
 			// Here, handleUnderConstruction has args (N,W,E)

@@ -45,7 +45,7 @@ class CatalogTest {
 	@Getter
 	@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 	@RequiredArgsConstructor
-	private static class BasicEntity extends Entity {
+	private static class BasicEntity implements Entity {
 		Identifier id;
 	}
 

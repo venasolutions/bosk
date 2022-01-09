@@ -14,7 +14,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.Value;
 import lombok.experimental.Accessors;
 import org.vena.bosk.Catalog;
-import org.vena.bosk.ConfigurationNode;
 import org.vena.bosk.Entity;
 import org.vena.bosk.Identifier;
 import org.vena.bosk.Listing;
@@ -23,6 +22,7 @@ import org.vena.bosk.Mapping;
 import org.vena.bosk.Path;
 import org.vena.bosk.Phantom;
 import org.vena.bosk.Reference;
+import org.vena.bosk.StateTreeNode;
 import org.vena.bosk.bytecode.LocalVariable;
 import org.vena.bosk.exceptions.InvalidTypeException;
 import org.vena.bosk.exceptions.TunneledCheckedException;
@@ -162,7 +162,7 @@ public final class PathCompiler {
 				return new ListingEntryStep(segmentNum);
 			} else if (Mapping.class.isAssignableFrom(currentClass)) {
 				return new MappingEntryStep(parameterType(currentType, Mapping.class, 1), segmentNum);
-			} else if (ConfigurationNode.class.isAssignableFrom(currentClass)) {
+			} else if (StateTreeNode.class.isAssignableFrom(currentClass)) {
 				if (Path.isParameterSegment(segment)) {
 					throw new InvalidTypeException("Invalid parameter location: expected a field of " + currentClass.getSimpleName());
 				}

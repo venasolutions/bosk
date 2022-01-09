@@ -39,7 +39,7 @@ public final class TypeValidation {
 
 	public static void validateType(Type rootType) throws InvalidTypeException {
 		Class<?> rootClass = rawClass(rootType);
-		if (!Entity.class.isAssignableFrom(rootClass)) { // pdoyle - I see this becoming ConfigurationNode in our near future
+		if (!Entity.class.isAssignableFrom(rootClass)) { // pdoyle - I see this becoming StateTreeNode in our near future
 			throw new InvalidTypeException("Bosk root type must be an Entity; " + rootClass.getSimpleName() + " is not an Entity");
 		}
 		validateType(rootType, newSetFromMap(new IdentityHashMap<>()));
@@ -75,8 +75,8 @@ public final class TypeValidation {
 				if (Modifier.isFinal(targetClass.getModifiers())) {
 					validateType(targetType, alreadyValidated);
 				}
-			} else if (ConfigurationNode.class.isAssignableFrom(theClass)) {
-				validateConfigurationNodeClass(theClass, alreadyValidated);
+			} else if (StateTreeNode.class.isAssignableFrom(theClass)) {
+				validateStateTreeNodeClass(theClass, alreadyValidated);
 			} else if (ListValue.class.isAssignableFrom(theClass) || MapValue.class.isAssignableFrom(theClass)) {
 				validateFieldsAreFinal(theClass);
 				Class<?> genericClass = ListValue.class.isAssignableFrom(theClass) ? ListValue.class : MapValue.class;
@@ -138,7 +138,7 @@ public final class TypeValidation {
 		return false;
 	}
 
-	private static void validateConfigurationNodeClass(Class<?> nodeClass, Set<Type> alreadyValidated) throws InvalidTypeException {
+	private static void validateStateTreeNodeClass(Class<?> nodeClass, Set<Type> alreadyValidated) throws InvalidTypeException {
 		Constructor<?>[] constructors = nodeClass.getConstructors();
 		if (constructors.length != 1) {
 			throw new InvalidTypeException(nodeClass.getSimpleName() + " must have one constructor; found " + constructors.length + " constructors");

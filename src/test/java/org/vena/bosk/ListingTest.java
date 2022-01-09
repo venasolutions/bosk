@@ -93,7 +93,7 @@ class ListingTest {
 	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
 	@FieldNameConstants
 	@EqualsAndHashCode(callSuper = false) // handy for testing
-	public static class TestEntity extends Entity {
+	public static class TestEntity implements Entity {
 		Identifier id;
 		@EqualsAndHashCode.Exclude Catalog<TestEntity> children;
 	}

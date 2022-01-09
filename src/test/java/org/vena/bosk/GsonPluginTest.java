@@ -247,7 +247,7 @@ class GsonPluginTest extends AbstractBoskTest {
 	 * Exercise the type-parameter handling a bit
 	 */
 	@Value @Accessors(fluent = true)
-	private static class NodeWithGenerics<A,B> implements ConfigurationNode {
+	private static class NodeWithGenerics<A,B> implements StateTreeNode {
 		ListValue<A> listOfA;
 		ListValue<B> listOfB;
 	}
@@ -297,7 +297,7 @@ class GsonPluginTest extends AbstractBoskTest {
 	 * Should be serialized the same as {@link ActualBasic}.
 	 */
 	@RequiredArgsConstructor @Getter @Accessors(fluent = true)
-	public static class ExpectedBasic implements ConfigurationNode {
+	public static class ExpectedBasic implements StateTreeNode {
 		final Reference<ImplicitRefs> entity;
 		final String nonEntity;
 		final Reference<ImplicitRefs> optionalEntity;
@@ -379,7 +379,7 @@ class GsonPluginTest extends AbstractBoskTest {
 	@Value
 	@Accessors(fluent = true)
 	@FieldNameConstants
-	public static class DeserializationPathContainer implements ConfigurationNode {
+	public static class DeserializationPathContainer implements StateTreeNode {
 		@DeserializationPath("/entities/-entity1-/implicitRefs")
 		ImplicitRefs firstField;
 
@@ -533,7 +533,7 @@ class GsonPluginTest extends AbstractBoskTest {
 
 	@Value
 	@Accessors(fluent = true)
-	public static class WrongType implements ConfigurationNode {
+	public static class WrongType implements StateTreeNode {
 		@DeserializationPath("/entities/123/string")
 		ImplicitRefs notAString;
 	}
@@ -547,7 +547,7 @@ class GsonPluginTest extends AbstractBoskTest {
 
 	@Value
 	@Accessors(fluent = true)
-	public static class EntityParameter implements ConfigurationNode {
+	public static class EntityParameter implements StateTreeNode {
 		@DeserializationPath("/entities/-entity-")
 		ImplicitRefs field;
 	}
@@ -561,7 +561,7 @@ class GsonPluginTest extends AbstractBoskTest {
 
 	@Value
 	@Accessors(fluent = true)
-	public static class MalformedPath implements ConfigurationNode {
+	public static class MalformedPath implements StateTreeNode {
 		@DeserializationPath("/malformed////path")
 		ImplicitRefs field;
 	}
@@ -575,7 +575,7 @@ class GsonPluginTest extends AbstractBoskTest {
 
 	@Value
 	@Accessors(fluent = true)
-	public static class NonexistentPath implements ConfigurationNode {
+	public static class NonexistentPath implements StateTreeNode {
 		@DeserializationPath("/nonexistent/path")
 		ImplicitRefs field;
 	}

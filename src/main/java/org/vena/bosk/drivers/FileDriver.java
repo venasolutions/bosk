@@ -49,6 +49,9 @@ public final class FileDriver<R extends Entity> implements BoskDriver<R> {
 		try {
 			watchService = FileSystems.getDefault().newWatchService();
 			Path dir = file.getParent();
+			if (dir == null) {
+				throw new IllegalArgumentException("File has no parent directory: " + file);
+			}
 			dir.register(watchService, ENTRY_CREATE, ENTRY_MODIFY);
 		} catch (IOException e) {
 			throw new NotYetImplementedException(e);

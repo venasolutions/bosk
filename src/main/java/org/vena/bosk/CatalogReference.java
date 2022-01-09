@@ -6,6 +6,11 @@ import static java.util.Arrays.asList;
 import static org.vena.bosk.ReferenceUtils.parameterType;
 import static org.vena.bosk.ReferenceUtils.rawClass;
 
+/**
+ * A convenience interface equivalent to <code>Reference&lt;Catalog&lt;E>></code>
+ * but avoids throwing {@link InvalidTypeException} from some methods that are known
+ * to be type-safe, like {@link #then(Identifier) then}.
+ */
 public interface CatalogReference<E extends Entity> extends Reference<Catalog<E>> {
 	Reference<E> then(Identifier id);
 	Class<E> entryClass();

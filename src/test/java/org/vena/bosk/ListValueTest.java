@@ -1,6 +1,7 @@
 package org.vena.bosk;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.ListIterator;
@@ -14,7 +15,7 @@ import org.junit.jupiter.params.provider.ArgumentsProvider;
 import org.junit.jupiter.params.provider.ArgumentsSource;
 
 import static java.util.Arrays.asList;
-import static java.util.Collections.emptyList;
+import static java.util.Collections.singletonList;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -87,13 +88,13 @@ class ListValueTest {
 
 	private void checkIterators(Iterator<String> expected, Iterator<String> actual) {
 		while (expected.hasNext()) {
-			assertEquals(expected.hasNext(), actual.hasNext());
+			assertTrue(actual.hasNext());
 			String a = actual.next();
 			String e = expected.next();
 			assertSame(a, e);
-			assertThrows(UnsupportedOperationException.class, ()->actual.remove());
+			assertThrows(UnsupportedOperationException.class, actual::remove);
 		}
-		assertThrows(NoSuchElementException.class, ()->actual.next());
+		assertThrows(NoSuchElementException.class, actual::next);
 		assertEquals(expected.hasNext(), actual.hasNext());
 	}
 
@@ -103,11 +104,11 @@ class ListValueTest {
 			String a = actual.next();
 			String e = expected.next();
 			assertSame(a, e);
-			assertThrows(UnsupportedOperationException.class, ()->actual.remove());
+			assertThrows(UnsupportedOperationException.class, actual::remove);
 			assertThrows(UnsupportedOperationException.class, ()->actual.set("x"));
 			assertThrows(UnsupportedOperationException.class, ()->actual.add("x"));
 		}
-		assertThrows(NoSuchElementException.class, ()->actual.next());
+		assertThrows(NoSuchElementException.class, actual::next);
 		checkListIteratorState(expected, actual);
 		while (expected.hasPrevious()) {
 			checkListIteratorState(expected, actual);
@@ -116,7 +117,7 @@ class ListValueTest {
 			assertSame(a, e);
 		}
 		checkListIteratorState(expected, actual);
-		assertThrows(NoSuchElementException.class, ()->actual.previous());
+		assertThrows(NoSuchElementException.class, actual::previous);
 	}
 
 	private void checkListIteratorState(ListIterator<String> expected, ListIterator<String> actual) {
@@ -166,22 +167,22 @@ class ListValueTest {
 
 	@Test
 	void testAddAllCollectionOfQextendsT() {
-		assertThrows(UnsupportedOperationException.class, ()->ListValue.of("a").addAll(asList("b")));
+		assertThrows(UnsupportedOperationException.class, ()->ListValue.of("a").addAll(singletonList("b")));
 	}
 
 	@Test
 	void testAddAllIntCollectionOfQextendsT() {
-		assertThrows(UnsupportedOperationException.class, ()->ListValue.of("a").addAll(0, asList("b")));
+		assertThrows(UnsupportedOperationException.class, ()->ListValue.of("a").addAll(0, singletonList("b")));
 	}
 
 	@Test
 	void testRemoveAll() {
-		assertThrows(UnsupportedOperationException.class, ()->ListValue.of("a").removeAll(asList("a")));
+		assertThrows(UnsupportedOperationException.class, ()->ListValue.of("a").removeAll(singletonList("a")));
 	}
 
 	@Test
 	void testRetainAll() {
-		assertThrows(UnsupportedOperationException.class, ()->ListValue.of("a").retainAll(asList("b")));
+		assertThrows(UnsupportedOperationException.class, ()->ListValue.of("a").retainAll(singletonList("b")));
 	}
 
 	@Test
@@ -225,10 +226,10 @@ class ListValueTest {
 	@ArgumentsSource(ArrayArgumentProvider.class)
 	void testContainsAll(String[] contents) {
 		ListValue<String> actual = ListValue.of(contents);
-		assertTrue(actual.containsAll(emptyList()));
+		assertTrue(actual.containsAll(Collections.<String>emptyList()));
 		assertTrue(actual.containsAll(asList(contents)));
 		assertFalse(actual.containsAll(asList(123L)));
-		assertFalse(actual.containsAll(asList("Some nonexistent string")));
+		assertFalse(actual.containsAll(asList("nonexistent1", "nonexistent2")));
 	}
 
 	@SuppressWarnings("unlikely-arg-type")

@@ -1,21 +1,18 @@
 package org.vena.bosk;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-
 /**
- * Abstract base class for {@link ConfigurationNode}s with an {@link Identifier}
- * that can be used in such structures as {@link Catalog}s and {@link Listing}s.
+ * A {@link StateTreeNode} representing a thing with its own {@link #id() identity}
+ * (as opposed to a mere value) that can reside in a {@link Catalog} and be referenced
+ * by {@link Listing} and {@link Mapping}.
  *
  * <p>
  * <b>Note</b>: In general, an {@link Entity} does not have enough information
  * to determine its "identity", in the sense that it's impossible to tell whether
- * two Java objects represent the same underlying entity. <b>{@link #id()} is not
- * globally unique.</b>
- *
- * <p>
- * For that reason, {@link #hashCode()} and {@link #equals(Object)} throw {@link
- * IllegalArgumentException}. You can override these if you know what you are
- * doing, but it is not recommended outside of test cases.
+ * two Java objects represent the same underlying entity. <b>{@link #id} is not
+ * globally unique.</b> This means you must take special care if you want to use
+ * an {@link Entity} in a context where {@link #hashCode} and {@link #equals}
+ * matter: You very likely <em>do not</em> want these methods to check only
+ * the {@link #id}.
  *
  * <p>
  * If you think you want to create a <code>Set</code> of your entity objects, or
@@ -25,41 +22,18 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * by its location in the document tree. (There is no notion of "moving" an
  * object in a Bosk while retaining its identity.)
  *
+ * <p>
+ * If the entity must be aware of its own identity, consider {@link ReflectiveEntity}.
+ *
+ * @see Catalog
+ * @see ReflectiveEntity
  * @author pdoyle
  */
-public abstract class Entity implements ConfigurationNode {
+public interface Entity extends StateTreeNode {
 	/**
 	 * @return an {@link Identifier} that uniquely identifies this {@link
 	 * Entity} within its containing {@link Catalog}.  Note that this is not
 	 * guaranteed unique outside the scope of the {@link Catalog}.
 	 */
-	public abstract Identifier id();
-
-	@Override
-	public String toString() {
-		return getClass().getSimpleName() + "(" + id() + ")";
-	}
-
-	@Override
-	public int hashCode() {
-		throw notSupported("hashCode");
-	}
-
-	@Override
-	@SuppressFBWarnings(value = "EQ_UNUSUAL", justification = "Yes, it's unusual not to support equals()")
-	public boolean equals(Object obj) {
-		if (this == obj) {
-			// Required to be reflexive by the specification of Object.equals.
-			return true;
-		} else {
-			throw notSupported("equals");
-		}
-	}
-
-	private IllegalArgumentException notSupported(String methodName) {
-		return new IllegalArgumentException(
-				getClass().getSimpleName() + "." + methodName
-				+ " not supported; see `Entity` javadocs for more information");
-	}
-
+	Identifier id();
 }

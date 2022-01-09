@@ -83,7 +83,7 @@ public class ListValue<T> extends AbstractList<T> {
 
 	@Override
 	public final T[] toArray() {
-		return entries.clone();
+		return Arrays.copyOf(entries, entries.length);
 	}
 
 	@Override

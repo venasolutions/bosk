@@ -1,7 +1,14 @@
 package org.vena.bosk;
 
+import org.vena.bosk.exceptions.InvalidTypeException;
+
 import static java.util.Arrays.asList;
 
+/**
+ * A convenience interface equivalent to <code>Reference&lt;Listing&lt;E>></code>
+ * but avoids throwing {@link InvalidTypeException} from some methods that are known
+ * to be type-safe, like {@link #then(Identifier) then}.
+ */
 public interface ListingReference<E extends Entity> extends Reference<Listing<E>> {
 	Reference<ListingEntry> then(Identifier id);
 	default Class<ListingEntry> entryClass() { return ListingEntry.class; }

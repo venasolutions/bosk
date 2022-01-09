@@ -11,7 +11,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.vena.bosk.AbstractBoskTest;
 import org.vena.bosk.Bosk;
-import org.vena.bosk.Bosk.ReadContext;
 import org.vena.bosk.Identifier;
 
 import static java.nio.file.StandardOpenOption.CREATE;
@@ -31,7 +30,8 @@ class FileDriverTest extends AbstractBoskTest {
 
 	@AfterEach
 	void deleteTempFile() {
-		tempFile.delete();
+		boolean deleted = tempFile.delete();
+		assertTrue(deleted);
 	}
 
 	@Test
@@ -123,7 +123,7 @@ class FileDriverTest extends AbstractBoskTest {
 	}
 
 	private TestRoot currentRoot(Bosk<TestRoot> bosk) {
-		try (ReadContext context = bosk.readContext()) {
+		try (@SuppressWarnings("unused") Bosk<?>.ReadContext context = bosk.readContext()) {
 			return bosk.rootReference().value();
 		}
 	}

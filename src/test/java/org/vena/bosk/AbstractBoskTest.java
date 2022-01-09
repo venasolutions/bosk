@@ -6,14 +6,10 @@ import java.lang.reflect.Type;
 import java.util.Optional;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
-import lombok.AccessLevel;
 import lombok.EqualsAndHashCode;
-import lombok.Getter;
-import lombok.RequiredArgsConstructor;
-import lombok.ToString;
+import lombok.Value;
 import lombok.With;
 import lombok.experimental.Accessors;
-import lombok.experimental.FieldDefaults;
 import lombok.experimental.FieldNameConstants;
 import org.vena.bosk.annotations.Enclosing;
 import org.vena.bosk.annotations.Self;
@@ -25,10 +21,12 @@ import static java.util.Arrays.asList;
 public abstract class AbstractBoskTest {
 	public interface DriverFactory<R extends Entity> extends BiFunction<BoskDriver<R>, Bosk<R>, BoskDriver<R>> {}
 
-	@EqualsAndHashCode(callSuper=false) @ToString
-	@Accessors(fluent=true) @Getter @With @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
+	@Value
+	@EqualsAndHashCode(callSuper=false)
+	@Accessors(fluent=true)
+	@With
 	@FieldNameConstants
-	public static class TestRoot extends Entity {
+	public static class TestRoot extends AbstractEntity {
 		Identifier id;
 		Catalog<TestEntity> entities;
 		StringListValueSubclass someStrings;
@@ -41,10 +39,12 @@ public abstract class AbstractBoskTest {
 		}
 	}
 
-	@EqualsAndHashCode(callSuper=false) @ToString
-	@Accessors(fluent=true) @Getter @With @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
+	@Value
+	@EqualsAndHashCode(callSuper=false)
+	@Accessors(fluent=true)
+	@With
 	@FieldNameConstants
-	public static class TestEntity extends Entity {
+	public static class TestEntity extends AbstractEntity {
 		Identifier id;
 		String string;
 		TestEnum testEnum;
@@ -60,18 +60,23 @@ public abstract class AbstractBoskTest {
 		}
 	}
 
-	@EqualsAndHashCode(callSuper=false) @ToString
-	@Accessors(fluent=true) @Getter @With @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
-	public static class TestChild extends Entity {
+	@Value
+	@EqualsAndHashCode(callSuper=false)
+	@Accessors(fluent=true)
+	@With
+	@FieldNameConstants
+	public static class TestChild extends AbstractEntity {
 		Identifier id;
 		String string;
 		TestEnum testEnum;
 	}
 
-	@EqualsAndHashCode(callSuper=false) @ToString
-	@Accessors(fluent=true) @Getter @With @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
+	@Value
+	@EqualsAndHashCode(callSuper=false)
+	@Accessors(fluent=true)
+	@With
 	@FieldNameConstants
-	public static class Optionals extends Entity {
+	public static class Optionals extends AbstractEntity {
 		Identifier id;
 		Optional<String> optionalString;
 		Optional<TestChild> optionalEntity;
@@ -87,10 +92,12 @@ public abstract class AbstractBoskTest {
 		}
 	}
 
-	@EqualsAndHashCode(callSuper=false) @ToString
-	@Accessors(fluent=true) @Getter @With @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
+	@Value
+	@EqualsAndHashCode(callSuper=false)
+	@Accessors(fluent=true)
+	@With
 	@FieldNameConstants
-	public static class Phantoms extends Entity {
+	public static class Phantoms extends AbstractEntity {
 		Identifier id;
 		Phantom<String> phantomString;
 		Phantom<TestChild> phantomEntity;
@@ -106,8 +113,10 @@ public abstract class AbstractBoskTest {
 		}
 	}
 
-	@EqualsAndHashCode(callSuper=true) @ToString
-	@Accessors(fluent=true) @Getter @With @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true)
+	@Value
+	@EqualsAndHashCode(callSuper=true)
+	@Accessors(fluent=true)
+	@With
 	@FieldNameConstants
 	public static class ImplicitRefs extends ReflectiveEntity<ImplicitRefs> {
 		Identifier id;

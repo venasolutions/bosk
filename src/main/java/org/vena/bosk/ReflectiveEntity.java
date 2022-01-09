@@ -14,7 +14,7 @@ package org.vena.bosk;
  *
  * @author Patrick Doyle
  */
-public abstract class ReflectiveEntity<T extends ReflectiveEntity<T>> extends Entity {
+public abstract class ReflectiveEntity<T extends ReflectiveEntity<T>> implements Entity {
 	public abstract Reference<T> reference();
 
 	@Override

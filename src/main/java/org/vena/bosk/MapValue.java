@@ -14,6 +14,24 @@ import static java.util.Collections.singletonMap;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Objects.requireNonNull;
 
+/**
+ * An immutable {@link Map} that can be used in a {@link Bosk}.
+ *
+ * <p>
+ * This is a "pseudo-primitive value" in the sense that there's no way to make a {@link Reference}
+ * to an entry within a {@link MapValue}: the whole map is updated and deleted as a unit.
+ *
+ * <p>
+ * This is an "escape hatch" for when you just want to have a map with
+ * {@link String} keys that persists in a Bosk.
+ * For most purposes, {@link Mapping} is more appropriate.
+ *
+ * <p>
+ * The entry values in the list must still be valid Bosk datatypes. This is not a
+ * magic way to put arbitrary data structures into a Bosk.
+ *
+ * @author pdoyle
+ */
 @RequiredArgsConstructor(access= AccessLevel.PRIVATE)
 @EqualsAndHashCode
 public final class MapValue<V> implements Map<String, V> {

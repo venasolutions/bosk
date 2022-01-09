@@ -43,7 +43,7 @@ class BsonPluginTest {
 
 	@Value @Accessors(fluent = true) @FieldNameConstants
 	@EqualsAndHashCode(callSuper = false)
-	public static class Root extends Entity {
+	public static class Root implements Entity {
 		Identifier id;
 		Catalog<Item> items;
 		Mapping<Item, Mapping<Item, String>> nestedMapping;
@@ -51,7 +51,7 @@ class BsonPluginTest {
 
 	@Value @Accessors(fluent = true) @FieldNameConstants
 	@EqualsAndHashCode(callSuper = false)
-	public static class Item extends Entity {
+	public static class Item implements Entity {
 		Identifier id;
 	}
 
