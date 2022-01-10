@@ -1,6 +1,6 @@
 
 plugins {
-	id 'java'
+	id 'java-library'
 	id 'application'
 	//id 'com.jfrog.artifactory' version '4.24.16'
 	id 'maven-publish'
@@ -14,7 +14,7 @@ compileTestJava.options.encoding = 'UTF-8'
 group = 'org.vena'
 archivesBaseName = 'bosk'
 jar.archiveBaseName = "${archivesBaseName}"
-version = '0.0.6-SNAPSHOT'
+version = '0.0.7-SNAPSHOT'
 sourceCompatibility = 1.8
 targetCompatibility = 1.8
 
@@ -116,7 +116,7 @@ dependencies {
 
 	implementation "com.github.spotbugs:spotbugs-annotations:${spotbugsVersion}"
 	implementation "org.mongodb:mongo-java-driver:${mongoDriverVersion}"
-	implementation "com.google.code.gson:gson:${gsonVersion}"
+	api "com.google.code.gson:gson:${gsonVersion}"
 	implementation "org.slf4j:slf4j-api:${slf4jVersion}"
 	implementation group: 'org.ow2.asm', name: 'asm', version: "${asmVersion}"
 }
