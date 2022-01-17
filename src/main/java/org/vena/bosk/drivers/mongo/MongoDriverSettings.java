@@ -10,4 +10,6 @@ import lombok.experimental.Accessors;
 public class MongoDriverSettings {
 	String database;
 	String collection;
+	@Builder.Default
+	long flushTimeoutMS = 30_000;
 }

@@ -104,12 +104,8 @@ public final class FileDriver<R extends Entity> implements BoskDriver<R> {
 	}
 
 	@Override
-	public void flush() throws InterruptedException {
-		try {
-			downstream.submitReplacement(rootRef, readFromFile());
-		} catch (IOException e) {
-			LOGGER.info("Error reading file during driver flush", e);
-		}
+	public void flush() throws InterruptedException, IOException {
+		downstream.submitReplacement(rootRef, readFromFile());
 		downstream.flush();
 	}
 

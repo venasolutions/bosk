@@ -1,7 +1,7 @@
 package org.vena.bosk.drivers;
 
+import java.io.IOException;
 import java.lang.reflect.Type;
-import java.util.concurrent.atomic.AtomicReference;
 import lombok.RequiredArgsConstructor;
 import org.vena.bosk.BoskDriver;
 import org.vena.bosk.Entity;
@@ -57,18 +57,10 @@ public class ForwardingDriver<R extends Entity> implements BoskDriver<R> {
 	}
 
 	@Override
-	public void flush() throws InterruptedException {
-		AtomicReference<InterruptedException> firstInterruption = new AtomicReference<>();
-		downstream.forEach(d -> {
-			try {
-				d.flush();
-			} catch (InterruptedException e) {
-				firstInterruption.compareAndSet(null, e);
-			}
-		});
-		InterruptedException toThrow = firstInterruption.get();
-		if (toThrow != null) {
-			throw toThrow;
+	public void flush() throws InterruptedException, IOException {
+		for (BoskDriver<R> d: downstream) {
+			// Note that exceptions from a downstream flush() will abort this loop
+			d.flush();
 		}
 	}
 }

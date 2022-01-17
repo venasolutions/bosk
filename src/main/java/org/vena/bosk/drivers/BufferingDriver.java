@@ -1,5 +1,6 @@
 package org.vena.bosk.drivers;
 
+import java.io.IOException;
 import java.lang.reflect.Type;
 import java.util.Deque;
 import java.util.concurrent.ConcurrentLinkedDeque;
@@ -56,7 +57,7 @@ public class BufferingDriver<R extends Entity> implements BoskDriver<R> {
 	}
 
 	@Override
-	public void flush() throws InterruptedException {
+	public void flush() throws InterruptedException, IOException {
 		for (Consumer<BoskDriver<R>> update = updateQueue.pollFirst(); update != null; update = updateQueue.pollFirst()) {
 			update.accept(downstream);
 		}
