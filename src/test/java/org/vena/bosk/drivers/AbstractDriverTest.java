@@ -1,5 +1,6 @@
 package org.vena.bosk.drivers;
 
+import java.io.IOException;
 import java.util.Optional;
 import java.util.function.BiFunction;
 import javax.annotation.Nonnull;
@@ -95,6 +96,8 @@ public class AbstractDriverTest {
 		} catch (InterruptedException e) {
 			currentThread().interrupt();
 			throw new AssertionError("Unexpected interruption", e);
+		} catch (IOException e) {
+			throw new AssertionError("Unexpected exception", e);
 		}
 		TestEntity expected, actual;
 		try (@SuppressWarnings("unused") Bosk<TestEntity>.ReadContext context = canonicalBosk.readContext()) {

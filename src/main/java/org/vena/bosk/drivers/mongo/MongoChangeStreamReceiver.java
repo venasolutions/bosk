@@ -1,9 +1,11 @@
 package org.vena.bosk.drivers.mongo;
 
+import com.mongodb.MongoException;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoCursor;
 import com.mongodb.client.model.changestream.ChangeStreamDocument;
 import com.mongodb.client.model.changestream.UpdateDescription;
+import java.io.IOException;
 import java.lang.reflect.Type;
 import java.util.List;
 import java.util.Map;
@@ -34,19 +36,21 @@ import static org.vena.bosk.drivers.mongo.Formatter.referenceTo;
  *
  * @author pdoyle
  */
-final class ChangeStreamMongoReceiver<R extends Entity> implements MongoReceiver<R> {
+final class MongoChangeStreamReceiver<R extends Entity> implements MongoReceiver<R> {
 	private final Formatter formatter;
 	private final BoskDriver<R> downstream;
 	private final Reference<R> rootRef;
 
 	private final ExecutorService ex = Executors.newFixedThreadPool(1);
 	private final ConcurrentHashMap<String, BlockingQueue<BsonDocument>> echoListeners = new ConcurrentHashMap<>();
-	private final MongoCursor<ChangeStreamDocument<Document>> eventCursor;
+	private final MongoCollection<Document> collection;
 
 	private final static String RESUME_TOKEN_KEY = "_data";
+
+	private volatile MongoCursor<ChangeStreamDocument<Document>> eventCursor;
 	private volatile BsonDocument lastProcessedResumeToken;
 
-	ChangeStreamMongoReceiver(BoskDriver<R> downstream, Reference<R> rootRef, MongoCollection<Document> collection, Formatter formatter) {
+	MongoChangeStreamReceiver(BoskDriver<R> downstream, Reference<R> rootRef, MongoCollection<Document> collection, Formatter formatter) {
 		this.downstream = downstream;
 		this.rootRef = rootRef;
 		this.formatter = formatter;
@@ -54,6 +58,7 @@ final class ChangeStreamMongoReceiver<R extends Entity> implements MongoReceiver
 		this.lastProcessedResumeToken = new BsonDocument();
 		lastProcessedResumeToken.put(RESUME_TOKEN_KEY, new BsonString("0"));
 
+		this.collection = collection;
 		eventCursor = collection.watch().iterator();
 		ex.submit(this::eventProcessingLoop);
 	}
@@ -64,7 +69,7 @@ final class ChangeStreamMongoReceiver<R extends Entity> implements MongoReceiver
 	}
 
 	@Override
-	public void flushDownstream() throws InterruptedException {
+	public void flushDownstream() throws InterruptedException, IOException {
 		downstream.flush();
 	}
 
@@ -90,8 +95,15 @@ final class ChangeStreamMongoReceiver<R extends Entity> implements MongoReceiver
 		currentThread().setName(getClass().getSimpleName());
 		try {
 			while (!ex.isShutdown()) {
-				LOGGER.debug("- Awaiting event");
-				ChangeStreamDocument<Document> event = eventCursor.next();
+				ChangeStreamDocument<Document> event;
+				try {
+					LOGGER.debug("- Awaiting event");
+					event = eventCursor.next();
+				} catch (MongoException e) {
+					LOGGER.warn("Lost change stream cursor; reconnecting", e);
+					reconnectCursor();
+					continue;
+				}
 				try {
 					processEvent(event);
 				} catch (Throwable e) {
@@ -99,10 +111,24 @@ final class ChangeStreamMongoReceiver<R extends Entity> implements MongoReceiver
 					// TODO: How to handle this? For now, just keep soldiering on
 				}
 			}
+		} catch (Throwable e) {
+			LOGGER.error("Fatal error on MongoDB event processing thread", e);
+			throw e;
 		} finally {
-			LOGGER.warn("Terminating MongoDriver event processing thread {}", currentThread().getName());
+			LOGGER.warn("Terminating MongoDB event processing thread");
 			currentThread().setName(oldName);
 		}
+	}
+
+	private void reconnectCursor() {
+		try {
+			eventCursor.close();
+		} catch (Exception e) {
+			LOGGER.warn("Unable to close event stream cursor", e);
+		}
+		LOGGER.debug("Attempting to reconnect cursor with resume token {}", lastProcessedResumeToken);
+		eventCursor = collection.watch().resumeAfter(lastProcessedResumeToken).iterator();
+		LOGGER.debug("Finished reconnecting");
 	}
 
 	/**
@@ -207,5 +233,5 @@ final class ChangeStreamMongoReceiver<R extends Entity> implements MongoReceiver
 		}
 	}
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(ChangeStreamMongoReceiver.class);
+	private static final Logger LOGGER = LoggerFactory.getLogger(MongoChangeStreamReceiver.class);
 }

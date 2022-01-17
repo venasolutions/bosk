@@ -5,6 +5,7 @@ import com.mongodb.MongoException;
 import com.mongodb.ServerAddress;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
+import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.Optional;
@@ -79,7 +80,7 @@ class MongoDriverTest extends DriverConformanceTest {
 	private static ToxiproxyContainer.ContainerProxy proxy;
 
 	private static MongoClientSettings clientSettings;
-	private static MongoDriverSettings driverConfig;
+	private static MongoDriverSettings driverSettings;
 
 	@BeforeAll
 	static void setupDatabase() {
@@ -97,7 +98,7 @@ class MongoDriverTest extends DriverConformanceTest {
 				builder.readTimeout(queryTimeoutMS, MILLISECONDS);
 			})
 			.build();
-		driverConfig = MongoDriverSettings.builder()
+		driverSettings = MongoDriverSettings.builder()
 			.database(TEST_DB)
 			.collection(TEST_COLLECTION)
 			.build();
@@ -123,7 +124,7 @@ class MongoDriverTest extends DriverConformanceTest {
 	}
 
 	@Test
-	void testWarmStart() throws InvalidTypeException, InterruptedException {
+	void testWarmStart() throws InvalidTypeException, InterruptedException, IOException {
 		Bosk<TestEntity> setupBosk = new Bosk<TestEntity>("Test bosk", TestEntity.class, this::initialRoot, driverFactory);
 		CatalogReference<TestEntity> catalogRef = setupBosk.catalogReference(TestEntity.class, Path.just(TestEntity.Fields.catalog));
 		ListingReference<TestEntity> listingRef = setupBosk.listingReference(TestEntity.class, Path.just(TestEntity.Fields.listing));
@@ -146,7 +147,7 @@ class MongoDriverTest extends DriverConformanceTest {
 	}
 
 	@Test
-	void testFlush() throws InvalidTypeException, InterruptedException {
+	void testFlush() throws InvalidTypeException, InterruptedException, IOException {
 		// Set up MongoDriver writing to a modified BufferingDriver that lets us
 		// have tight control over all the comings and goings from MongoDriver.
 		BlockingQueue<Reference<?>> replacementsSeen = new LinkedBlockingDeque<>();
@@ -200,7 +201,7 @@ class MongoDriverTest extends DriverConformanceTest {
 	}
 
 	@Test
-	void testListing() throws InvalidTypeException, InterruptedException {
+	void testListing() throws InvalidTypeException, InterruptedException, IOException {
 		Bosk<TestEntity> bosk = new Bosk<TestEntity>("Test bosk", TestEntity.class, this::initialRoot, driverFactory);
 		BoskDriver<TestEntity> driver = bosk.driver();
 		CatalogReference<TestEntity> catalogRef = bosk.rootReference().thenCatalog(TestEntity.class,
@@ -237,7 +238,7 @@ class MongoDriverTest extends DriverConformanceTest {
 	}
 
 	@Test
-	void testNetworkOutage() throws InvalidTypeException, InterruptedException {
+	void testNetworkOutage() throws InvalidTypeException, InterruptedException, IOException {
 		Bosk<TestEntity> bosk = new Bosk<TestEntity>("Test bosk", TestEntity.class, this::initialRoot, driverFactory);
 		BoskDriver<TestEntity> driver = bosk.driver();
 		CatalogReference<TestEntity> catalogRef = bosk.catalogReference(TestEntity.class, Path.just(TestEntity.Fields.catalog));
@@ -272,14 +273,14 @@ class MongoDriverTest extends DriverConformanceTest {
 				downstream,
 				bosk,
 				clientSettings,
-				driverConfig,
+				driverSettings,
 				rootID,
 				new BsonPlugin());
 			tearDownActions.addFirst(mongoClient->{
 				driver.close();
 				mongoClient
-					.getDatabase(driverConfig.database())
-					.getCollection(driverConfig.collection())
+					.getDatabase(driverSettings.database())
+					.getCollection(driverSettings.collection())
 					.drop();
 			});
 			return driver;

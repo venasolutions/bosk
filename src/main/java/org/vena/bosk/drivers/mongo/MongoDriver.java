@@ -10,6 +10,7 @@ import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoCursor;
 import com.mongodb.client.model.UpdateOptions;
 import com.mongodb.client.result.UpdateResult;
+import java.io.IOException;
 import java.lang.reflect.Type;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -30,16 +31,19 @@ import org.vena.bosk.Entity;
 import org.vena.bosk.Identifier;
 import org.vena.bosk.Reference;
 import org.vena.bosk.drivers.mongo.Formatter.TenantFields;
+import org.vena.bosk.exceptions.FlushTimeoutException;
 import org.vena.bosk.exceptions.InvalidTypeException;
 import org.vena.bosk.exceptions.NotYetImplementedException;
 
 import static com.mongodb.ErrorCategory.DUPLICATE_KEY;
 import static java.lang.String.format;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.bson.BsonBoolean.FALSE;
 import static org.vena.bosk.drivers.mongo.Formatter.dottedFieldNameOf;
 import static org.vena.bosk.drivers.mongo.Formatter.enclosingReference;
 
 public final class MongoDriver<R extends Entity> implements BoskDriver<R> {
+	private final MongoDriverSettings settings;
 	private final Formatter formatter;
 	private final MongoReceiver<R> receiver;
 	private final MongoClient mongoClient;
@@ -50,12 +54,13 @@ public final class MongoDriver<R extends Entity> implements BoskDriver<R> {
 	private final AtomicLong echoCounter = new AtomicLong(1_000_000_000_000L); // Start with a big number so the length doesn't change often
 
 	public MongoDriver(BoskDriver<R> downstream, Bosk<R> bosk, MongoClientSettings clientSettings, MongoDriverSettings driverSettings, Identifier tenantID, BsonPlugin bsonPlugin) {
+		this.settings = driverSettings;
 		this.mongoClient = MongoClients.create(clientSettings);
 		this.formatter = new Formatter(bosk, bsonPlugin);
 		this.collection = mongoClient
 			.getDatabase(driverSettings.database())
 			.getCollection(driverSettings.collection());
-		this.receiver = new ChangeStreamMongoReceiver<>(downstream, bosk.rootReference(), collection, formatter);
+		this.receiver = new MongoChangeStreamReceiver<>(downstream, bosk.rootReference(), collection, formatter);
 		this.echoPrefix = bosk.instanceID().toString();
 		this.tenantID = new BsonString(tenantID.toString());
 		this.rootRef = bosk.rootReference();
@@ -112,7 +117,7 @@ public final class MongoDriver<R extends Entity> implements BoskDriver<R> {
 	}
 
 	@Override
-	public void flush() throws InterruptedException {
+	public void flush() throws IOException, InterruptedException {
 		LOGGER.debug("+ flush");
 		flushToDownstreamDriver();
 		receiver.flushDownstream();
@@ -248,7 +253,7 @@ public final class MongoDriver<R extends Entity> implements BoskDriver<R> {
 	 *
 	 * @throws MongoException if something goes wrong with MongoDB
 	 */
-	private void flushToDownstreamDriver() throws InterruptedException {
+	private void flushToDownstreamDriver() throws IOException, InterruptedException {
 		String echoToken = uniqueEchoToken();
 		BlockingQueue<BsonDocument> listener = new ArrayBlockingQueue<>(1);
 		try {
@@ -257,9 +262,13 @@ public final class MongoDriver<R extends Entity> implements BoskDriver<R> {
 			LOGGER.debug("| Update: {}", updateDoc);
 			collection.updateOne(tenantFilter(), updateDoc);
 			LOGGER.debug("| Waiting");
-			BsonDocument resumeToken = listener.take();
-			MongoResumeTokenSequenceMark sequenceMark = new MongoResumeTokenSequenceMark(resumeToken.getString("_data").getValue());
-			LOGGER.debug("| SequenceMark: {}", sequenceMark);
+			BsonDocument resumeToken = listener.poll(settings.flushTimeoutMS(), MILLISECONDS);
+			if (resumeToken == null) {
+				throw new FlushTimeoutException("No flush response after " + settings.flushTimeoutMS() + "ms");
+			} else {
+				MongoResumeTokenSequenceMark sequenceMark = new MongoResumeTokenSequenceMark(resumeToken.getString("_data").getValue());
+				LOGGER.debug("| SequenceMark: {}", sequenceMark);
+			}
 		} finally {
 			receiver.removeEchoListener(echoToken);
 		}

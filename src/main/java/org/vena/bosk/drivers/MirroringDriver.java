@@ -1,5 +1,6 @@
 package org.vena.bosk.drivers;
 
+import java.io.IOException;
 import java.lang.reflect.Type;
 import lombok.RequiredArgsConstructor;
 import org.vena.bosk.Bosk;
@@ -46,7 +47,7 @@ public class MirroringDriver<R extends Entity> implements BoskDriver<R> {
 	}
 
 	@Override
-	public void flush() throws InterruptedException {
+	public void flush() throws InterruptedException, IOException {
 		mirror.driver().flush();
 	}
 

@@ -1,5 +1,6 @@
 package org.vena.bosk;
 
+import java.io.IOException;
 import java.lang.reflect.Type;
 import org.vena.bosk.Bosk.ReadContext;
 import org.vena.bosk.drivers.ForwardingDriver;
@@ -143,7 +144,7 @@ public interface BoskDriver<R extends Entity> {
 	 * ultimately we may want a more efficient release-acquire pair that allows writes
 	 * to be reliably visible to subsequent reads.
 	 */
-	void flush() throws InterruptedException;
+	void flush() throws IOException, InterruptedException;
 
 	// Handy helpers
 

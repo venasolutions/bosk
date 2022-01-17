@@ -2,6 +2,7 @@ package org.vena.bosk;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import java.io.IOException;
 import java.lang.reflect.Parameter;
 import java.lang.reflect.Type;
 import java.util.IdentityHashMap;
@@ -234,7 +235,7 @@ public abstract class AbstractRoundTripTest extends AbstractBoskTest {
 		}
 
 		@Override
-		public void flush() throws InterruptedException {
+		public void flush() throws InterruptedException, IOException {
 			downstream.flush();
 		}
 	}

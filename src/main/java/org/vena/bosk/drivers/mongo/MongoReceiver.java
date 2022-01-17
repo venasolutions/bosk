@@ -1,6 +1,7 @@
 package org.vena.bosk.drivers.mongo;
 
 import java.io.Closeable;
+import java.io.IOException;
 import java.lang.reflect.Type;
 import java.util.concurrent.BlockingQueue;
 import org.bson.BsonDocument;
@@ -37,7 +38,7 @@ interface MongoReceiver<R extends Entity> extends Closeable {
 
 	// Proxied methods for downstream driver
 	R initialRoot(Type rootType) throws InvalidTypeException;
-	void flushDownstream() throws InterruptedException;
+	void flushDownstream() throws InterruptedException, IOException;
 
 	// Echo functionality to implement flush()
 	void putEchoListener(String echoToken, BlockingQueue<BsonDocument> listener);

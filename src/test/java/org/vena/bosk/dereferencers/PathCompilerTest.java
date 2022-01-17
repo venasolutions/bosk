@@ -1,5 +1,6 @@
 package org.vena.bosk.dereferencers;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -43,7 +44,7 @@ public class PathCompilerTest extends AbstractBoskTest {
 	private final Identifier child1ID = Identifier.from("child1");
 
 	@BeforeEach
-	void setup() throws InvalidTypeException, InterruptedException {
+	void setup() throws InvalidTypeException, InterruptedException, IOException {
 		pathCompiler = PathCompiler.withSourceType(TestRoot.class);
 		bosk = setUpBosk(Bosk::simpleDriver);
 		teb = new TestEntityBuilder(bosk);
