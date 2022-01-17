@@ -150,11 +150,18 @@ pitest {
 	timestampedReports = false
 }
 
+task sourcesJar(type: Jar, dependsOn: classes) {
+	// https://stackoverflow.com/questions/41825699/publishing-artifactswith-sources-and-javadoc-with-gradle
+	archiveClassifier.set('sources')
+	from sourceSets.main.allSource
+}
+
 publishing {
 	publications {
 		mavenJava(MavenPublication) {
 			artifactId = 'bosk'
 			from components.java
+			artifact sourcesJar
 			versionMapping {
 				usage('java-api') {
 					fromResolutionOf('runtimeClasspath')
