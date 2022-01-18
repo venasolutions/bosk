@@ -274,7 +274,6 @@ class MongoDriverTest extends DriverConformanceTest {
 				bosk,
 				clientSettings,
 				driverSettings,
-				rootID,
 				new BsonPlugin());
 			tearDownActions.addFirst(mongoClient->{
 				driver.close();

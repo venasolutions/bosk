@@ -51,7 +51,7 @@ final class Formatter {
 	 *
 	 * No field name should be a prefix of any other.
 	 */
-	enum TenantFields {
+	enum DocumentFields {
 		state,
 		echo,
 	}
@@ -127,7 +127,7 @@ final class Formatter {
 	static <T> String dottedFieldNameOf(Reference<T> ref, Reference<?> startingRef) {
 		assert startingRef.path().isPrefixOf(ref.path()): "'" + ref + "' must be under '" + startingRef + "'";
 		ArrayList<String> segments = new ArrayList<>();
-		segments.add(TenantFields.state.name());
+		segments.add(DocumentFields.state.name());
 		buildDottedFieldNameOf(ref, startingRef.path().length(), segments);
 		return String.join(".", segments.toArray(new String[0]));
 	}
@@ -153,7 +153,7 @@ final class Formatter {
 	static <T> Reference<T> referenceTo(String dottedName, Reference<?> startingReference) throws InvalidTypeException {
 		Reference<?> ref = startingReference;
 		Iterator<String> iter = Arrays.asList(dottedName.split(Pattern.quote("."))).iterator();
-		skipField(ref, iter, TenantFields.state.name()); // The entire Bosk state is in this field
+		skipField(ref, iter, DocumentFields.state.name()); // The entire Bosk state is in this field
 		while (iter.hasNext()) {
 			if (Listing.class.isAssignableFrom(ref.targetClass())) {
 				skipField(ref, iter, "ids");
