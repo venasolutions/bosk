@@ -23,7 +23,7 @@ import org.slf4j.LoggerFactory;
 import org.vena.bosk.BoskDriver;
 import org.vena.bosk.Entity;
 import org.vena.bosk.Reference;
-import org.vena.bosk.drivers.mongo.Formatter.TenantFields;
+import org.vena.bosk.drivers.mongo.Formatter.DocumentFields;
 import org.vena.bosk.exceptions.InvalidTypeException;
 import org.vena.bosk.exceptions.NotYetImplementedException;
 
@@ -160,7 +160,7 @@ final class MongoChangeStreamReceiver<R extends Entity> implements MongoReceiver
 				// getFullDocument is reliable for INSERT and REPLACE operations:
 				//   https://docs.mongodb.com/v4.0/reference/change-events/#change-stream-output
 				LOGGER.debug("| Replace tenant - IGNORE");
-				//driver.submitReplacement(rootRef, document2object(event.getFullDocument().get(TenantFields.root), rootRef));
+				//driver.submitReplacement(rootRef, document2object(event.getFullDocument().get(DocumentFields.root), rootRef));
 				// TODO
 				break;
 			case UPDATE:
@@ -185,7 +185,7 @@ final class MongoChangeStreamReceiver<R extends Entity> implements MongoReceiver
 		if (updatedFields != null) {
 			for (Map.Entry<String, BsonValue> entry : updatedFields.entrySet()) {
 				String dottedName = entry.getKey();
-				if (dottedName.startsWith(TenantFields.state.name())) {
+				if (dottedName.startsWith(DocumentFields.state.name())) {
 					Reference<Object> ref;
 					try {
 						ref = referenceTo(dottedName, rootRef);
@@ -221,7 +221,7 @@ final class MongoChangeStreamReceiver<R extends Entity> implements MongoReceiver
 
 	private void notifyIfEcho(@Nullable BsonDocument updatedFields, BsonDocument resumeToken) {
 		if (updatedFields != null) {
-			BsonValue newValue = updatedFields.get(TenantFields.echo.name());
+			BsonValue newValue = updatedFields.get(DocumentFields.echo.name());
 			if (newValue != null) {
 				String echoToken = newValue.asString().getValue();
 				BlockingQueue<BsonDocument> listener = removeEchoListener(echoToken);

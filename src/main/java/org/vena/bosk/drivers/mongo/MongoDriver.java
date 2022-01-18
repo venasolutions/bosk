@@ -28,9 +28,7 @@ import org.vena.bosk.Bosk;
 import org.vena.bosk.BoskDriver;
 import org.vena.bosk.BsonPlugin;
 import org.vena.bosk.Entity;
-import org.vena.bosk.Identifier;
 import org.vena.bosk.Reference;
-import org.vena.bosk.drivers.mongo.Formatter.TenantFields;
 import org.vena.bosk.exceptions.FlushTimeoutException;
 import org.vena.bosk.exceptions.InvalidTypeException;
 import org.vena.bosk.exceptions.NotYetImplementedException;
@@ -39,6 +37,8 @@ import static com.mongodb.ErrorCategory.DUPLICATE_KEY;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.bson.BsonBoolean.FALSE;
+import static org.vena.bosk.drivers.mongo.Formatter.DocumentFields.echo;
+import static org.vena.bosk.drivers.mongo.Formatter.DocumentFields.state;
 import static org.vena.bosk.drivers.mongo.Formatter.dottedFieldNameOf;
 import static org.vena.bosk.drivers.mongo.Formatter.enclosingReference;
 
@@ -48,12 +48,12 @@ public final class MongoDriver<R extends Entity> implements BoskDriver<R> {
 	private final MongoReceiver<R> receiver;
 	private final MongoClient mongoClient;
 	private final MongoCollection<Document> collection;
-	private final BsonString tenantID;
+	private final BsonString documentID;
 	private final Reference<R> rootRef;
 	private final String echoPrefix;
 	private final AtomicLong echoCounter = new AtomicLong(1_000_000_000_000L); // Start with a big number so the length doesn't change often
 
-	public MongoDriver(BoskDriver<R> downstream, Bosk<R> bosk, MongoClientSettings clientSettings, MongoDriverSettings driverSettings, Identifier tenantID, BsonPlugin bsonPlugin) {
+	public MongoDriver(BoskDriver<R> downstream, Bosk<R> bosk, MongoClientSettings clientSettings, MongoDriverSettings driverSettings, BsonPlugin bsonPlugin) {
 		this.settings = driverSettings;
 		this.mongoClient = MongoClients.create(clientSettings);
 		this.formatter = new Formatter(bosk, bsonPlugin);
@@ -62,7 +62,7 @@ public final class MongoDriver<R extends Entity> implements BoskDriver<R> {
 			.getCollection(driverSettings.collection());
 		this.receiver = new MongoChangeStreamReceiver<>(downstream, bosk.rootReference(), collection, formatter);
 		this.echoPrefix = bosk.instanceID().toString();
-		this.tenantID = new BsonString(tenantID.toString());
+		this.documentID = new BsonString(driverSettings.documentID().toString());
 		this.rootRef = bosk.rootReference();
 
 	}
@@ -70,9 +70,9 @@ public final class MongoDriver<R extends Entity> implements BoskDriver<R> {
 	@Override
 	public R initialRoot(Type rootType) throws InvalidTypeException {
 		LOGGER.debug("+ initialRoot");
-		try (MongoCursor<Document> cursor = collection.find(tenantFilter()).limit(1).cursor()) {
+		try (MongoCursor<Document> cursor = collection.find(documentFilter()).limit(1).cursor()) {
 			Document newDocument = cursor.next();
-			Document newState = newDocument.get(TenantFields.state.name(), Document.class);
+			Document newState = newDocument.get(state.name(), Document.class);
 			if (newState == null) {
 				LOGGER.debug("| No existing state; delegating downstream");
 			} else {
@@ -151,12 +151,12 @@ public final class MongoDriver<R extends Entity> implements BoskDriver<R> {
 	// MongoDB helpers
 	//
 
-	private BsonDocument tenantFilter() {
-		return new BsonDocument("_id", tenantID);
+	private BsonDocument documentFilter() {
+		return new BsonDocument("_id", documentID);
 	}
 
 	private <T> BsonDocument standardPreconditions(Reference<T> target) {
-		BsonDocument filter = tenantFilter();
+		BsonDocument filter = documentFilter();
 		if (!target.path().isEmpty()) {
 			String enclosingObjectKey = dottedFieldNameOf(enclosingReference(target), rootRef);
 			BsonDocument condition = new BsonDocument("$type", new BsonString("object"));
@@ -187,11 +187,11 @@ public final class MongoDriver<R extends Entity> implements BoskDriver<R> {
 	}
 
 	private void ensureTenantDocumentExists(BsonValue initialState) {
-		BsonDocument filter = tenantFilter();
+		BsonDocument filter = documentFilter();
 		BsonDocument update = initialTenantUpsert(initialState);
 		UpdateOptions options = new UpdateOptions();
 		options.upsert(true);
-		LOGGER.debug("** Initial tenant upsert for {}", tenantID);
+		LOGGER.debug("** Initial tenant upsert for {}", documentID);
 		LOGGER.trace("| Filter: {}", filter);
 		LOGGER.trace("| Update: {}", update);
 		LOGGER.trace("| Options: {}", options);
@@ -212,9 +212,9 @@ public final class MongoDriver<R extends Entity> implements BoskDriver<R> {
 	}
 
 	BsonDocument initialTenantUpsert(BsonValue initialState) {
-		BsonDocument fieldValues = new BsonDocument("_id", tenantID);
-		fieldValues.put(TenantFields.state.name(), initialState);
-		fieldValues.put(TenantFields.echo.name(), new BsonString(uniqueEchoToken()));
+		BsonDocument fieldValues = new BsonDocument("_id", documentID);
+		fieldValues.put(state.name(), initialState);
+		fieldValues.put(echo.name(), new BsonString(uniqueEchoToken()));
 		return new BsonDocument("$setOnInsert", fieldValues);
 	}
 
@@ -258,9 +258,9 @@ public final class MongoDriver<R extends Entity> implements BoskDriver<R> {
 		BlockingQueue<BsonDocument> listener = new ArrayBlockingQueue<>(1);
 		try {
 			receiver.putEchoListener(echoToken, listener);
-			BsonDocument updateDoc = new BsonDocument("$set", new BsonDocument(TenantFields.echo.name(), new BsonString(echoToken)));
+			BsonDocument updateDoc = new BsonDocument("$set", new BsonDocument(echo.name(), new BsonString(echoToken)));
 			LOGGER.debug("| Update: {}", updateDoc);
-			collection.updateOne(tenantFilter(), updateDoc);
+			collection.updateOne(documentFilter(), updateDoc);
 			LOGGER.debug("| Waiting");
 			BsonDocument resumeToken = listener.poll(settings.flushTimeoutMS(), MILLISECONDS);
 			if (resumeToken == null) {

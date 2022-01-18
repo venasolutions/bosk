@@ -144,8 +144,8 @@ public class Bosk<R extends Entity> {
 	 * You can use <code>Bosk::simpleDriver</code> as the
 	 * <code>driverFactory</code> if you don't want any additional driver modules.
 	 */
-	public static <RR extends Entity> BoskDriver<RR> simpleDriver(BoskDriver<RR> driver, @SuppressWarnings("unused") Bosk<RR> bosk) {
-		return driver;
+	public static <RR extends Entity> BoskDriver<RR> simpleDriver(BoskDriver<RR> downstream, @SuppressWarnings("unused") Bosk<RR> bosk) {
+		return downstream;
 	}
 
 	/**
