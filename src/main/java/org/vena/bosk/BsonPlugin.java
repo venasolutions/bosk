@@ -306,10 +306,7 @@ public final class BsonPlugin extends SerializationPlugin {
 				reader.readStartDocument();
 				while (reader.readBsonType() != BsonType.END_OF_DOCUMENT) {
 					String key = reader.readName();
-					V value;
-					try (@SuppressWarnings("unused") DeserializationScope s = innerDeserializationScope(key)) {
-						value = valueCodec.decode(reader, decoderContext);
-					}
+					V value = valueCodec.decode(reader, decoderContext);
 					Object old = entries.put(key, value);
 					if (old != null) {
 						throw new NotYetImplementedException("Duplicate keys in MapValue: \"" + key + "\"");

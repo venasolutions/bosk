@@ -140,12 +140,10 @@ public final class GsonPlugin extends SerializationPlugin {
 				in.beginObject();
 				while (in.hasNext()) {
 					String key = in.nextName();
-					try (@SuppressWarnings("unused") DeserializationScope scope = innerDeserializationScope(key)) {
-						V value = valueAdapter.read(in);
-						V old = result.put(requireNonNull(key), requireNonNull(value));
-						if (old != null) {
-							throw new JsonParseException("MapValue key appears twice: \"" + key + "\"");
-						}
+					V value = valueAdapter.read(in);
+					V old = result.put(requireNonNull(key), requireNonNull(value));
+					if (old != null) {
+						throw new JsonParseException("MapValue key appears twice: \"" + key + "\"");
 					}
 				}
 				in.endObject();
