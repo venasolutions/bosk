@@ -182,6 +182,8 @@ public abstract class DriverConformanceTest extends AbstractDriverTest {
 		assertCorrectBoskContents();
 		driver.submitReplacement(mapRef, MapValue.fromFunction(asList("key2", "key1"), key->key+"_value"));
 		assertCorrectBoskContents();
+		driver.submitReplacement(mapRef, MapValue.singleton("", ""));
+		assertCorrectBoskContents();
 
 		assertThrows(NullPointerException.class, ()->driver.submitReplacement(mapRef, null));
 		assertCorrectBoskContents();

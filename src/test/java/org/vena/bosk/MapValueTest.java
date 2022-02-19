@@ -36,6 +36,7 @@ class MapValueTest extends AbstractBoskTest {
 		return Stream.of(
 			mapValueCase(emptyMap(), MapValue.empty(), "sample"),
 			mapValueCase(singletonMap("key", "value"), MapValue.singleton("key", "value"), "sample"),
+			mapValueCase(singletonMap("", "value"), MapValue.singleton("", "value"), "sample"),
 			fromMapCase(emptyMap(), "sample"),
 			fromMapCase(singletonMap("key1", "value1"), "sample"),
 			fromMapCase(singletonMap("key1", new NoEqualsOrHashCode("value1")), new NoEqualsOrHashCode("value2")),
