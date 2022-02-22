@@ -10,7 +10,14 @@ import static java.util.Arrays.asList;
  * to be type-safe, like {@link #then(Identifier) then}.
  */
 public interface MappingReference<K extends Entity, V> extends Reference<Mapping<K,V>> {
+	/**
+	 * @return {@link Reference} to the value of the entry whose key has the given <code>id</code>.
+	 */
 	Reference<V> then(Identifier id);
+
+	/**
+	 * @return {@link Reference} to the value of the entry with the given <code>key</code>.
+	 */
 	Reference<V> then(K key);
 
 	@Override MappingReference<K, V> boundBy(BindingEnvironment bindings);

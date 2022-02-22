@@ -43,8 +43,8 @@ public final class MapValue<V> implements Map<String, V> {
 	}
 
 	@SuppressWarnings("RedundantUnmodifiable") // Not redundant! singletonMap doesn't throw UnsupportedOperationException as much
-	public static <VV> MapValue<VV> singleton(String keys, VV value) {
-		return new MapValue<>(unmodifiableMap(singletonMap(keys, value)));
+	public static <VV> MapValue<VV> singleton(String key, VV value) {
+		return new MapValue<>(unmodifiableMap(singletonMap(key, value)));
 	}
 
 	public static <VV> MapValue<VV> fromFunction(Iterable<String> keys, Function<String, VV> valueFunction) {

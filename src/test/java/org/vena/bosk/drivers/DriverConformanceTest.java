@@ -178,13 +178,29 @@ public abstract class DriverConformanceTest extends AbstractDriverTest {
 	void testMapValue() throws InvalidTypeException {
 		Reference<TestValues> ref = initializeBoskWithBlankValues(Path.just(TestEntity.Fields.catalog));
 		Reference<MapValue<String>> mapRef = ref.then(mapValue(String.class), TestValues.Fields.map);
+
+		// Check that key order is preserved
 		driver.submitReplacement(mapRef, MapValue.fromFunction(asList("key1", "key2"), key->key+"_value"));
 		assertCorrectBoskContents();
 		driver.submitReplacement(mapRef, MapValue.fromFunction(asList("key2", "key1"), key->key+"_value"));
 		assertCorrectBoskContents();
+
+		// Check that blank keys and values are supported
 		driver.submitReplacement(mapRef, MapValue.singleton("", ""));
 		assertCorrectBoskContents();
 
+		// Check that value-only replacement works, even if the key has periods in it.
+		// (Not gonna lie... this is motivated by MongoDriver. But really all drivers should handle this case,
+		// so it makes sense to put it here. We're trying to trick MongoDB into confusing a key with dots for
+		// a series of nested fields.)
+		MapValue<String> originalMapValue = MapValue.fromFunction(asList("key.with.dots.1", "key.with.dots.2"), k -> k + "_originalValue");
+		driver.submitReplacement(mapRef, originalMapValue);
+		assertCorrectBoskContents();
+		MapValue<String> newMapValue = originalMapValue.with("key.with.dots.1", "newValue");
+		driver.submitReplacement(mapRef, newMapValue);
+		assertCorrectBoskContents();
+
+		// Check that the right submission-time exceptions are thrown
 		assertThrows(NullPointerException.class, ()->driver.submitReplacement(mapRef, null));
 		assertCorrectBoskContents();
 		assertThrows(IllegalArgumentException.class, ()->driver.submitDeletion(mapRef));

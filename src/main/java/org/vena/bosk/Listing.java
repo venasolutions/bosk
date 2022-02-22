@@ -55,8 +55,8 @@ public final class Listing<E extends Entity> {
 	// ID-based methods.  Simple and efficient, though not as type-safe as the entity-based variants.
 	//
 
-	public List<Identifier> ids() {
-		return unmodifiableList(new ArrayList<>(ids));
+	public Collection<Identifier> ids() {
+		return unmodifiableSet(ids);
 	}
 
 	public boolean containsID(Identifier id) {

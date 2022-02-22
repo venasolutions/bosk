@@ -384,7 +384,7 @@ public class Bosk<R extends Entity> {
 							try {
 								ex.run();
 							} catch (Exception | AssertionError e) {
-								LOGGER.error("Exception thrown from bosk hook: " + e.getMessage(), e);
+								LOGGER.error("Hook aborted due to exception: {}",  e.getMessage(), e);
 							}
 						}
 					} finally {
