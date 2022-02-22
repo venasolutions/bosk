@@ -153,7 +153,8 @@ public interface Reference<T> {
 	}
 
 	/**
-	 * Two references are equal if they have the same Bosk and the same path.
+	 * Two references are equal if they have the same root type and the same path
+	 * (even if they come from two different Bosks).
 	 */
 	@Override boolean equals(Object obj);
 	@Override int hashCode();

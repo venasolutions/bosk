@@ -7,6 +7,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.Spliterator;
 import java.util.stream.LongStream;
 import java.util.stream.Stream;
@@ -28,6 +29,7 @@ import org.vena.bosk.exceptions.InvalidTypeException;
 import org.vena.bosk.exceptions.NonexistentReferenceException;
 
 import static java.util.Collections.singletonList;
+import static java.util.stream.Collectors.toCollection;
 import static java.util.stream.Collectors.toList;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -217,8 +219,7 @@ class ListingTest {
 	@ArgumentsSource(ListingArgumentProvider.class)
 	void testIds(Listing<TestEntity> listing, List<TestEntity> children, Bosk<TestEntity> bosk) {
 		// No ReadContext required
-		List<Identifier> actual = listing.ids();
-		assertEquals(distinctEntityIDs(children), actual);
+		assertEquals(distinctEntityIDs(children), listing.ids());
 	}
 
 	@Test
@@ -276,14 +277,14 @@ class ListingTest {
 			Identifier id = child.id();
 			Listing<TestEntity> actual = originalListing.withID(id);
 			exemplar.add(id);
-			assertEquals(new ArrayList<>(exemplar), actual.ids());
+			assertEquals(exemplar, actual.ids());
 			assertEquals(originalListing, actual, "Re-adding existing children makes no difference");
 		}
 
 		Identifier newID = Identifier.unique("nonexistent");
 		Listing<TestEntity> after = originalListing.withID(newID);
 		exemplar.add(newID);
-		assertEquals(new ArrayList<>(exemplar), after.ids());
+		assertEquals(exemplar, after.ids());
 
 		for (TestEntity child: children) {
 			Listing<TestEntity> actual = after.withID(child.id());
@@ -375,8 +376,8 @@ class ListingTest {
 		return result;
 	}
 
-	private List<Identifier> distinctEntityIDs(List<TestEntity> children) {
-		return children.stream().map(TestEntity::id).distinct().collect(toList());
+	private Set<Identifier> distinctEntityIDs(List<TestEntity> children) {
+		return children.stream().map(TestEntity::id).collect(toCollection(LinkedHashSet::new));
 	}
 
 	private List<Identifier> distinctIDs(List<Identifier> ids) {

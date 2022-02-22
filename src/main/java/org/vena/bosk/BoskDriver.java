@@ -77,7 +77,7 @@ public interface BoskDriver<R extends Entity> {
 	 * <p>
 	 * Changes will not be visible in the {@link ReadContext} in which this method
 	 * was called. If <code>target.exists()</code> is false at the time this update
-	 * is to be processed, it is silently ignored.
+	 * is to be applied, it is silently ignored.
 	 *
 	 * @throws IllegalArgumentException if the targeted object is not deletable,
 	 * regardless of whether it exists.

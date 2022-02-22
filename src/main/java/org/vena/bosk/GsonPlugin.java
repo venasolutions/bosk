@@ -182,7 +182,7 @@ public final class GsonPlugin extends SerializationPlugin {
 				referenceAdapter.write(out, listing.domain());
 
 				out.name("ids");
-				idListAdapter.write(out, listing.ids());
+				idListAdapter.write(out, new ArrayList<>(listing.ids()));
 
 				out.endObject();
 			}

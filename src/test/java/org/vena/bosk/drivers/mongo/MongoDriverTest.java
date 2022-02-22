@@ -21,10 +21,8 @@ import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.ToxiproxyContainer;
-import org.testcontainers.images.builder.ImageFromDockerfile;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.utility.DockerImageName;
 import org.vena.bosk.Bosk;
 import org.vena.bosk.BoskDriver;
 import org.vena.bosk.BsonPlugin;
@@ -41,10 +39,8 @@ import org.vena.bosk.drivers.BufferingDriver;
 import org.vena.bosk.drivers.DriverConformanceTest;
 import org.vena.bosk.exceptions.InvalidTypeException;
 
-import static com.mongodb.ReadPreference.secondaryPreferred;
 import static java.lang.Long.max;
 import static java.lang.System.currentTimeMillis;
-import static java.util.Collections.singletonList;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -63,19 +59,10 @@ class MongoDriverTest extends DriverConformanceTest {
 	private static final Network NETWORK = Network.newNetwork();
 
 	@Container
-	private static final GenericContainer<?> MONGO_CONTAINER = new GenericContainer<>(
-		new ImageFromDockerfile().withDockerfileFromBuilder(builder -> builder
-			.from("mongo:4.0")
-			.run("echo \"rs.initiate()\" > /docker-entrypoint-initdb.d/rs-initiate.js")
-			.cmd("mongod", "--replSet", "rsLonesome", "--port", "27017", "--bind_ip_all")
-			.build()))
-		.withNetwork(NETWORK)
-		.withExposedPorts(27017);
+	private static final GenericContainer<?> MONGO_CONTAINER = MongoContainerHelpers.mongoContainer(NETWORK);
 
 	@Container
-	private static final ToxiproxyContainer TOXIPROXY_CONTAINER = new ToxiproxyContainer(
-		DockerImageName.parse("ghcr.io/shopify/toxiproxy:2.2.0").asCompatibleSubstituteFor("shopify/toxiproxy"))
-		.withNetwork(NETWORK);
+	private static final ToxiproxyContainer TOXIPROXY_CONTAINER = MongoContainerHelpers.toxiproxyContainer(NETWORK);
 
 	private static ToxiproxyContainer.ContainerProxy proxy;
 
@@ -85,19 +72,7 @@ class MongoDriverTest extends DriverConformanceTest {
 	@BeforeAll
 	static void setupDatabase() {
 		proxy = TOXIPROXY_CONTAINER.getProxy(MONGO_CONTAINER, 27017);
-		int initialTimeoutMS = 60_000;
-		int queryTimeoutMS = 5_000; // Don't wait an inordinately long time for network outage testing
-		clientSettings = MongoClientSettings.builder()
-			.readPreference(secondaryPreferred())
-			.applyToClusterSettings(builder -> {
-				builder.hosts(singletonList(new ServerAddress(proxy.getContainerIpAddress(), proxy.getProxyPort())));
-				builder.serverSelectionTimeout(initialTimeoutMS, MILLISECONDS);
-			})
-			.applyToSocketSettings(builder -> {
-				builder.connectTimeout(initialTimeoutMS, MILLISECONDS);
-				builder.readTimeout(queryTimeoutMS, MILLISECONDS);
-			})
-			.build();
+		clientSettings = MongoContainerHelpers.mongoClientSettings(new ServerAddress(proxy.getContainerIpAddress(), proxy.getProxyPort()));
 		driverSettings = MongoDriverSettings.builder()
 			.database(TEST_DB)
 			.collection(TEST_COLLECTION)

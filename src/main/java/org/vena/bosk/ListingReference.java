@@ -10,6 +10,9 @@ import static java.util.Arrays.asList;
  * to be type-safe, like {@link #then(Identifier) then}.
  */
 public interface ListingReference<E extends Entity> extends Reference<Listing<E>> {
+	/**
+	 * @return {@link Reference} to the {@link ListingEntry} representing the entry with the given id.
+	 */
 	Reference<ListingEntry> then(Identifier id);
 	default Class<ListingEntry> entryClass() { return ListingEntry.class; }
 

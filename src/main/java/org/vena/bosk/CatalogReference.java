@@ -12,6 +12,9 @@ import static org.vena.bosk.ReferenceUtils.rawClass;
  * to be type-safe, like {@link #then(Identifier) then}.
  */
 public interface CatalogReference<E extends Entity> extends Reference<Catalog<E>> {
+	/**
+	 * @return {@link Reference} to the catalog entry with the given <code>id</code>.
+	 */
 	Reference<E> then(Identifier id);
 	Class<E> entryClass();
 

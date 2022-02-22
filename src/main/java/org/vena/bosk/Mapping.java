@@ -114,9 +114,9 @@ public final class Mapping<K extends Entity, V> implements EnumerableByIdentifie
 		return new Mapping<>(CatalogReference.from(domain), unmodifiableMap(new LinkedHashMap<>(contents)));
 	}
 
-	public static <KK extends Entity,VV> Mapping<KK,VV> fromFunction(Reference<Catalog<KK>> domain, Stream<Identifier> ids, Function<Identifier, VV> function) {
+	public static <KK extends Entity,VV> Mapping<KK,VV> fromFunction(Reference<Catalog<KK>> domain, Stream<Identifier> keyIDs, Function<Identifier, VV> function) {
 		LinkedHashMap<Identifier,VV> map = new LinkedHashMap<>();
-		ids.forEachOrdered(id -> map.put(id, function.apply(id)));
+		keyIDs.forEachOrdered(id -> map.put(id, function.apply(id)));
 		return new Mapping<>(CatalogReference.from(domain), unmodifiableMap(map));
 	}
 
