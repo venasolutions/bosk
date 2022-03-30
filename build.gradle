@@ -14,7 +14,9 @@ compileTestJava.options.encoding = 'UTF-8'
 group = 'org.vena'
 archivesBaseName = 'bosk'
 jar.archiveBaseName = "${archivesBaseName}"
-version = '0.0.12-SNAPSHOT'
+version = '0.0.12'
+var publicationType = version.endsWith('-SNAPSHOT') ? 'snapshot' : 'release'
+
 sourceCompatibility = 1.8
 targetCompatibility = 1.8
 
@@ -205,7 +207,7 @@ publishing {
 			name = "VenaArtifactory"
 			credentials( PasswordCredentials )
 			allowInsecureProtocol = true
-			url = 'http://artifactory.devops.vena.vpn:8081/artifactory/libs-snapshot-local/'
+			url = "http://artifactory.devops.vena.vpn:8081/artifactory/libs-${publicationType}-local/"
 		}
 	}
 }
