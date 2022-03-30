@@ -29,6 +29,7 @@ import static org.vena.bosk.ReferenceUtils.setAccessible;
  */
 public final class ClassBuilder<T> implements Opcodes {
 	private final Class<? extends T> supertype;
+	private final ClassLoader parentClassLoader;
 	private final String superClassName;
 	private final String slashyName; // like "java/lang/Object"
 	private final String dottyName;  // like "java.lang.Object"
@@ -41,11 +42,14 @@ public final class ClassBuilder<T> implements Opcodes {
 	/**
 	 * @param className The name of the generated class
 	 * @param supertype A superclass or interface for the generated class to inherit
+	 * @param parentClassLoader The classloader that should be used as the parent of the one we'll use
+	 *                          to load the newly-compiled class.
 	 * @param sourceFileOrigin Indicates the package in which the generated class should reside, and
 	 *                         the source file to which all debug line number information should refer.
 	 */
-	public ClassBuilder(String className, Class<? extends T> supertype, StackTraceElement sourceFileOrigin) {
+	public ClassBuilder(String className, Class<? extends T> supertype, ClassLoader parentClassLoader, StackTraceElement sourceFileOrigin) {
 		this.supertype = supertype;
+		this.parentClassLoader = parentClassLoader;
 		if (supertype.isInterface()) {
 			superClassName = Type.getInternalName(Object.class);
 		} else {
@@ -353,9 +357,7 @@ public final class ClassBuilder<T> implements Opcodes {
 
 	private final class CustomClassLoader extends ClassLoader {
 		CustomClassLoader() {
-			// Delegate to targetInterface.getClassLoader() to make sure our class
-			// implements the right interface class.
-			super(supertype.getClassLoader());
+			super(parentClassLoader);
 		}
 
 		public Class<?> loadThemBytes(String dottyName, byte[] b) {

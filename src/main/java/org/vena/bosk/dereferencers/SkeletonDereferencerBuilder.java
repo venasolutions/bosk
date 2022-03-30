@@ -17,8 +17,8 @@ import org.vena.bosk.bytecode.ClassBuilder;
 abstract class SkeletonDereferencerBuilder implements DereferencerBuilder {
 	protected final ClassBuilder<Dereferencer> cb;
 
-	public SkeletonDereferencerBuilder(String className, StackTraceElement sourceFileOrigin) {
-		this.cb = new ClassBuilder<>(className, DereferencerRuntime.class, sourceFileOrigin);
+	public SkeletonDereferencerBuilder(String className, ClassLoader parentClassLoader, StackTraceElement sourceFileOrigin) {
+		this.cb = new ClassBuilder<>(className, DereferencerRuntime.class, parentClassLoader, sourceFileOrigin);
 	}
 
 	protected abstract void generate_get();
