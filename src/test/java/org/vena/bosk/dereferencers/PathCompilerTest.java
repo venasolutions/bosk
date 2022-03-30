@@ -1,12 +1,17 @@
 package org.vena.bosk.dereferencers;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Stream;
+import lombok.Value;
+import lombok.experimental.Accessors;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.Test;
@@ -15,6 +20,7 @@ import org.vena.bosk.AbstractBoskTest;
 import org.vena.bosk.Bosk;
 import org.vena.bosk.Bosk.NonexistentEntryException;
 import org.vena.bosk.Catalog;
+import org.vena.bosk.Entity;
 import org.vena.bosk.Identifier;
 import org.vena.bosk.Listing;
 import org.vena.bosk.MapValue;
@@ -28,6 +34,7 @@ import org.vena.bosk.exceptions.NonexistentReferenceException;
 import static java.util.Collections.singletonList;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -224,6 +231,76 @@ public class PathCompilerTest extends AbstractBoskTest {
 		);
 		return standardEquivalenceTests(expected, "/entities/parent/optionals/optionalString", "Example string");
 	}
+
+	@Test
+	void differentClassLoader() throws ClassNotFoundException, NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException, InvalidTypeException {
+		ClassLoader parent = getClass().getClassLoader();
+		ClassLoader classLoader = new ClassLoader(parent) {
+			volatile Class<?> memo = null;
+
+			@Override
+			protected Class<?> loadClass(String name, boolean resolve) throws ClassNotFoundException {
+				if (SimpleEntity.class.getName().equals(name)) {
+					synchronized (this) {
+						if (memo == null) {
+							byte[] bytes = classBytes(SimpleEntity.class);
+							Class<?> c = defineClass(name, bytes, 0, bytes.length);
+							if (resolve) {
+								resolveClass(c);
+							}
+							memo = c;
+						}
+					}
+					return memo;
+				} else {
+					return super.loadClass(name, resolve);
+				}
+			}
+		};
+
+		Class<? extends Entity> rootClass = SimpleEntity.class;
+		@SuppressWarnings({"unchecked","rawtypes"})
+		Class<? extends Entity> differentRootClass = (Class)classLoader.loadClass(SimpleEntity.class.getName());
+		assertNotSame(rootClass, differentRootClass);
+
+		Identifier rootID = Identifier.from("root");
+		Entity initialRoot = differentRootClass
+			.getConstructor(Identifier.class)
+			.newInstance(rootID);
+		Bosk<Entity> differentBosk = new Bosk<>(
+			"Different",
+			differentRootClass,
+			initialRoot,
+			Bosk::simpleDriver
+		);
+		Reference<Identifier> idRef = differentBosk.reference(Identifier.class, Path.parse(
+			"/id" ));
+
+		try (Bosk<Entity>.ReadContext context = differentBosk.readContext()) {
+			assertSame(rootID, idRef.valueIfExists());
+		}
+	}
+
+	@Value
+	@Accessors(fluent = true)
+	public static class SimpleEntity implements Entity {
+		Identifier id;
+	}
+
+	private byte[] classBytes(Class<?> c) {
+		InputStream inputStream = c.getClassLoader().getResourceAsStream(
+			c.getName().replace('.', '/') + ".class");
+		try (ByteArrayOutputStream byteStream = new ByteArrayOutputStream()) {
+			int codePoint;
+			while ( (codePoint = inputStream.read()) != -1 ) {
+				byteStream.write(codePoint);
+			}
+			return byteStream.toByteArray();
+		} catch (IOException e) {
+			throw new AssertionError(e);
+		}
+	}
+
 
 	private List<DynamicTest> standardEquivalenceTests(Dereferencer expected, String pathString, Object exampleValue) {
 		String description = '[' + pathString + ']';
