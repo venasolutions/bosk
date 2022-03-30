@@ -143,7 +143,7 @@ public final class PathCompiler {
 		//
 
 		public StepwiseDereferencerBuilder(Path path, StackTraceElement sourceFileOrigin) throws InvalidTypeException {
-			super("DEREFERENCER", sourceFileOrigin);
+			super("DEREFERENCER", rawClass(sourceType).getClassLoader(), sourceFileOrigin);
 			assert !path.isEmpty();
 			steps = new ArrayList<>();
 			Type currentType = sourceType;
