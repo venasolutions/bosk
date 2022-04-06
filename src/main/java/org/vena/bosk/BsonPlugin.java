@@ -29,6 +29,8 @@ import org.bson.codecs.EncoderContext;
 import org.bson.codecs.ValueCodecProvider;
 import org.bson.codecs.configuration.CodecProvider;
 import org.bson.codecs.configuration.CodecRegistry;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.vena.bosk.exceptions.InvalidTypeException;
 import org.vena.bosk.exceptions.NotYetImplementedException;
 import org.vena.bosk.exceptions.UnexpectedPathException;
@@ -41,6 +43,7 @@ import static java.lang.invoke.MethodHandles.insertArguments;
 import static java.lang.invoke.MethodHandles.lookup;
 import static java.lang.invoke.MethodHandles.permuteArguments;
 import static java.lang.invoke.MethodType.methodType;
+import static java.util.Collections.synchronizedSet;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toMap;
 import static org.vena.bosk.ListingEntry.LISTING_ENTRY;
@@ -545,6 +548,13 @@ public final class BsonPlugin extends SerializationPlugin {
 		while (reader.readBsonType() != BsonType.END_OF_DOCUMENT) {
 			String fieldName = reader.readName();
 			Parameter parameter = parametersByName.get(fieldName);
+			if (parameter == null) {
+				if (LOGGER.isWarnEnabled() && ALREADY_WARNED.add(nodeClass.getName() + " " + fieldName)) {
+					LOGGER.warn("Ignoring unrecognized field \"{}\" in {}", fieldName, nodeClass.getSimpleName());
+				}
+				reader.skipValue();
+				continue;
+			}
 			Object value;
 			try (@SuppressWarnings("unused") DeserializationScope s = nodeFieldDeserializationScope(nodeClass, fieldName)) {
 				value = decodeValue(parameter.getParameterizedType(), reader, decoderContext, registry, bosk);
@@ -696,6 +706,9 @@ public final class BsonPlugin extends SerializationPlugin {
 
 	@SuppressWarnings({"unused", "EmptyMethod"}) // WRITE_NOTHING
 	private static void writeNothing(Object node, BsonWriter writer, EncoderContext context) {}
+
+	private static final Set<String> ALREADY_WARNED = synchronizedSet(new HashSet<>());
+	private static final Logger LOGGER = LoggerFactory.getLogger(BsonPlugin.class);
 
 	private static final Lookup LOOKUP = lookup();
 	private static final MethodHandle WRITE_FIELD, WRITE_CATALOG, WRITE_MAPPING, WRITE_NOTHING, GET_ANY_CODEC;
