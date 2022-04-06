@@ -7,8 +7,10 @@ import com.mongodb.client.model.changestream.ChangeStreamDocument;
 import com.mongodb.client.model.changestream.UpdateDescription;
 import java.io.IOException;
 import java.lang.reflect.Type;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -28,6 +30,7 @@ import org.vena.bosk.exceptions.InvalidTypeException;
 import org.vena.bosk.exceptions.NotYetImplementedException;
 
 import static java.lang.Thread.currentThread;
+import static java.util.Collections.synchronizedSet;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.vena.bosk.drivers.mongo.Formatter.referenceTo;
 
@@ -49,6 +52,7 @@ final class MongoChangeStreamReceiver<R extends Entity> implements MongoReceiver
 
 	private volatile MongoCursor<ChangeStreamDocument<Document>> eventCursor;
 	private volatile BsonDocument lastProcessedResumeToken;
+	private volatile boolean isClosed = false;
 
 	MongoChangeStreamReceiver(BoskDriver<R> downstream, Reference<R> rootRef, MongoCollection<Document> collection, Formatter formatter) {
 		this.downstream = downstream;
@@ -100,9 +104,14 @@ final class MongoChangeStreamReceiver<R extends Entity> implements MongoReceiver
 					LOGGER.debug("- Awaiting event");
 					event = eventCursor.next();
 				} catch (MongoException e) {
-					LOGGER.warn("Lost change stream cursor; reconnecting", e);
-					reconnectCursor();
-					continue;
+					if (isClosed) {
+						LOGGER.trace("Receiver is closed. Exiting event processing loop", e);
+						break;
+					} else {
+						LOGGER.warn("Lost change stream cursor; reconnecting", e);
+						reconnectCursor();
+						continue;
+					}
 				}
 				try {
 					processEvent(event);
@@ -115,7 +124,7 @@ final class MongoChangeStreamReceiver<R extends Entity> implements MongoReceiver
 			LOGGER.error("Fatal error on MongoDB event processing thread", e);
 			throw e;
 		} finally {
-			LOGGER.warn("Terminating MongoDB event processing thread");
+			LOGGER.debug("Terminating MongoDB event processing thread");
 			currentThread().setName(oldName);
 		}
 	}
@@ -140,6 +149,7 @@ final class MongoChangeStreamReceiver<R extends Entity> implements MongoReceiver
 	 */
 	@Override
 	public void close() {
+		isClosed = true;
 		eventCursor.close();
 		ex.shutdown();
 		try {
@@ -190,7 +200,8 @@ final class MongoChangeStreamReceiver<R extends Entity> implements MongoReceiver
 					try {
 						ref = referenceTo(dottedName, rootRef);
 					} catch (InvalidTypeException e) {
-						throw new IllegalStateException("Update of invalid field \"" + dottedName + "\"", e);
+						logNonexistentField(dottedName, e);
+						continue;
 					}
 					LOGGER.debug("| Replace {}", ref);
 					Object replacement = formatter.bsonValue2object(entry.getValue(), ref);
@@ -211,7 +222,8 @@ final class MongoChangeStreamReceiver<R extends Entity> implements MongoReceiver
 				try {
 					ref = referenceTo(dottedName, rootRef);
 				} catch (InvalidTypeException e) {
-					throw new IllegalStateException("Delete of invalid field \"" + dottedName + "\"", e);
+					logNonexistentField(dottedName, e);
+					continue;
 				}
 				LOGGER.debug("| Delete {}", ref);
 				downstream.submitDeletion(ref);
@@ -232,6 +244,15 @@ final class MongoChangeStreamReceiver<R extends Entity> implements MongoReceiver
 			}
 		}
 	}
+
+	private void logNonexistentField(String dottedName, InvalidTypeException e) {
+		LOGGER.trace("Nonexistent field \"" + dottedName + "\"", e);
+		if (LOGGER.isWarnEnabled() && ALREADY_WARNED.add(dottedName)) {
+			LOGGER.warn("Ignoring update of nonexistent field \"" + dottedName + "\"");
+		}
+	}
+
+	private static final Set<String> ALREADY_WARNED = synchronizedSet(new HashSet<>());
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(MongoChangeStreamReceiver.class);
 }

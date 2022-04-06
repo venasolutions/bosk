@@ -13,6 +13,8 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
+import lombok.Value;
+import lombok.experimental.Accessors;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -28,6 +30,7 @@ import org.vena.bosk.BoskDriver;
 import org.vena.bosk.BsonPlugin;
 import org.vena.bosk.Catalog;
 import org.vena.bosk.CatalogReference;
+import org.vena.bosk.Entity;
 import org.vena.bosk.Identifier;
 import org.vena.bosk.Listing;
 import org.vena.bosk.ListingEntry;
@@ -99,7 +102,7 @@ class MongoDriverTest extends DriverConformanceTest {
 	}
 
 	@Test
-	void testWarmStart() throws InvalidTypeException, InterruptedException, IOException {
+	void warmStart_stateMatches() throws InvalidTypeException, InterruptedException, IOException {
 		Bosk<TestEntity> setupBosk = new Bosk<TestEntity>("Test bosk", TestEntity.class, this::initialRoot, driverFactory);
 		CatalogReference<TestEntity> catalogRef = setupBosk.catalogReference(TestEntity.class, Path.just(TestEntity.Fields.catalog));
 		ListingReference<TestEntity> listingRef = setupBosk.listingReference(TestEntity.class, Path.just(TestEntity.Fields.listing));
@@ -122,7 +125,7 @@ class MongoDriverTest extends DriverConformanceTest {
 	}
 
 	@Test
-	void testFlush() throws InvalidTypeException, InterruptedException, IOException {
+	void flush_localStateUpdated() throws InvalidTypeException, InterruptedException, IOException {
 		// Set up MongoDriver writing to a modified BufferingDriver that lets us
 		// have tight control over all the comings and goings from MongoDriver.
 		BlockingQueue<Reference<?>> replacementsSeen = new LinkedBlockingDeque<>();
@@ -176,7 +179,7 @@ class MongoDriverTest extends DriverConformanceTest {
 	}
 
 	@Test
-	void testListing() throws InvalidTypeException, InterruptedException, IOException {
+	void listing_stateMatches() throws InvalidTypeException, InterruptedException, IOException {
 		Bosk<TestEntity> bosk = new Bosk<TestEntity>("Test bosk", TestEntity.class, this::initialRoot, driverFactory);
 		BoskDriver<TestEntity> driver = bosk.driver();
 		CatalogReference<TestEntity> catalogRef = bosk.rootReference().thenCatalog(TestEntity.class,
@@ -213,7 +216,7 @@ class MongoDriverTest extends DriverConformanceTest {
 	}
 
 	@Test
-	void testNetworkOutage() throws InvalidTypeException, InterruptedException, IOException {
+	void networkOutage_boskRecovers() throws InvalidTypeException, InterruptedException, IOException {
 		Bosk<TestEntity> bosk = new Bosk<TestEntity>("Test bosk", TestEntity.class, this::initialRoot, driverFactory);
 		BoskDriver<TestEntity> driver = bosk.driver();
 		CatalogReference<TestEntity> catalogRef = bosk.catalogReference(TestEntity.class, Path.just(TestEntity.Fields.catalog));
@@ -242,9 +245,109 @@ class MongoDriverTest extends DriverConformanceTest {
 		assertEquals(expected, actual);
 	}
 
-	private BiFunction<BoskDriver<TestEntity>, Bosk<TestEntity>, BoskDriver<TestEntity>> createDriverFactory() {
+	@Test
+	void initialStateHasNonexistentFields_ignored() {
+		// Upon creating bosk, the initial value will be saved to MongoDB
+		bosk = new Bosk<TestEntity>("Newer bosk", TestEntity.class, this::initialRoot, driverFactory);
+
+		// Upon creating prevBosk, the state in the database will be loaded into the local.
+		Bosk<OldEntity> prevBosk = new Bosk<OldEntity>(
+			"Older bosk",
+			OldEntity.class,
+			(bosk) -> { throw new AssertionError("prevBosk should use the state from MongoDB"); },
+			createDriverFactory());
+
+		OldEntity expected = new OldEntity(rootID, rootID.toString());
+
+		OldEntity actual;
+		try (@SuppressWarnings("unused") Bosk<?>.ReadContext readContext = prevBosk.readContext()) {
+			actual = prevBosk.rootReference().value();
+		}
+		assertEquals(expected, actual);
+	}
+
+	@Test
+	void updateHasNonexistentFields_ignored() throws InvalidTypeException, IOException, InterruptedException {
+		bosk = new Bosk<TestEntity>("Newer bosk", TestEntity.class, this::initialRoot, driverFactory);
+		Bosk<OldEntity> prevBosk = new Bosk<OldEntity>(
+			"Older bosk",
+			OldEntity.class,
+			(bosk) -> { throw new AssertionError("prevBosk should use the state from MongoDB"); },
+			createDriverFactory());
+
+		TestEntity initialRoot = initialRoot(bosk);
+		bosk.driver().submitReplacement(bosk.rootReference(),
+			initialRoot
+				.withString("replacementString")
+				.withListing(Listing.of(initialRoot.listing().domain(), Identifier.from("newEntry"))));
+
+		prevBosk.driver().flush();
+
+		OldEntity expected = new OldEntity(rootID, "replacementString");
+
+		OldEntity actual;
+		try (@SuppressWarnings("unused") Bosk<?>.ReadContext readContext = prevBosk.readContext()) {
+			actual = prevBosk.rootReference().value();
+		}
+
+		assertEquals(expected, actual);
+	}
+
+	@Test
+	void updateNonexistentField_ignored() throws InvalidTypeException, IOException, InterruptedException {
+		bosk = new Bosk<TestEntity>("Newer bosk", TestEntity.class, this::initialRoot, driverFactory);
+		Bosk<OldEntity> prevBosk = new Bosk<OldEntity>(
+			"Older bosk",
+			OldEntity.class,
+			(bosk) -> { throw new AssertionError("prevBosk should use the state from MongoDB"); },
+			createDriverFactory());
+
+		ListingReference<TestEntity> listingRef = bosk.rootReference().thenListing(TestEntity.class, TestEntity.Fields.listing);
+
+		TestEntity initialRoot = initialRoot(bosk);
+		bosk.driver().submitReplacement(listingRef,
+			Listing.of(initialRoot.listing().domain(), Identifier.from("newEntry")));
+
+		prevBosk.driver().flush();
+
+		OldEntity expected = new OldEntity(rootID, rootID.toString()); // unchanged
+
+		OldEntity actual;
+		try (@SuppressWarnings("unused") Bosk<?>.ReadContext readContext = prevBosk.readContext()) {
+			actual = prevBosk.rootReference().value();
+		}
+
+		assertEquals(expected, actual);
+	}
+
+	@Test
+	void deleteNonexistentField_ignored() throws InvalidTypeException, IOException, InterruptedException {
+		bosk = new Bosk<TestEntity>("Newer bosk", TestEntity.class, this::initialRoot, driverFactory);
+		Bosk<OldEntity> prevBosk = new Bosk<OldEntity>(
+			"Older bosk",
+			OldEntity.class,
+			(bosk) -> { throw new AssertionError("prevBosk should use the state from MongoDB"); },
+			createDriverFactory());
+
+		ListingReference<TestEntity> listingRef = bosk.rootReference().thenListing(TestEntity.class, TestEntity.Fields.listing);
+
+		bosk.driver().submitDeletion(listingRef.then(entity123));
+
+		prevBosk.driver().flush();
+
+		OldEntity expected = new OldEntity(rootID, rootID.toString()); // unchanged
+
+		OldEntity actual;
+		try (@SuppressWarnings("unused") Bosk<?>.ReadContext readContext = prevBosk.readContext()) {
+			actual = prevBosk.rootReference().value();
+		}
+
+		assertEquals(expected, actual);
+	}
+
+	private <E extends Entity> BiFunction<BoskDriver<E>, Bosk<E>, BoskDriver<E>> createDriverFactory() {
 		return (downstream, bosk) -> {
-			MongoDriver<TestEntity> driver = new MongoDriver<>(
+			MongoDriver<E> driver = new MongoDriver<>(
 				downstream,
 				bosk,
 				clientSettings,
@@ -261,6 +364,13 @@ class MongoDriverTest extends DriverConformanceTest {
 		};
 	}
 
+	@Value
+	@Accessors(fluent = true)
+	public static class OldEntity implements Entity {
+		Identifier id;
+		String string;
+	}
+
 	private TestEntity initialRoot(Bosk<TestEntity> testEntityBosk) throws InvalidTypeException {
 		Reference<Catalog<TestEntity>> catalogRef = testEntityBosk.catalogReference(TestEntity.class, Path.just(
 				TestEntity.Fields.catalog
@@ -274,7 +384,7 @@ class MongoDriverTest extends DriverConformanceTest {
 				TestEntity.empty(entity123, anyChildCatalog.boundTo(entity123)),
 				TestEntity.empty(entity124, anyChildCatalog.boundTo(entity124))
 			),
-			Listing.empty(catalogRef),
+			Listing.of(catalogRef, entity123),
 			Mapping.empty(catalogRef),
 			Optional.empty()
 		);
