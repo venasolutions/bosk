@@ -139,9 +139,9 @@ class GsonPluginTest extends AbstractBoskTest {
 	}
 
 	@ParameterizedTest
-	@MethodSource("mappingArguments")
-	void testToJson_mapping(List<String> keys, Map<String,String> valuesByString, Map<Identifier, String> valuesById) {
-		Mapping<TestEntity, String> mapping = Mapping.fromOrderedMap(entitiesRef, valuesById);
+	@MethodSource("sideTableArguments")
+	void testToJson_sideTable(List<String> keys, Map<String,String> valuesByString, Map<Identifier, String> valuesById) {
+		SideTable<TestEntity, String> sideTable = SideTable.fromOrderedMap(entitiesRef, valuesById);
 
 		List<Map<String, Object>> expectedList = new ArrayList<>();
 		valuesByString.forEach((key, value) -> expectedList.add(singletonMap(key, value)));
@@ -152,16 +152,16 @@ class GsonPluginTest extends AbstractBoskTest {
 
 		assertGsonWorks(
 			expected,
-			mapping,
-			new TypeToken<Mapping<TestEntity, String>>(){}.getType(),
+			sideTable,
+			new TypeToken<SideTable<TestEntity, String>>(){}.getType(),
 			Path.just("doesn't matter")
 		);
 	}
 
-	static Stream<Arguments> mappingArguments() {
+	static Stream<Arguments> sideTableArguments() {
 		return Stream.of(
-				mappingCase(f->{}),
-				mappingCase(f->{
+				sideTableCase(f->{}),
+				sideTableCase(f->{
 					f.accept("1", "First");
 					f.accept("3", "Second");
 					f.accept("2", "Third");
@@ -169,7 +169,7 @@ class GsonPluginTest extends AbstractBoskTest {
 		);
 	}
 
-	static <V> Arguments mappingCase(Consumer<BiConsumer<String,V>> initializer) {
+	static <V> Arguments sideTableCase(Consumer<BiConsumer<String,V>> initializer) {
 		Map<String,V> valuesByString = new LinkedHashMap<>();
 		initializer.accept(valuesByString::put);
 
@@ -393,7 +393,7 @@ class GsonPluginTest extends AbstractBoskTest {
 		Reference<TestEntity> entityRef = catalogRef.then(entityID);
 		CatalogReference<TestChild> childrenRef = entityRef.thenCatalog(TestChild.class, TestEntity.Fields.children);
 		Reference<ImplicitRefs> implicitRefsRef = entityRef.then(ImplicitRefs.class, "implicitRefs");
-		return new TestEntity(entityID, entityID.toString(), OK, Catalog.empty(), Listing.empty(childrenRef), Mapping.empty(childrenRef),
+		return new TestEntity(entityID, entityID.toString(), OK, Catalog.empty(), Listing.empty(childrenRef), SideTable.empty(childrenRef),
 				Phantoms.empty(Identifier.unique("phantoms")),
 				new Optionals(Identifier.unique("optionals"), optionalString, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()),
 				new ImplicitRefs(Identifier.unique("implicitRefs"), implicitRefsRef, entityRef, implicitRefsRef, entityRef));
@@ -491,33 +491,33 @@ class GsonPluginTest extends AbstractBoskTest {
 	}
 
 	@Test
-	void testBadJson_mappingWithNoDomain() {
-		assertJsonException("{ \"valuesById\": [] }", Mapping.class, TestEntity.class, String.class);
+	void testBadJson_sideTableWithNoDomain() {
+		assertJsonException("{ \"valuesById\": [] }", SideTable.class, TestEntity.class, String.class);
 	}
 
 	@Test
-	void testBadJson_mappingWithNoValues() {
-		assertJsonException("{ \"domain\": \"/entities\" }", Mapping.class, TestEntity.class, String.class);
+	void testBadJson_sideTableWithNoValues() {
+		assertJsonException("{ \"domain\": \"/entities\" }", SideTable.class, TestEntity.class, String.class);
 	}
 
 	@Test
-	void testBadJson_mappingWithExtraneousField() {
-		assertJsonException("{ \"domain\": \"/entities\", \"valuesById\": [], \"extraneous\": 0 }", Mapping.class, TestEntity.class, String.class);
+	void testBadJson_sideTableWithExtraneousField() {
+		assertJsonException("{ \"domain\": \"/entities\", \"valuesById\": [], \"extraneous\": 0 }", SideTable.class, TestEntity.class, String.class);
 	}
 
 	@Test
-	void testBadJson_mappingWithTwoDomains() {
-		assertJsonException("{ \"domain\": \"/entities\", \"domain\": \"/entities\", \"valuesById\": [] }", Mapping.class, TestEntity.class, String.class);
+	void testBadJson_sideTableWithTwoDomains() {
+		assertJsonException("{ \"domain\": \"/entities\", \"domain\": \"/entities\", \"valuesById\": [] }", SideTable.class, TestEntity.class, String.class);
 	}
 
 	@Test
-	void testBadJson_mappingWithValuesMap() {
-		assertJsonException("{ \"domain\": \"/entities\", \"valuesById\": {} }", Mapping.class, TestEntity.class, String.class);
+	void testBadJson_sideTableWithValuesMap() {
+		assertJsonException("{ \"domain\": \"/entities\", \"valuesById\": {} }", SideTable.class, TestEntity.class, String.class);
 	}
 
 	@Test
-	void testBadJson_mappingWithTwoValuesFields() {
-		assertJsonException("{ \"domain\": \"/entities\", \"valuesById\": [], \"valuesById\": [] }", Mapping.class, TestEntity.class, String.class);
+	void testBadJson_sideTableWithTwoValuesFields() {
+		assertJsonException("{ \"domain\": \"/entities\", \"valuesById\": [], \"valuesById\": [] }", SideTable.class, TestEntity.class, String.class);
 	}
 
 	private void assertJsonException(String json, Class<?> rawClass, Type... parameters) {

@@ -22,7 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 class BsonPluginTest {
 
 	@Test
-	void mappingOfMappings() {
+	void sideTableOfSideTables() {
 		BsonPlugin bp = new BsonPlugin();
 		Bosk<Root> bosk = new Bosk<Root>("Test bosk", Root.class, this::defaultRoot, Bosk::simpleDriver);
 		CodecRegistry registry = CodecRegistries.fromProviders(bp.codecProviderFor(bosk), new ValueCodecProvider());
@@ -38,7 +38,7 @@ class BsonPluginTest {
 
 	private Root defaultRoot(Bosk<Root> bosk) throws InvalidTypeException {
 		CatalogReference<Item> catalogRef = bosk.catalogReference(Item.class, Path.just(Root.Fields.items));
-		return new Root(Identifier.from("root"), Catalog.empty(), Mapping.empty(catalogRef));
+		return new Root(Identifier.from("root"), Catalog.empty(), SideTable.empty(catalogRef));
 	}
 
 	@Value @Accessors(fluent = true) @FieldNameConstants
@@ -46,7 +46,7 @@ class BsonPluginTest {
 	public static class Root implements Entity {
 		Identifier id;
 		Catalog<Item> items;
-		Mapping<Item, Mapping<Item, String>> nestedMapping;
+		SideTable<Item, SideTable<Item, String>> nestedSideTable;
 	}
 
 	@Value @Accessors(fluent = true) @FieldNameConstants
@@ -55,6 +55,4 @@ class BsonPluginTest {
 		Identifier id;
 	}
 
-	@SuppressWarnings({"rawtypes","unchecked"})
-	private static final Class<Mapping<Item, String>> MAPPING_ITEM_STRING_CLASS = (Class)Mapping.class;
 }

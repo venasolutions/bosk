@@ -24,9 +24,9 @@ import org.vena.bosk.Entity;
 import org.vena.bosk.Identifier;
 import org.vena.bosk.Listing;
 import org.vena.bosk.MapValue;
-import org.vena.bosk.Mapping;
 import org.vena.bosk.Path;
 import org.vena.bosk.Reference;
+import org.vena.bosk.SideTable;
 import org.vena.bosk.TestEntityBuilder;
 import org.vena.bosk.exceptions.InvalidTypeException;
 import org.vena.bosk.exceptions.NonexistentReferenceException;
@@ -179,36 +179,36 @@ public class PathCompilerTest extends AbstractBoskTest {
 	}
 
 	@TestFactory
-	List<DynamicTest> mapping() {
+	List<DynamicTest> sideTable() {
 		Dereferencer expected = fieldDereferencer(
-			s->s.entities().get(parentID).stringMapping(),
+			s->s.entities().get(parentID).stringSideTable(),
 			(s,v) -> s
 				.withEntities(s.entities()
 					.with(s.entities().get(parentID)
-						.withStringMapping(v)))
+						.withStringSideTable(v)))
 		);
-		return standardEquivalenceTests(expected, "/entities/parent/stringMapping", Mapping.empty(teb.childrenRef(parentID)));
+		return standardEquivalenceTests(expected, "/entities/parent/stringSideTable", SideTable.empty(teb.childrenRef(parentID)));
 	}
 
 	@TestFactory
-	List<DynamicTest> mappingEntry() {
+	List<DynamicTest> sideTableEntry() {
 		List<DynamicTest> results = new ArrayList<>();
 		for (Identifier childID: ids("child1", "child2", "child3", "nonexistent")) {
 			Dereferencer expected = dereferencer(
-				s->s.entities().get(parentID).stringMapping().get(childID),
+				s->s.entities().get(parentID).stringSideTable().get(childID),
 				(s,v) -> s
 					.withEntities(s.entities()
 						.with(s.entities().get(parentID)
-							.withStringMapping(s.entities().get(parentID).stringMapping()
+							.withStringSideTable(s.entities().get(parentID).stringSideTable()
 								.with(childID, v)))),
 				s -> s
 					.withEntities(s.entities()
 						.with(s.entities().get(parentID)
-							.withStringMapping(s.entities().get(parentID).stringMapping()
+							.withStringSideTable(s.entities().get(parentID).stringSideTable()
 								.without(childID))))
 			);
 			results.addAll(
-				standardEquivalenceTests(expected, "/entities/parent/stringMapping/" + childID, "Example string")
+				standardEquivalenceTests(expected, "/entities/parent/stringSideTable/" + childID, "Example string")
 			);
 		}
 		return results;

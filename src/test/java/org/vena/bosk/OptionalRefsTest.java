@@ -99,17 +99,17 @@ class OptionalRefsTest extends AbstractRoundTripTest {
 
 	@ParameterizedTest
 	@MethodSource("driverFactories")
-	void testOptionalMapping(DriverFactory<OptionalMapping> driverFactory) throws InvalidTypeException {
-		OptionalMapping empty = new OptionalMapping(ID, Catalog.empty(), Optional.empty());
-		doTest(empty, b->Mapping.of(b.rootReference().thenCatalog(OptionalMapping.class, "catalog"), ID, "Howdy"), driverFactory);
+	void testOptionalSideTable(DriverFactory<OptionalSideTable> driverFactory) throws InvalidTypeException {
+		OptionalSideTable empty = new OptionalSideTable(ID, Catalog.empty(), Optional.empty());
+		doTest(empty, b-> SideTable.of(b.rootReference().thenCatalog(OptionalSideTable.class, "catalog"), ID, "Howdy"), driverFactory);
 	}
 
 	@EqualsAndHashCode(callSuper = false)
 	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
-	public static class OptionalMapping implements Entity {
+	public static class OptionalSideTable implements Entity {
 		Identifier id;
-		Catalog<OptionalMapping> catalog;
-		Optional<Mapping<OptionalMapping, String>> field;
+		Catalog<OptionalSideTable> catalog;
+		Optional<SideTable<OptionalSideTable, String>> field;
 	}
 
 	private interface ValueFactory<R extends Entity, V> {

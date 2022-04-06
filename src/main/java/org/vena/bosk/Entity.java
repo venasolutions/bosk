@@ -3,7 +3,7 @@ package org.vena.bosk;
 /**
  * A {@link StateTreeNode} representing a thing with its own {@link #id() identity}
  * (as opposed to a mere value) that can reside in a {@link Catalog} and be referenced
- * by {@link Listing} and {@link Mapping}.
+ * by {@link Listing} and {@link SideTable}.
  *
  * <p>
  * <b>Note</b>: In general, an {@link Entity} does not have enough information

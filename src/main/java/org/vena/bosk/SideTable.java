@@ -27,7 +27,7 @@ import static java.util.Collections.unmodifiableMap;
 @Accessors(fluent = true)
 @EqualsAndHashCode
 @RequiredArgsConstructor(access=AccessLevel.PRIVATE)
-public final class Mapping<K extends Entity, V> implements EnumerableByIdentifier<V> {
+public final class SideTable<K extends Entity, V> implements EnumerableByIdentifier<V> {
 	@Getter
 	private final CatalogReference<K> domain;
 	private final Map<Identifier, V> valuesById;
@@ -59,17 +59,17 @@ public final class Mapping<K extends Entity, V> implements EnumerableByIdentifie
 		valuesById.forEach((id, value) -> action.accept(domainValue.get(id), value));
 	}
 
-	public Mapping<K,V> with(Identifier id, V value) {
-		Map<Identifier, V> newMapping = new LinkedHashMap<>(this.valuesById);
-		newMapping.put(id, value);
-		return new Mapping<>(this.domain, unmodifiableMap(newMapping));
+	public SideTable<K,V> with(Identifier id, V value) {
+		Map<Identifier, V> newMap = new LinkedHashMap<>(this.valuesById);
+		newMap.put(id, value);
+		return new SideTable<>(this.domain, unmodifiableMap(newMap));
 	}
 
-	public Mapping<K,V> with(K key, V value) {
+	public SideTable<K,V> with(K key, V value) {
 		return this.with(key.id(), value);
 	}
 
-	public Mapping<K,V> updatedWith(Identifier id, Supplier<V> valueIfAbsent, UnaryOperator<V> valueIfPresent) {
+	public SideTable<K,V> updatedWith(Identifier id, Supplier<V> valueIfAbsent, UnaryOperator<V> valueIfPresent) {
 		V existing = valuesById.get(id);
 		V replacement;
 		if (existing == null) {
@@ -80,13 +80,13 @@ public final class Mapping<K extends Entity, V> implements EnumerableByIdentifie
 		return this.with(id, replacement);
 	}
 
-	public Mapping<K,V> without(Identifier id) {
-		Map<Identifier, V> newMapping = new LinkedHashMap<>(this.valuesById);
-		newMapping.remove(id);
-		return new Mapping<>(this.domain, unmodifiableMap(newMapping));
+	public SideTable<K,V> without(Identifier id) {
+		Map<Identifier, V> newMap = new LinkedHashMap<>(this.valuesById);
+		newMap.remove(id);
+		return new SideTable<>(this.domain, unmodifiableMap(newMap));
 	}
 
-	public Mapping<K,V> without(K key) {
+	public SideTable<K,V> without(K key) {
 		return this.without(key.id());
 	}
 
@@ -94,30 +94,30 @@ public final class Mapping<K extends Entity, V> implements EnumerableByIdentifie
 	 * If you get type inference errors with this one, try specifying the value class
 	 * with {@link #empty(Reference, Class)}.
 	 */
-	public static <KK extends Entity,VV> Mapping<KK,VV> empty(Reference<Catalog<KK>> domain) {
-		return new Mapping<>(CatalogReference.from(domain), emptyMap());
+	public static <KK extends Entity,VV> SideTable<KK,VV> empty(Reference<Catalog<KK>> domain) {
+		return new SideTable<>(CatalogReference.from(domain), emptyMap());
 	}
 
-	public static <KK extends Entity,VV> Mapping<KK,VV> empty(Reference<Catalog<KK>> domain, Class<VV> ignored) {
+	public static <KK extends Entity,VV> SideTable<KK,VV> empty(Reference<Catalog<KK>> domain, Class<VV> ignored) {
 		return empty(domain);
 	}
 
-	public static <KK extends Entity, VV> Mapping<KK,VV> of(Reference<Catalog<KK>> domain, Identifier id, VV value) {
-		return new Mapping<>(CatalogReference.from(domain), singletonMap(id, value));
+	public static <KK extends Entity, VV> SideTable<KK,VV> of(Reference<Catalog<KK>> domain, Identifier id, VV value) {
+		return new SideTable<>(CatalogReference.from(domain), singletonMap(id, value));
 	}
 
-	public static <KK extends Entity, VV> Mapping<KK,VV> of(Reference<Catalog<KK>> domain, KK key, VV value) {
-		return Mapping.of(domain, key.id(), value);
+	public static <KK extends Entity, VV> SideTable<KK,VV> of(Reference<Catalog<KK>> domain, KK key, VV value) {
+		return SideTable.of(domain, key.id(), value);
 	}
 
-	public static <KK extends Entity,VV> Mapping<KK,VV> fromOrderedMap(Reference<Catalog<KK>> domain, Map<Identifier, VV> contents) {
-		return new Mapping<>(CatalogReference.from(domain), unmodifiableMap(new LinkedHashMap<>(contents)));
+	public static <KK extends Entity,VV> SideTable<KK,VV> fromOrderedMap(Reference<Catalog<KK>> domain, Map<Identifier, VV> contents) {
+		return new SideTable<>(CatalogReference.from(domain), unmodifiableMap(new LinkedHashMap<>(contents)));
 	}
 
-	public static <KK extends Entity,VV> Mapping<KK,VV> fromFunction(Reference<Catalog<KK>> domain, Stream<Identifier> keyIDs, Function<Identifier, VV> function) {
+	public static <KK extends Entity,VV> SideTable<KK,VV> fromFunction(Reference<Catalog<KK>> domain, Stream<Identifier> keyIDs, Function<Identifier, VV> function) {
 		LinkedHashMap<Identifier,VV> map = new LinkedHashMap<>();
 		keyIDs.forEachOrdered(id -> map.put(id, function.apply(id)));
-		return new Mapping<>(CatalogReference.from(domain), unmodifiableMap(map));
+		return new SideTable<>(CatalogReference.from(domain), unmodifiableMap(map));
 	}
 
 	@Override

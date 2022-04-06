@@ -270,7 +270,7 @@ public final class TypeValidation {
 		Phantom.class,
 		Catalog.class,
 		Listing.class,
-		Mapping.class,
+		SideTable.class,
 		// These ones can be subclassed; hard to REALLY trust them
 		Reference.class,
 		ListValue.class);

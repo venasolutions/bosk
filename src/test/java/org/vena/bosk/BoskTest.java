@@ -72,14 +72,14 @@ class BoskTest {
 				bosk.reference(TestEntity.class, Path.of(Root.Fields.entities, bertID.toString())),
 				Catalog.empty(),
 				Listing.of(entitiesRef, bertID),
-				Mapping.of(entitiesRef, bertID, "buddy"),
+				SideTable.of(entitiesRef, bertID, "buddy"),
 				ListValue.empty(),
 				Optional.empty());
 		TestEntity bert = new TestEntity(bertID, 1,
 				bosk.reference(TestEntity.class, Path.of(Root.Fields.entities, ernieID.toString())),
 				Catalog.empty(),
 				Listing.of(entitiesRef, ernieID),
-				Mapping.of(entitiesRef, ernieID, "pal"),
+				SideTable.of(entitiesRef, ernieID, "pal"),
 				ListValue.empty(),
 				Optional.empty());
 		bosk.driver().submitReplacement(entitiesRef, Catalog.of(ernie, bert));
@@ -102,7 +102,7 @@ class BoskTest {
 		Reference<TestEntity> refField;
 		Catalog<TestEntity> catalog;
 		Listing<TestEntity> listing;
-		Mapping<TestEntity, String> mapping;
+		SideTable<TestEntity, String> sideTable;
 		ListValue<String> listValue;
 		Optional<TestEntity> optional;
 	}
@@ -186,25 +186,25 @@ class BoskTest {
 	}
 
 	@Test
-	void testMappingReference() throws InvalidTypeException {
+	void testSideTableReference() throws InvalidTypeException {
 		for (Identifier id: root.entities.ids()) {
-			Path mappingPath = Path.of(Root.Fields.entities, id.toString(), TestEntity.Fields.mapping);
-			List<MappingReference<TestEntity,String>> refs = asList(
-					bosk.mappingReference(TestEntity.class, String.class, mappingPath),
-					bosk.rootReference().thenMapping(TestEntity.class, String.class, Root.Fields.entities, id.toString(), TestEntity.Fields.mapping),
-					bosk.rootReference().thenMapping(TestEntity.class, String.class, Root.Fields.entities, "-entity-", TestEntity.Fields.mapping).boundTo(id)
+			Path sideTablePath = Path.of(Root.Fields.entities, id.toString(), TestEntity.Fields.sideTable);
+			List<SideTableReference<TestEntity,String>> refs = asList(
+					bosk.sideTableReference(TestEntity.class, String.class, sideTablePath),
+					bosk.rootReference().thenSideTable(TestEntity.class, String.class, Root.Fields.entities, id.toString(), TestEntity.Fields.sideTable),
+					bosk.rootReference().thenSideTable(TestEntity.class, String.class, Root.Fields.entities, "-entity-", TestEntity.Fields.sideTable).boundTo(id)
 					);
-			for (MappingReference<TestEntity,String> mappingRef: refs) {
-				Mapping<TestEntity, String> mapping = root.entities().get(id).mapping();
+			for (SideTableReference<TestEntity,String> sideTableRef: refs) {
+				SideTable<TestEntity, String> sideTable = root.entities().get(id).sideTable();
 				try {
-					checkReferenceProperties(mappingRef, mappingPath, mapping);
+					checkReferenceProperties(sideTableRef, sideTablePath, sideTable);
 				} catch (AssertionError e) {
-					throw new AssertionError("Failed checkRefence on id " + id + ", mappingRef " + mappingRef);
+					throw new AssertionError("Failed checkRefence on id " + id + ", sideTableRef " + sideTableRef);
 				}
 				try (ReadContext context = bosk.readContext()) {
-					for (Entry<Identifier, String> entry: mapping.idEntrySet()) {
+					for (Entry<Identifier, String> entry: sideTable.idEntrySet()) {
 						Identifier key = entry.getKey();
-						Reference<String> entryRef = mappingRef.then(key);
+						Reference<String> entryRef = sideTableRef.then(key);
 						String expectedValue = entry.getValue();
 						String actualValue = entryRef.value();
 						assertEquals(expectedValue, actualValue, entryRef.toString());
@@ -212,8 +212,8 @@ class BoskTest {
 				}
 
 				Identifier nonexistent = Identifier.from("nonexistent");
-				Reference<String> entryRef = mappingRef.then(nonexistent);
-				checkReferenceProperties(entryRef, mappingPath.then("nonexistent"), null);
+				Reference<String> entryRef = sideTableRef.then(nonexistent);
+				checkReferenceProperties(entryRef, sideTablePath.then("nonexistent"), null);
 				checkDeletion(entryRef, null);
 			}
 		}
@@ -314,21 +314,21 @@ class BoskTest {
 
 		assertEquals(expectedPath.then(TestEntity.Fields.catalog), ref.thenCatalog(TestEntity.class, TestEntity.Fields.catalog).path());
 		assertEquals(expectedPath.then(TestEntity.Fields.listing), ref.thenListing(TestEntity.class, TestEntity.Fields.listing).path());
-		assertEquals(expectedPath.then(TestEntity.Fields.mapping), ref.thenMapping(TestEntity.class, String.class, TestEntity.Fields.mapping).path());
+		assertEquals(expectedPath.then(TestEntity.Fields.sideTable), ref.thenSideTable(TestEntity.class, String.class, TestEntity.Fields.sideTable).path());
 
 		assertEquals(expectedPath.then(TestEntity.Fields.catalog), ref.then(Catalog.class, TestEntity.Fields.catalog).path());
 		assertEquals(expectedPath.then(TestEntity.Fields.listing), ref.then(Listing.class, TestEntity.Fields.listing).path());
-		assertEquals(expectedPath.then(TestEntity.Fields.mapping), ref.then(Mapping.class, TestEntity.Fields.mapping).path());
+		assertEquals(expectedPath.then(TestEntity.Fields.sideTable), ref.then(SideTable.class, TestEntity.Fields.sideTable).path());
 
 		try (ReadContext context = bosk.readContext()) {
 			if (expectedValue == null) {
 				assertEquals(null, ref.then(Catalog.class, TestEntity.Fields.catalog).valueIfExists());
 				assertEquals(null, ref.then(Listing.class, TestEntity.Fields.listing).valueIfExists());
-				assertEquals(null, ref.then(Mapping.class, TestEntity.Fields.mapping).valueIfExists());
+				assertEquals(null, ref.then(SideTable.class, TestEntity.Fields.sideTable).valueIfExists());
 			} else {
 				assertEquals(expectedValue.catalog(), ref.then(Catalog.class, TestEntity.Fields.catalog).value());
 				assertEquals(expectedValue.listing(), ref.then(Listing.class, TestEntity.Fields.listing).value());
-				assertEquals(expectedValue.mapping(), ref.then(Mapping.class, TestEntity.Fields.mapping).value());
+				assertEquals(expectedValue.sideTable(), ref.then(SideTable.class, TestEntity.Fields.sideTable).value());
 			}
 		}
 	}

@@ -24,7 +24,7 @@ import static java.util.Objects.requireNonNull;
  * <p>
  * This is an "escape hatch" for when you just want to have a map with
  * {@link String} keys that persists in a Bosk.
- * For most purposes, {@link Mapping} is more appropriate.
+ * For most purposes, {@link SideTable} is more appropriate.
  *
  * <p>
  * The entry values in the list must still be valid Bosk datatypes. This is not a

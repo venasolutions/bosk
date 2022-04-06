@@ -42,10 +42,10 @@ class MongoDriverDottedFieldNameTest extends AbstractDriverTest {
 					args("/", base),
 					args("/catalog", base + ".catalog"),
 					args("/listing", base + ".listing"),
-					args("/mapping", base + ".mapping"),
+					args("/sideTable", base + ".sideTable"),
 					args("/catalog/xyz", base + ".catalog.xyz"),
 					args("/listing/xyz", base + ".listing.ids.xyz"),
-					args("/mapping/xyz", base + ".mapping.valuesById.xyz")
+					args("/sideTable/xyz", base + ".sideTable.valuesById.xyz")
 					);
 		}
 

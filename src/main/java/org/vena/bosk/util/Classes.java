@@ -8,16 +8,16 @@ import org.vena.bosk.ListValue;
 import org.vena.bosk.Listing;
 import org.vena.bosk.ListingReference;
 import org.vena.bosk.MapValue;
-import org.vena.bosk.Mapping;
-import org.vena.bosk.MappingReference;
 import org.vena.bosk.Reference;
+import org.vena.bosk.SideTable;
+import org.vena.bosk.SideTableReference;
 
 /**
  * An imperfect, non-idiomatic way to describe complex parameterized types.
  *
  * <p>
- * To represent the type <code>Mapping&lt;X, Listing&lt;Y>></code>, for example,
- * write <code>mapping(X.class, listing(Y.class))</code>.
+ * To represent the type <code>SideTable&lt;X, Listing&lt;Y>></code>, for example,
+ * write <code>sideTable(X.class, listing(Y.class))</code>.
  */
 public abstract class Classes {
 	@SuppressWarnings({"unchecked","rawtypes","unused"})
@@ -31,8 +31,8 @@ public abstract class Classes {
 	}
 
 	@SuppressWarnings({"unchecked","rawtypes","unused"})
-	public static <K extends Entity,V> Class<Mapping<K,V>> mapping(Class<K> keyClass, Class<V> valueClass) {
-		return (Class)Mapping.class;
+	public static <K extends Entity,V> Class<SideTable<K,V>> sideTable(Class<K> keyClass, Class<V> valueClass) {
+		return (Class) SideTable.class;
 	}
 
 	@SuppressWarnings({"unchecked","rawtypes","unused"})
@@ -56,8 +56,8 @@ public abstract class Classes {
 	}
 
 	@SuppressWarnings({"unchecked","rawtypes","unused"})
-	public static <K extends Entity,V> Class<MappingReference<K,V>> mappingReference(Class<K> keyClass, Class<V> valueClass) {
-		return (Class)MappingReference.class;
+	public static <K extends Entity,V> Class<SideTableReference<K,V>> sideTableReference(Class<K> keyClass, Class<V> valueClass) {
+		return (Class) SideTableReference.class;
 	}
 
 	@SuppressWarnings({"unchecked","rawtypes","unused"})

@@ -5,8 +5,8 @@ import org.vena.bosk.Bosk.NonexistentEntryException;
 import org.vena.bosk.Catalog;
 import org.vena.bosk.Identifier;
 import org.vena.bosk.Listing;
-import org.vena.bosk.Mapping;
 import org.vena.bosk.Reference;
+import org.vena.bosk.SideTable;
 
 import static org.vena.bosk.ListingEntry.LISTING_ENTRY;
 
@@ -56,8 +56,8 @@ public abstract class DereferencerRuntime implements Dereferencer {
 		return listing.withID(id);
 	}
 
-	protected static Object mappingEntryOrThrow(Mapping<?,?> mapping, Identifier id, Reference<?> ref) throws NonexistentEntryException {
-		Object result = mapping.get(id);
+	protected static Object sideTableEntryOrThrow(SideTable<?,?> sideTable, Identifier id, Reference<?> ref) throws NonexistentEntryException {
+		Object result = sideTable.get(id);
 		if (result == null) {
 			throw new NonexistentEntryException(ref.path());
 		} else {

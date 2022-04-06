@@ -301,7 +301,7 @@ public abstract class Path implements Iterable<String> {
 	public abstract Path boundBy(BindingEnvironment bindings);
 
 	/**
-	 * @return a BindingEnvironment mapping the parameters in this path, in order, to the given <code>ids</code>.
+	 * @return a BindingEnvironment sideTable the parameters in this path, in order, to the given <code>ids</code>.
 	 * If this path has excess parameters, they have no effect on the result.
 	 * @throws IllegalArgumentException if this path has fewer parameters than <code>ids.size()</code>
 	 */
