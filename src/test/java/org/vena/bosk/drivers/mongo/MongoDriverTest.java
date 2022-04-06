@@ -99,7 +99,7 @@ class MongoDriverTest extends DriverConformanceTest {
 	}
 
 	@Test
-	void testWarmStart() throws InvalidTypeException, InterruptedException, IOException {
+	void warmStart_stateMatches() throws InvalidTypeException, InterruptedException, IOException {
 		Bosk<TestEntity> setupBosk = new Bosk<TestEntity>("Test bosk", TestEntity.class, this::initialRoot, driverFactory);
 		CatalogReference<TestEntity> catalogRef = setupBosk.catalogReference(TestEntity.class, Path.just(TestEntity.Fields.catalog));
 		ListingReference<TestEntity> listingRef = setupBosk.listingReference(TestEntity.class, Path.just(TestEntity.Fields.listing));
@@ -122,7 +122,7 @@ class MongoDriverTest extends DriverConformanceTest {
 	}
 
 	@Test
-	void testFlush() throws InvalidTypeException, InterruptedException, IOException {
+	void flush_localStateUpdated() throws InvalidTypeException, InterruptedException, IOException {
 		// Set up MongoDriver writing to a modified BufferingDriver that lets us
 		// have tight control over all the comings and goings from MongoDriver.
 		BlockingQueue<Reference<?>> replacementsSeen = new LinkedBlockingDeque<>();
@@ -176,7 +176,7 @@ class MongoDriverTest extends DriverConformanceTest {
 	}
 
 	@Test
-	void testListing() throws InvalidTypeException, InterruptedException, IOException {
+	void listing_stateMatches() throws InvalidTypeException, InterruptedException, IOException {
 		Bosk<TestEntity> bosk = new Bosk<TestEntity>("Test bosk", TestEntity.class, this::initialRoot, driverFactory);
 		BoskDriver<TestEntity> driver = bosk.driver();
 		CatalogReference<TestEntity> catalogRef = bosk.rootReference().thenCatalog(TestEntity.class,
@@ -213,7 +213,7 @@ class MongoDriverTest extends DriverConformanceTest {
 	}
 
 	@Test
-	void testNetworkOutage() throws InvalidTypeException, InterruptedException, IOException {
+	void networkOutage_boskRecovers() throws InvalidTypeException, InterruptedException, IOException {
 		Bosk<TestEntity> bosk = new Bosk<TestEntity>("Test bosk", TestEntity.class, this::initialRoot, driverFactory);
 		BoskDriver<TestEntity> driver = bosk.driver();
 		CatalogReference<TestEntity> catalogRef = bosk.catalogReference(TestEntity.class, Path.just(TestEntity.Fields.catalog));
