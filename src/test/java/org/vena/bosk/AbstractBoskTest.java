@@ -50,7 +50,7 @@ public abstract class AbstractBoskTest {
 		TestEnum testEnum;
 		Catalog<TestChild> children;
 		Listing<TestChild> oddChildren;
-		Mapping<TestChild,String> stringMapping;
+		SideTable<TestChild,String> stringSideTable;
 		Phantoms phantoms;
 		Optionals optionals;
 		ImplicitRefs implicitRefs;
@@ -83,7 +83,7 @@ public abstract class AbstractBoskTest {
 		Optional<Reference<TestEntity>> optionalRef;
 		Optional<Catalog<TestChild>> optionalCatalog;
 		Optional<Listing<TestChild>> optionalListing;
-		Optional<Mapping<TestChild,String>> optionalMapping;
+		Optional<SideTable<TestChild,String>> optionalSideTable;
 
 		public static Optionals empty(Identifier id) {
 			return new Optionals(id,
@@ -104,7 +104,7 @@ public abstract class AbstractBoskTest {
 		Phantom<Reference<TestEntity>> phantomRef;
 		Phantom<Catalog<TestChild>> phantomCatalog;
 		Phantom<Listing<TestChild>> phantomListing;
-		Phantom<Mapping<TestChild,String>> phantomMapping;
+		Phantom<SideTable<TestChild,String>> phantomSideTable;
 
 		public static Phantoms empty(Identifier id) {
 			return new Phantoms(id,
@@ -149,7 +149,7 @@ public abstract class AbstractBoskTest {
 		@Override public <U> Reference<U> then(Class<U> targetClass, String... segments) { return null; }
 		@Override public <E extends Entity> CatalogReference<E> thenCatalog(Class<E> entryClass, String... segments) { return null; }
 		@Override public <E extends Entity> ListingReference<E> thenListing(Class<E> entryClass, String... segments) { return null; }
-		@Override public <K extends Entity, V> MappingReference<K, V> thenMapping(Class<K> keyClass, Class<V> valueClass, String... segments) { return null; }
+		@Override public <K extends Entity, V> SideTableReference<K, V> thenSideTable(Class<K> keyClass, Class<V> valueClass, String... segments) { return null; }
 		@Override public <TT> Reference<Reference<TT>> thenReference(Class<TT> targetClass, String... segments) { return null; }
 		@Override public <TT> Reference<TT> enclosingReference(Class<TT> targetClass) { return null; }
 		@Override public Reference<T> boundBy(BindingEnvironment bindings) { return null; }
@@ -179,7 +179,7 @@ public abstract class AbstractBoskTest {
 			new TestChild(child3ID, "child3", TestEnum.OK)
 		),
 			Listing.empty(childrenRef).withID(child1ID).withID(child3ID),
-			Mapping.empty(childrenRef, String.class).with(child2ID, "I'm child 2"),
+			SideTable.empty(childrenRef, String.class).with(child2ID, "I'm child 2"),
 			Phantoms.empty(Identifier.from("phantoms")),
 			new Optionals(Identifier.from("optionals"),
 				Optional.of("rootString"),
@@ -187,7 +187,7 @@ public abstract class AbstractBoskTest {
 				Optional.of(parentRef),
 				Optional.of(Catalog.of(new TestChild(Identifier.from("OptionalTestEntity2"), "OptionalTestEntity2", TestEnum.OK))),
 				Optional.of(Listing.of(childrenRef, child2ID)),
-				Optional.of(Mapping.empty(childrenRef, String.class).with(child2ID, "String value associated with " + child2ID))
+				Optional.of(SideTable.empty(childrenRef, String.class).with(child2ID, "String value associated with " + child2ID))
 			),
 			new ImplicitRefs(Identifier.from("parent_implicitRefs"),
 				teb.implicitRefsRef(parentID), parentRef,

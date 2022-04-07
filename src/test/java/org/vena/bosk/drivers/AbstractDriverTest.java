@@ -22,9 +22,9 @@ import org.vena.bosk.Identifier;
 import org.vena.bosk.ListValue;
 import org.vena.bosk.Listing;
 import org.vena.bosk.MapValue;
-import org.vena.bosk.Mapping;
 import org.vena.bosk.Path;
 import org.vena.bosk.Reference;
+import org.vena.bosk.SideTable;
 import org.vena.bosk.StateTreeNode;
 import org.vena.bosk.exceptions.InvalidTypeException;
 
@@ -118,7 +118,7 @@ public class AbstractDriverTest {
 		String string;
 		Catalog<TestEntity> catalog;
 		Listing<TestEntity> listing;
-		Mapping<TestEntity, TestEntity> mapping;
+		SideTable<TestEntity, TestEntity> sideTable;
 		Optional<TestValues> values;
 
 		public static TestEntity empty(Identifier id, Reference<Catalog<TestEntity>> catalogRef) {
@@ -126,7 +126,7 @@ public class AbstractDriverTest {
 				id.toString(),
 				Catalog.empty(),
 				Listing.empty(catalogRef),
-				Mapping.empty(catalogRef),
+				SideTable.empty(catalogRef),
 				Optional.empty());
 		}
 

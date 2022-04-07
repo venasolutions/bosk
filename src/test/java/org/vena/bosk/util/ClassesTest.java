@@ -7,9 +7,9 @@ import org.vena.bosk.Entity;
 import org.vena.bosk.ListValue;
 import org.vena.bosk.Listing;
 import org.vena.bosk.ListingReference;
-import org.vena.bosk.Mapping;
-import org.vena.bosk.MappingReference;
 import org.vena.bosk.Reference;
+import org.vena.bosk.SideTable;
+import org.vena.bosk.SideTableReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.vena.bosk.util.Classes.catalog;
@@ -17,9 +17,9 @@ import static org.vena.bosk.util.Classes.catalogReference;
 import static org.vena.bosk.util.Classes.listValue;
 import static org.vena.bosk.util.Classes.listing;
 import static org.vena.bosk.util.Classes.listingReference;
-import static org.vena.bosk.util.Classes.mapping;
-import static org.vena.bosk.util.Classes.mappingReference;
 import static org.vena.bosk.util.Classes.reference;
+import static org.vena.bosk.util.Classes.sideTable;
+import static org.vena.bosk.util.Classes.sideTableReference;
 
 class ClassesTest {
 
@@ -36,9 +36,9 @@ class ClassesTest {
 	}
 
 	@Test
-	void testMapping() {
-		Class<Mapping<Entity, String>> mappingClass = mapping(Entity.class, String.class);
-		assertEquals(Mapping.class, mappingClass);
+	void testSideTable() {
+		Class<SideTable<Entity, String>> sideTableClass = sideTable(Entity.class, String.class);
+		assertEquals(SideTable.class, sideTableClass);
 	}
 
 	@Test
@@ -60,9 +60,9 @@ class ClassesTest {
 	}
 
 	@Test
-	void testMappingReference() {
-		Class<MappingReference<Entity, String>> mappingReferenceClass = mappingReference(Entity.class, String.class);
-		assertEquals(MappingReference.class, mappingReferenceClass);
+	void testSideTableReference() {
+		Class<SideTableReference<Entity, String>> sideTableReferenceClass = sideTableReference(Entity.class, String.class);
+		assertEquals(SideTableReference.class, sideTableReferenceClass);
 	}
 
 	@Test

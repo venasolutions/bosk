@@ -66,7 +66,7 @@ public final class ReferenceUtils {
 		@Override public <U> Reference<U> then(Class<U> targetClass, String... segments) throws InvalidTypeException { return ref.then(targetClass, segments); }
 		@Override public <U extends Entity> CatalogReference<U> thenCatalog(Class<U> entryClass, String... segments) throws InvalidTypeException { return ref.thenCatalog(entryClass, segments); }
 		@Override public <U extends Entity> ListingReference<U> thenListing(Class<U> entryClass, String... segments) throws InvalidTypeException { return ref.thenListing(entryClass, segments); }
-		@Override public <U extends Entity, W> MappingReference<U, W> thenMapping(Class<U> keyClass, Class<W> valueClass, String... segments) throws InvalidTypeException { return ref.thenMapping(keyClass, valueClass, segments); }
+		@Override public <U extends Entity, W> SideTableReference<U, W> thenSideTable(Class<U> keyClass, Class<W> valueClass, String... segments) throws InvalidTypeException { return ref.thenSideTable(keyClass, valueClass, segments); }
 		@Override public <TT> Reference<Reference<TT>> thenReference(Class<TT> targetClass, String... segments) throws InvalidTypeException { return ref.thenReference(targetClass, segments); }
 		@Override public <TT> Reference<TT> enclosingReference(Class<TT> targetClass) throws InvalidTypeException { return ref.enclosingReference(targetClass); }
 
@@ -100,7 +100,7 @@ public final class ReferenceUtils {
 		@Override public <U> Reference<U> then(Class<U> targetClass, String... segments) throws InvalidTypeException { return ref.then(targetClass, segments); }
 		@Override public <U extends Entity> CatalogReference<U> thenCatalog(Class<U> entryClass, String... segments) throws InvalidTypeException { return ref.thenCatalog(entryClass, segments); }
 		@Override public <U extends Entity> ListingReference<U> thenListing(Class<U> entryClass, String... segments) throws InvalidTypeException { return ref.thenListing(entryClass, segments); }
-		@Override public <U extends Entity, W> MappingReference<U, W> thenMapping(Class<U> keyClass, Class<W> valueClass, String... segments) throws InvalidTypeException { return ref.thenMapping(keyClass, valueClass, segments); }
+		@Override public <U extends Entity, W> SideTableReference<U, W> thenSideTable(Class<U> keyClass, Class<W> valueClass, String... segments) throws InvalidTypeException { return ref.thenSideTable(keyClass, valueClass, segments); }
 		@Override public <TT> Reference<Reference<TT>> thenReference(Class<TT> targetClass, String... segments) throws InvalidTypeException { return ref.thenReference(targetClass, segments); }
 		@Override public <TT> Reference<TT> enclosingReference(Class<TT> targetClass) throws InvalidTypeException { return ref.enclosingReference(targetClass); }
 
@@ -109,8 +109,8 @@ public final class ReferenceUtils {
 
 	@Accessors(fluent=true)
 	@RequiredArgsConstructor
-	static final class MappingRef<K extends Entity,V> implements MappingReference<K,V> {
-		protected final Reference<Mapping<K,V>> ref;
+	static final class SideTableRef<K extends Entity,V> implements SideTableReference<K,V> {
+		protected final Reference<SideTable<K,V>> ref;
 		private final @Getter Class<K> keyClass;
 		private final @Getter Class<V> valueClass;
 
@@ -126,19 +126,19 @@ public final class ReferenceUtils {
 		@Override public Reference<V> then(K key) { return this.then(key.id()); }
 
 		@Override
-		public MappingReference<K, V> boundBy(BindingEnvironment bindings) {
-			return new MappingRef<>(ref.boundBy(bindings), keyClass(), valueClass());
+		public SideTableReference<K, V> boundBy(BindingEnvironment bindings) {
+			return new SideTableRef<>(ref.boundBy(bindings), keyClass(), valueClass());
 		}
 
 		@Override public Path path() { return ref.path(); }
-		@Override public Class<Mapping<K,V>> targetClass() { return ref.targetClass(); }
+		@Override public Class<SideTable<K,V>> targetClass() { return ref.targetClass(); }
 		@Override public Type targetType() { return ref.targetType(); }
-		@Override public Mapping<K,V> valueIfExists() { return ref.valueIfExists(); }
-		@Override public void forEachValue(BiConsumer<Mapping<K,V>, BindingEnvironment> action, BindingEnvironment existingEnvironment) { ref.forEachValue(action, existingEnvironment); }
+		@Override public SideTable<K,V> valueIfExists() { return ref.valueIfExists(); }
+		@Override public void forEachValue(BiConsumer<SideTable<K,V>, BindingEnvironment> action, BindingEnvironment existingEnvironment) { ref.forEachValue(action, existingEnvironment); }
 		@Override public <U> Reference<U> then(Class<U> targetClass, String... segments) throws InvalidTypeException { return ref.then(targetClass, segments); }
 		@Override public <U extends Entity> CatalogReference<U> thenCatalog(Class<U> entryClass, String... segments) throws InvalidTypeException { return ref.thenCatalog(entryClass, segments); }
 		@Override public <U extends Entity> ListingReference<U> thenListing(Class<U> entryClass, String... segments) throws InvalidTypeException { return ref.thenListing(entryClass, segments); }
-		@Override public <U extends Entity,W> MappingReference<U,W> thenMapping(Class<U> keyClass, Class<W> valueClass, String... segments) throws InvalidTypeException { return ref.thenMapping(keyClass, valueClass, segments); }
+		@Override public <U extends Entity,W> SideTableReference<U,W> thenSideTable(Class<U> keyClass, Class<W> valueClass, String... segments) throws InvalidTypeException { return ref.thenSideTable(keyClass, valueClass, segments); }
 		@Override public <TT> Reference<Reference<TT>> thenReference(Class<TT> targetClass, String... segments) throws InvalidTypeException { return ref.thenReference(targetClass, segments); }
 		@Override public <TT> Reference<TT> enclosingReference(Class<TT> targetClass) throws InvalidTypeException { return ref.enclosingReference(targetClass); }
 

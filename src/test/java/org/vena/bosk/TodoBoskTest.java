@@ -49,7 +49,7 @@ public class TodoBoskTest extends AbstractRoundTripTest {
 	Reference<TodoItem> item1;
 	CatalogReference<TodoItem> items;
 	Reference<MoreInfo> moreInfoRef;
-	MappingReference<TodoItem,String> ownersRef;
+	SideTableReference<TodoItem,String> ownersRef;
 
 	public void initialize(DriverFactory<TodoList> driverFactory) throws InvalidTypeException {
 		listID = Identifier.from("todoList1");
@@ -60,7 +60,7 @@ public class TodoBoskTest extends AbstractRoundTripTest {
 		item1ID = Identifier.from("item1");
 		item1 = items.then(item1ID);
 		moreInfoRef = listRef.then(MoreInfo.class, "moreInfo");
-		ownersRef = moreInfoRef.thenMapping(TodoItem.class, String.class, "owners");
+		ownersRef = moreInfoRef.thenSideTable(TodoItem.class, String.class, "owners");
 	}
 
 	@ParameterizedTest
@@ -166,15 +166,15 @@ public class TodoBoskTest extends AbstractRoundTripTest {
 		try (val context = bosk.readContext()) {
 			assertTrue(item2Prerequisites.value().isEmpty());
 		}
-		// Test Mappings and Optional
+		// Test SideTables and Optional
 		try (val context = bosk.readContext()) {
 			// Try reaching through some nonexistent refs of various kinds
 			assertEquals(null, moreInfoRef.valueIfExists());
 			assertEquals(null, moreInfoRef.then(String.class, "remark").valueIfExists());
-			assertEquals(null, moreInfoRef.thenMapping(TodoItem.class, String.class, "owners").then(Identifier.from("nonexistent")).valueIfExists());
+			assertEquals(null, moreInfoRef.thenSideTable(TodoItem.class, String.class, "owners").then(Identifier.from("nonexistent")).valueIfExists());
 			assertEquals(null, items.then(Identifier.from("nonexistent")).then(String.class, "description").valueIfExists());
 		}
-		MoreInfo moreInfo = new MoreInfo("Original remark", Mapping.empty(items), ListValue.empty());
+		MoreInfo moreInfo = new MoreInfo("Original remark", SideTable.empty(items), ListValue.empty());
 		boskDriver.submitReplacement(moreInfoRef, moreInfo);
 		Reference<String> remarkRef = moreInfoRef.then(String.class, "remark");
 		try (val context = bosk.readContext()) {
@@ -252,7 +252,7 @@ public class TodoBoskTest extends AbstractRoundTripTest {
 	@ToString
 	public static class MoreInfo implements StateTreeNode {
 		String remark;
-		Mapping<TodoItem,String> owners;
+		SideTable<TodoItem,String> owners;
 		ListValue<String> externalTickets;
 	}
 

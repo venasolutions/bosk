@@ -24,7 +24,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.vena.bosk.ReferenceUtils.CatalogRef;
 import org.vena.bosk.ReferenceUtils.ListingRef;
-import org.vena.bosk.ReferenceUtils.MappingRef;
+import org.vena.bosk.ReferenceUtils.SideTableRef;
 import org.vena.bosk.dereferencers.Dereferencer;
 import org.vena.bosk.dereferencers.PathCompiler;
 import org.vena.bosk.exceptions.AccessorThrewException;
@@ -725,8 +725,8 @@ try (ReadContext originalThReadContext = bosk.new ReadContext()) {
 		}
 
 		@Override
-		public final <K extends Entity, V> MappingReference<K, V> thenMapping(Class<K> keyClass, Class<V> valueClass, String... segments) throws InvalidTypeException {
-			return mappingReference(keyClass, valueClass, path.then(segments));
+		public final <K extends Entity, V> SideTableReference<K, V> thenSideTable(Class<K> keyClass, Class<V> valueClass, String... segments) throws InvalidTypeException {
+			return sideTableReference(keyClass, valueClass, path.then(segments));
 		}
 
 		@Override
@@ -893,7 +893,7 @@ try (ReadContext originalThReadContext = bosk.new ReadContext()) {
 
 	/**
 	 * An {@link Optional#empty()}, or missing {@link Catalog} or
-	 * {@link Mapping} entry, was encountered by a Locator when walking along
+	 * {@link SideTable} entry, was encountered by a Locator when walking along
 	 * object fields, indicating that the desired item is absent.
 	 *
 	 * <p>
@@ -956,9 +956,9 @@ try (ReadContext originalThReadContext = bosk.new ReadContext()) {
 		return new ListingRef<>(ref);
 	}
 
-	public final <K extends Entity,V> MappingReference<K,V> mappingReference(Class<K> keyClass, Class<V> valueClass, Path path) throws InvalidTypeException {
-		Reference<Mapping<K,V>> ref = reference(Classes.mapping(keyClass, valueClass), path);
-		return new MappingRef<>(ref, keyClass, valueClass);
+	public final <K extends Entity,V> SideTableReference<K,V> sideTableReference(Class<K> keyClass, Class<V> valueClass, Path path) throws InvalidTypeException {
+		Reference<SideTable<K,V>> ref = reference(Classes.sideTable(keyClass, valueClass), path);
+		return new SideTableRef<>(ref, keyClass, valueClass);
 	}
 
 	public final <TT> Reference<Reference<TT>> referenceReference(Class<TT> targetClass, Path path) throws InvalidTypeException {

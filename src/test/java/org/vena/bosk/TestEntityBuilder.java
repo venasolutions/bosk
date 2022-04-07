@@ -30,7 +30,7 @@ public class TestEntityBuilder {
 			testEnum,
 			Catalog.empty(),
 			Listing.empty(childrenRef(id)),
-			Mapping.empty(childrenRef(id)),
+			SideTable.empty(childrenRef(id)),
 			Phantoms.empty(Identifier.from(id + "_phantoms")),
 			Optionals.empty(Identifier.from(id + "_optionals")),
 			new ImplicitRefs(Identifier.from(id + "_implicitRefs"),

@@ -35,9 +35,9 @@ import org.vena.bosk.Identifier;
 import org.vena.bosk.Listing;
 import org.vena.bosk.ListingEntry;
 import org.vena.bosk.ListingReference;
-import org.vena.bosk.Mapping;
 import org.vena.bosk.Path;
 import org.vena.bosk.Reference;
+import org.vena.bosk.SideTable;
 import org.vena.bosk.drivers.BufferingDriver;
 import org.vena.bosk.drivers.DriverConformanceTest;
 import org.vena.bosk.exceptions.InvalidTypeException;
@@ -385,7 +385,7 @@ class MongoDriverTest extends DriverConformanceTest {
 				TestEntity.empty(entity124, anyChildCatalog.boundTo(entity124))
 			),
 			Listing.of(catalogRef, entity123),
-			Mapping.empty(catalogRef),
+			SideTable.empty(catalogRef),
 			Optional.empty()
 		);
 	}

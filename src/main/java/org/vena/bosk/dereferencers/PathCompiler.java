@@ -18,10 +18,10 @@ import org.vena.bosk.Entity;
 import org.vena.bosk.Identifier;
 import org.vena.bosk.Listing;
 import org.vena.bosk.ListingEntry;
-import org.vena.bosk.Mapping;
 import org.vena.bosk.Path;
 import org.vena.bosk.Phantom;
 import org.vena.bosk.Reference;
+import org.vena.bosk.SideTable;
 import org.vena.bosk.StateTreeNode;
 import org.vena.bosk.bytecode.LocalVariable;
 import org.vena.bosk.exceptions.InvalidTypeException;
@@ -160,8 +160,8 @@ public final class PathCompiler {
 				return new CatalogEntryStep(parameterType(currentType, Catalog.class, 0), segmentNum);
 			} else if (Listing.class.isAssignableFrom(currentClass)) {
 				return new ListingEntryStep(segmentNum);
-			} else if (Mapping.class.isAssignableFrom(currentClass)) {
-				return new MappingEntryStep(parameterType(currentType, Mapping.class, 1), segmentNum);
+			} else if (SideTable.class.isAssignableFrom(currentClass)) {
+				return new SideTableEntryStep(parameterType(currentType, SideTable.class, 1), segmentNum);
 			} else if (StateTreeNode.class.isAssignableFrom(currentClass)) {
 				if (Path.isParameterSegment(segment)) {
 					throw new InvalidTypeException("Invalid parameter location: expected a field of " + currentClass.getSimpleName());
@@ -334,13 +334,13 @@ public final class PathCompiler {
 
 		@Value
 		@Accessors(fluent = true)
-		public class MappingEntryStep implements DeletableStep {
+		public class SideTableEntryStep implements DeletableStep {
 			Type targetType;
 			int segmentNum;
 
-			@Override public void generate_get() { pushIdAt(segmentNum); pushReference(); invoke(MAPPING_GET); }
-			@Override public void generate_with() { pushIdAt(segmentNum); swap(); invoke(MAPPING_WITH); }
-			@Override public void generate_without() { pushIdAt(segmentNum); invoke(MAPPING_WITHOUT); }
+			@Override public void generate_get() { pushIdAt(segmentNum); pushReference(); invoke(SIDE_TABLE_GET); }
+			@Override public void generate_with() { pushIdAt(segmentNum); swap(); invoke(SIDE_TABLE_WITH); }
+			@Override public void generate_without() { pushIdAt(segmentNum); invoke(SIDE_TABLE_WITHOUT); }
 		}
 
 		@Value
@@ -388,7 +388,7 @@ public final class PathCompiler {
 
 	static final Method CATALOG_GET, CATALOG_WITH, CATALOG_WITHOUT;
 	static final Method LISTING_GET, LISTING_WITH, LISTING_WITHOUT;
-	static final Method MAPPING_GET, MAPPING_WITH, MAPPING_WITHOUT;
+	static final Method SIDE_TABLE_GET, SIDE_TABLE_WITH, SIDE_TABLE_WITHOUT;
 	static final Method OPTIONAL_OF, OPTIONAL_OR_THROW, OPTIONAL_EMPTY;
 	static final Method THROW_NONEXISTENT_ENTRY, THROW_CANNOT_REPLACE_PHANTOM;
 	static final Method INVALID_WITHOUT;
@@ -401,9 +401,9 @@ public final class PathCompiler {
 			LISTING_GET = DereferencerRuntime.class.getDeclaredMethod("listingEntryOrThrow", Listing.class, Identifier.class, Reference.class);
 			LISTING_WITH = DereferencerRuntime.class.getDeclaredMethod("listingWith", Listing.class, Identifier.class, Object.class);
 			LISTING_WITHOUT = Listing.class.getDeclaredMethod("withoutID", Identifier.class);
-			MAPPING_GET = DereferencerRuntime.class.getDeclaredMethod("mappingEntryOrThrow", Mapping.class, Identifier.class, Reference.class);
-			MAPPING_WITH = Mapping.class.getDeclaredMethod("with", Identifier.class, Object.class);
-			MAPPING_WITHOUT = Mapping.class.getDeclaredMethod("without", Identifier.class);
+			SIDE_TABLE_GET = DereferencerRuntime.class.getDeclaredMethod("sideTableEntryOrThrow", SideTable.class, Identifier.class, Reference.class);
+			SIDE_TABLE_WITH = SideTable.class.getDeclaredMethod("with", Identifier.class, Object.class);
+			SIDE_TABLE_WITHOUT = SideTable.class.getDeclaredMethod("without", Identifier.class);
 			OPTIONAL_OF = Optional.class.getDeclaredMethod("ofNullable", Object.class);
 			OPTIONAL_OR_THROW = DereferencerRuntime.class.getDeclaredMethod("optionalOrThrow", Optional.class, Reference.class);
 			OPTIONAL_EMPTY = Optional.class.getDeclaredMethod("empty");

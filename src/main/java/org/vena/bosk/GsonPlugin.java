@@ -75,8 +75,8 @@ public final class GsonPlugin extends SerializationPlugin {
 					return identifierAdapter();
 				} else if (ListingEntry.class.isAssignableFrom(theClass)) {
 					return listingEntryAdapter();
-				} else if (Mapping.class.isAssignableFrom(theClass)) {
-					return mappingAdapter(gson, typeToken);
+				} else if (SideTable.class.isAssignableFrom(theClass)) {
+					return sideTableAdapter(gson, typeToken);
 				} else if (StateTreeNode.class.isAssignableFrom(theClass)) {
 					return stateTreeNodeAdapter(gson, typeToken, bosk);
 				} else if (Optional.class.isAssignableFrom(theClass)) {
@@ -229,35 +229,35 @@ public final class GsonPlugin extends SerializationPlugin {
 		};
 	}
 
-	private <K extends Entity, V> TypeAdapter<Mapping<K,V>> mappingAdapter(Gson gson, TypeToken<Mapping<K,V>> typeToken) {
-		TypeToken<V> valueToken = mappingValueTypeToken(typeToken);
+	private <K extends Entity, V> TypeAdapter<SideTable<K,V>> sideTableAdapter(Gson gson, TypeToken<SideTable<K,V>> typeToken) {
+		TypeToken<V> valueToken = sideTableValueTypeToken(typeToken);
 		TypeAdapter<Reference<Catalog<K>>> referenceAdapter = gson.getAdapter(new TypeToken<Reference<Catalog<K>>>() {});
 		TypeAdapter<List<Identifier>> idListAdapter = gson.getAdapter(ID_LIST_TOKEN);
 		TypeAdapter<Map<Identifier, V>> mapAdapter = identifierMapAdapter(gson, valueToken);
 		TypeAdapter<V> valueAdapter = gson.getAdapter(valueToken);
-		return new TypeAdapter<Mapping<K,V>>() {
+		return new TypeAdapter<SideTable<K,V>>() {
 			@Override
-			public void write(JsonWriter out, Mapping<K,V> mapping) throws IOException {
+			public void write(JsonWriter out, SideTable<K,V> sideTable) throws IOException {
 				out.beginObject();
 
 				out.name("domain");
-				referenceAdapter.write(out, mapping.domain());
+				referenceAdapter.write(out, sideTable.domain());
 
 				if (separateOrderList) {
 					out.name("order");
-					idListAdapter.write(out, mapping.ids());
+					idListAdapter.write(out, sideTable.ids());
 					out.name("valuesById");
-					mapAdapter.write(out, mapping.asMap());
+					mapAdapter.write(out, sideTable.asMap());
 				} else {
 					out.name("valuesById");
-					writeMapEntries(out, mapping.idEntrySet(), valueAdapter);
+					writeMapEntries(out, sideTable.idEntrySet(), valueAdapter);
 				}
 
 				out.endObject();
 			}
 
 			@Override
-			public Mapping<K,V> read(JsonReader in) throws IOException {
+			public SideTable<K,V> read(JsonReader in) throws IOException {
 				Reference<Catalog<K>> domain = null;
 				LinkedHashMap<Identifier, V> valuesById = null;
 				List<Identifier> order = null;
@@ -297,7 +297,7 @@ public final class GsonPlugin extends SerializationPlugin {
 						}
 						break;
 					default:
-						throw new JsonParseException("Unrecognized field in Mapping: " + fieldName);
+						throw new JsonParseException("Unrecognized field in SideTable: " + fieldName);
 					}
 				}
 
@@ -308,11 +308,11 @@ public final class GsonPlugin extends SerializationPlugin {
 				} else if (valuesById == null) {
 					throw new JsonParseException("Missing 'valuesById' field");
 				} else if (order == null) {
-					return Mapping.fromOrderedMap(domain, valuesById);
+					return SideTable.fromOrderedMap(domain, valuesById);
 				} else if (valuesById.size() != order.size() && !valuesById.keySet().equals(new HashSet<>(order))) {
 					throw new JsonParseException("'valuesById' and 'order' don't match");
 				} else {
-					return Mapping.fromFunction(domain, order.stream(), valuesById::get);
+					return SideTable.fromFunction(domain, order.stream(), valuesById::get);
 				}
 			}
 
@@ -344,7 +344,7 @@ public final class GsonPlugin extends SerializationPlugin {
 
 			V oldValue = result.put(Identifier.from(fieldName), value);
 			if (oldValue != null) {
-				throw new JsonParseException("Duplicate mapping entry '" + fieldName + "'");
+				throw new JsonParseException("Duplicate sideTable entry '" + fieldName + "'");
 			}
 		}
 		in.endArray();
@@ -715,8 +715,8 @@ public final class GsonPlugin extends SerializationPlugin {
 	}
 
 	@SuppressWarnings("unchecked")
-	private static <K extends Entity, V> TypeToken<V> mappingValueTypeToken(TypeToken<Mapping<K,V>> typeToken) {
-		return (TypeToken<V>) TypeToken.get(tokenParameterType(typeToken, Mapping.class, 1));
+	private static <K extends Entity, V> TypeToken<V> sideTableValueTypeToken(TypeToken<SideTable<K,V>> typeToken) {
+		return (TypeToken<V>) TypeToken.get(tokenParameterType(typeToken, SideTable.class, 1));
 	}
 
 	@SuppressWarnings("unchecked")

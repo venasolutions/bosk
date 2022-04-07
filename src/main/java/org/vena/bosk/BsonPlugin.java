@@ -146,8 +146,8 @@ public final class BsonPlugin extends SerializationPlugin {
 			return stateTreeNodeCodec(targetClass, registry, bosk);
 		} else if (Catalog.class.isAssignableFrom(targetClass)) {
 			return catalogCodec(targetType, targetClass, registry, bosk);
-		} else if (Mapping.class.isAssignableFrom(targetClass)) {
-			return mappingCodec(targetType, targetClass, registry, bosk);
+		} else if (SideTable.class.isAssignableFrom(targetClass)) {
+			return sideTableCodec(targetType, targetClass, registry, bosk);
 		} else if (ListValue.class.isAssignableFrom(targetClass)) {
 			return listValueCodec(targetType, targetClass, registry, bosk);
 		} else if (MapValue.class.isAssignableFrom(targetClass)) {
@@ -479,29 +479,29 @@ public final class BsonPlugin extends SerializationPlugin {
 		};
 	}
 
-	private <K extends Entity, V, R extends Entity> Codec<Mapping<K,V>> mappingCodec(Type mappingType, Class<Mapping<K,V>> mappingClass, CodecRegistry registry, Bosk<R> bosk) {
-		Type valueType = parameterType(mappingType, Mapping.class, 1);
+	private <K extends Entity, V, R extends Entity> Codec<SideTable<K,V>> sideTableCodec(Type sideTableType, Class<SideTable<K,V>> sideTableClass, CodecRegistry registry, Bosk<R> bosk) {
+		Type valueType = parameterType(sideTableType, SideTable.class, 1);
 		@SuppressWarnings("unchecked")
 		Class<V> valueClass = (Class<V>) rawClass(valueType);
 		Codec<V> valueCodec = getCodec(valueType, valueClass, registry, bosk);
 		@SuppressWarnings("rawtypes")
 		Codec<Reference> referenceCodec = getCodec(Reference.class, Reference.class, registry, bosk);
 
-		return new Codec<Mapping<K,V>>() {
-			@Override public Class<Mapping<K, V>> getEncoderClass() { return mappingClass; }
+		return new Codec<SideTable<K,V>>() {
+			@Override public Class<SideTable<K, V>> getEncoderClass() { return sideTableClass; }
 
 			@Override
-			public void encode(BsonWriter writer, Mapping<K, V> value, EncoderContext encoderContext) {
-				MethodHandle fieldWriter = mappingWriterHandle(valueType, registry, bosk);
+			public void encode(BsonWriter writer, SideTable<K, V> value, EncoderContext encoderContext) {
+				MethodHandle fieldWriter = sideTableWriterHandle(valueType, registry, bosk);
 				try {
 					fieldWriter.invoke(value, writer, encoderContext);
 				} catch (Throwable e) {
-					throw new NotYetImplementedException("Error encoding " + mappingType + ": " + e.getMessage(), e);
+					throw new NotYetImplementedException("Error encoding " + sideTableType + ": " + e.getMessage(), e);
 				}
 			}
 
 			@Override
-			public Mapping<K, V> decode(BsonReader reader, DecoderContext decoderContext) {
+			public SideTable<K, V> decode(BsonReader reader, DecoderContext decoderContext) {
 				reader.readStartDocument();
 
 				reader.readName("domain");
@@ -520,20 +520,20 @@ public final class BsonPlugin extends SerializationPlugin {
 					}
 					Object old = valuesById.put(id, value);
 					if (old != null) {
-						throw new NotYetImplementedException("Duplicate IDs in mapping: " + id);
+						throw new NotYetImplementedException("Duplicate IDs in sideTable: " + id);
 					}
 				}
 				reader.readEndDocument();
 
 				reader.readEndDocument();
 
-				return Mapping.fromOrderedMap(domain, valuesById);
+				return SideTable.fromOrderedMap(domain, valuesById);
 			}
 
-			private MethodHandle mappingWriterHandle(Type valueType, CodecRegistry codecRegistry, Bosk<R> bosk) {
+			private MethodHandle sideTableWriterHandle(Type valueType, CodecRegistry codecRegistry, Bosk<R> bosk) {
 				// Curry in the codec suppliers
 				return collectArguments(collectArguments(
-						WRITE_MAPPING,
+						WRITE_SIDE_TABLE,
 						0, codecSupplierHandle(Reference.class, codecRegistry, bosk)),
 						0, codecSupplierHandle(valueType, codecRegistry, bosk));
 			}
@@ -683,19 +683,19 @@ public final class BsonPlugin extends SerializationPlugin {
 		writer.writeEndDocument();
 	}
 
-	@SuppressWarnings("unused") // WRITE_MAPPING
-	private static <K extends Entity, V> void writeMapping(
+	@SuppressWarnings("unused") // WRITE_SIDE_TABLE
+	private static <K extends Entity, V> void writeSideTable(
 		Codec<Reference<?>> referenceCodec, Codec<V> valueCodec,               // Known when the MethodHandle is constructed
-		Mapping<K,V> mapping, BsonWriter writer, EncoderContext encoderContext // Known when the MethodHandle is invoked
+		SideTable<K,V> sideTable, BsonWriter writer, EncoderContext encoderContext // Known when the MethodHandle is invoked
 		) {
 		writer.writeStartDocument();
 
 			writer.writeName("domain");
-			referenceCodec.encode(writer, mapping.domain(), encoderContext);
+			referenceCodec.encode(writer, sideTable.domain(), encoderContext);
 
 			writer.writeName("valuesById");
 			writer.writeStartDocument();
-			for (Entry<Identifier, V> entry: mapping.idEntrySet()) {
+			for (Entry<Identifier, V> entry: sideTable.idEntrySet()) {
 				writer.writeName(entry.getKey().toString());
 				valueCodec.encode(writer, entry.getValue(), encoderContext);
 			}
@@ -711,7 +711,7 @@ public final class BsonPlugin extends SerializationPlugin {
 	private static final Logger LOGGER = LoggerFactory.getLogger(BsonPlugin.class);
 
 	private static final Lookup LOOKUP = lookup();
-	private static final MethodHandle WRITE_FIELD, WRITE_CATALOG, WRITE_MAPPING, WRITE_NOTHING, GET_ANY_CODEC;
+	private static final MethodHandle WRITE_FIELD, WRITE_CATALOG, WRITE_SIDE_TABLE, WRITE_NOTHING, GET_ANY_CODEC;
 	private static final MethodHandle OPTIONAL_IS_PRESENT, OPTIONAL_GET;
 
 
@@ -719,7 +719,7 @@ public final class BsonPlugin extends SerializationPlugin {
 		try {
 			WRITE_FIELD   = LOOKUP.findStatic(BsonPlugin.class, "writeField", methodType(void.class, String.class, Codec.class, Object.class, BsonWriter.class, EncoderContext.class));
 			WRITE_CATALOG = LOOKUP.findStatic(BsonPlugin.class, "writeCatalog", methodType(void.class, Codec.class, Catalog.class, BsonWriter.class, EncoderContext.class));
-			WRITE_MAPPING = LOOKUP.findStatic(BsonPlugin.class, "writeMapping", methodType(void.class, Codec.class, Codec.class, Mapping.class, BsonWriter.class, EncoderContext.class));
+			WRITE_SIDE_TABLE = LOOKUP.findStatic(BsonPlugin.class, "writeSideTable", methodType(void.class, Codec.class, Codec.class, SideTable.class, BsonWriter.class, EncoderContext.class));
 			WRITE_NOTHING = LOOKUP.findStatic(BsonPlugin.class, "writeNothing", methodType(void.class, Object.class, BsonWriter.class, EncoderContext.class));
 			GET_ANY_CODEC = LOOKUP.findVirtual(BsonPlugin.class, "getAnyCodec", methodType(Codec.class, Type.class, Class.class, CodecRegistry.class, Bosk.class));
 			OPTIONAL_IS_PRESENT = LOOKUP.findVirtual(Optional.class, "isPresent", methodType(boolean.class));

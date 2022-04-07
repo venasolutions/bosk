@@ -237,8 +237,8 @@ public abstract class DriverConformanceTest extends AbstractDriverTest {
 		return Stream.of(
 			Path.just(TestEntity.Fields.catalog),
 			Path.of(TestEntity.Fields.catalog, "parent", TestEntity.Fields.catalog),
-			Path.of(TestEntity.Fields.mapping, "key1", TestEntity.Fields.catalog),
-			Path.of(TestEntity.Fields.mapping, "key1", TestEntity.Fields.catalog, "parent", TestEntity.Fields.catalog)
+			Path.of(TestEntity.Fields.sideTable, "key1", TestEntity.Fields.catalog),
+			Path.of(TestEntity.Fields.sideTable, "key1", TestEntity.Fields.catalog, "parent", TestEntity.Fields.catalog)
 		);
 	}
 
@@ -254,7 +254,7 @@ public abstract class DriverConformanceTest extends AbstractDriverTest {
 			TestEntity.Fields.string,
 			TestEntity.Fields.catalog,
 			TestEntity.Fields.listing,
-			TestEntity.Fields.mapping
+			TestEntity.Fields.sideTable
 		);
 	}
 

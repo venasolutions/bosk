@@ -80,8 +80,8 @@ class TypeValidationTest {
 			SelfNonReference.class,
 			SelfWrongType.class,
 			SelfSubtype.class,
-			MappingWithInvalidKey.class,
-			MappingWithInvalidValue.class,
+			SideTableWithInvalidKey.class,
+			SideTableWithInvalidValue.class,
 			MutableField.class,
 			MutableInheritedField.class,
 			NestedError.class,
@@ -156,8 +156,8 @@ class TypeValidationTest {
 		Optional<SimpleTypes> optional;
 		Catalog<SimpleTypes> catalog;
 		Listing<SimpleTypes> listing;
-		Mapping<SimpleTypes, String> mappingToString;
-		Mapping<SimpleTypes, SimpleTypes> mappingToEntity;
+		SideTable<SimpleTypes, String> sideTableToString;
+		SideTable<SimpleTypes, SimpleTypes> sideTableToEntity;
 		ListValue<String> listValueOfStrings;
 		ListValue<ValueStruct> listValueOfStructs;
 		ListValueSubclass listValueSubclass;
@@ -391,22 +391,22 @@ class TypeValidationTest {
 	}
 
 	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
-	public static final class MappingWithInvalidKey implements Entity {
+	public static final class SideTableWithInvalidKey implements Entity {
 		Identifier id;
-		Mapping<ArrayField,String> mapping;
+		SideTable<ArrayField,String> sideTable;
 
 		public static void testException(InvalidTypeException e) {
-			assertThat(e.getMessage(), containsString("MappingWithInvalidKey.mapping"));
+			assertThat(e.getMessage(), containsString("SideTableWithInvalidKey.sideTable"));
 		}
 	}
 
 	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
-	public static final class MappingWithInvalidValue implements Entity {
+	public static final class SideTableWithInvalidValue implements Entity {
 		Identifier id;
-		Mapping<SimpleTypes,ArrayField> mapping;
+		SideTable<SimpleTypes,ArrayField> sideTable;
 
 		public static void testException(InvalidTypeException e) {
-			assertThat(e.getMessage(), containsString("MappingWithInvalidValue.mapping"));
+			assertThat(e.getMessage(), containsString("SideTableWithInvalidValue.sideTable"));
 		}
 	}
 

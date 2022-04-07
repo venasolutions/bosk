@@ -22,9 +22,9 @@ import org.bson.codecs.configuration.CodecRegistry;
 import org.vena.bosk.Bosk;
 import org.vena.bosk.BsonPlugin;
 import org.vena.bosk.Listing;
-import org.vena.bosk.Mapping;
 import org.vena.bosk.Reference;
 import org.vena.bosk.SerializationPlugin;
+import org.vena.bosk.SideTable;
 import org.vena.bosk.exceptions.InvalidTypeException;
 
 import static java.lang.String.format;
@@ -138,7 +138,7 @@ final class Formatter {
 			buildDottedFieldNameOf(enclosingReference, startingRefLength, segments);
 			if (Listing.class.isAssignableFrom(enclosingReference.targetClass())) {
 				segments.add("ids");
-			} else if (Mapping.class.isAssignableFrom(enclosingReference.targetClass())) {
+			} else if (SideTable.class.isAssignableFrom(enclosingReference.targetClass())) {
 				segments.add("valuesById");
 			}
 			segments.add(ref.path().lastSegment());
@@ -157,7 +157,7 @@ final class Formatter {
 		while (iter.hasNext()) {
 			if (Listing.class.isAssignableFrom(ref.targetClass())) {
 				skipField(ref, iter, "ids");
-			} else if (Mapping.class.isAssignableFrom(ref.targetClass())) {
+			} else if (SideTable.class.isAssignableFrom(ref.targetClass())) {
 				skipField(ref, iter, "valuesById");
 			}
 			if (iter.hasNext()) {

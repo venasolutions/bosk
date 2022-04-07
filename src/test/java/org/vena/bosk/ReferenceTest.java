@@ -16,8 +16,8 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.vena.bosk.util.Classes.catalog;
 import static org.vena.bosk.util.Classes.listing;
 import static org.vena.bosk.util.Classes.mapValue;
-import static org.vena.bosk.util.Classes.mapping;
 import static org.vena.bosk.util.Classes.reference;
+import static org.vena.bosk.util.Classes.sideTable;
 
 class ReferenceTest extends AbstractBoskTest {
 	private Bosk<TestRoot> bosk;
@@ -61,7 +61,7 @@ class ReferenceTest extends AbstractBoskTest {
 		assertSame(parent.testEnum(), parentRef.then(TestEnum.class, TestEntity.Fields.testEnum).value());
 		assertSame(parent.children(), parentRef.thenCatalog(TestChild.class, TestEntity.Fields.children).value());
 		assertSame(parent.oddChildren(), parentRef.thenListing(TestChild.class, TestEntity.Fields.oddChildren).value());
-		assertSame(parent.stringMapping(), parentRef.thenMapping(TestChild.class, String.class, TestEntity.Fields.stringMapping).value());
+		assertSame(parent.stringSideTable(), parentRef.thenSideTable(TestChild.class, String.class, TestEntity.Fields.stringSideTable).value());
 		assertSame(parent.phantoms(), parentRef.then(Phantoms.class, TestEntity.Fields.phantoms).value());
 		assertSame(parent.optionals(), parentRef.then(Optionals.class, TestEntity.Fields.optionals).value());
 		assertSame(parent.implicitRefs(), parentRef.then(ImplicitRefs.class, TestEntity.Fields.implicitRefs).value());
@@ -80,7 +80,7 @@ class ReferenceTest extends AbstractBoskTest {
 		assertNull(phantomsRef.then(reference(TestEntity.class), Phantoms.Fields.phantomRef).valueIfExists());
 		assertNull(phantomsRef.then(catalog(TestChild.class), Phantoms.Fields.phantomCatalog).valueIfExists());
 		assertNull(phantomsRef.then(listing(TestChild.class), Phantoms.Fields.phantomListing).valueIfExists());
-		assertNull(phantomsRef.then(mapping(TestChild.class, String.class), Phantoms.Fields.phantomMapping).valueIfExists());
+		assertNull(phantomsRef.then(sideTable(TestChild.class, String.class), Phantoms.Fields.phantomSideTable).valueIfExists());
 	}
 
 	@Test
@@ -96,7 +96,7 @@ class ReferenceTest extends AbstractBoskTest {
 		assertSame(optionals.optionalRef().orElse(null), optionalsRef.then(reference(TestEntity.class), Optionals.Fields.optionalRef).valueIfExists());
 		assertSame(optionals.optionalCatalog().orElse(null), optionalsRef.then(catalog(TestChild.class), Optionals.Fields.optionalCatalog).valueIfExists());
 		assertSame(optionals.optionalListing().orElse(null), optionalsRef.then(listing(TestChild.class), Optionals.Fields.optionalListing).valueIfExists());
-		assertSame(optionals.optionalMapping().orElse(null), optionalsRef.then(mapping(TestChild.class, String.class), Optionals.Fields.optionalMapping).valueIfExists());
+		assertSame(optionals.optionalSideTable().orElse(null), optionalsRef.then(sideTable(TestChild.class, String.class), Optionals.Fields.optionalSideTable).valueIfExists());
 	}
 
 	@Test
@@ -123,7 +123,7 @@ class ReferenceTest extends AbstractBoskTest {
 	void forEach_indefiniteReference_noMatches() throws InvalidTypeException {
 		assertForEachValueWorks(
 			bosk.reference(String.class, Path.of(
-				TestRoot.Fields.entities, "nonexistent", TestEntity.Fields.stringMapping, "-child-")),
+				TestRoot.Fields.entities, "nonexistent", TestEntity.Fields.stringSideTable, "-child-")),
 			emptyList(),
 			emptyList()
 		);
@@ -133,8 +133,8 @@ class ReferenceTest extends AbstractBoskTest {
 	void forEach_indefiniteReference_oneMatch() throws InvalidTypeException {
 		assertForEachValueWorks(
 			bosk.reference(String.class, Path.of(
-				TestRoot.Fields.entities, "parent", TestEntity.Fields.stringMapping, "-child-")),
-			singletonList(root.entities().get(Identifier.from("parent")).stringMapping().get(Identifier.from("child2"))),
+				TestRoot.Fields.entities, "parent", TestEntity.Fields.stringSideTable, "-child-")),
+			singletonList(root.entities().get(Identifier.from("parent")).stringSideTable().get(Identifier.from("child2"))),
 			singletonList(BindingEnvironment.singleton("child", Identifier.from("child2")))
 		);
 	}
