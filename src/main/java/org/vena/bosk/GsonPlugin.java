@@ -15,7 +15,6 @@ import java.lang.reflect.Parameter;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -36,15 +35,6 @@ import static org.vena.bosk.ReferenceUtils.theOnlyConstructorFor;
 
 public final class GsonPlugin extends SerializationPlugin {
 	private final GsonAdapterCompiler compiler = new GsonAdapterCompiler(this);
-	private final boolean separateOrderList;
-
-	public GsonPlugin() {
-		this(false);
-	}
-
-	public GsonPlugin(boolean separateOrderList) {
-		this.separateOrderList = separateOrderList;
-	}
 
 	// Java's generics are just not capable of the following shenanigans.
 	// This method leaps on the generics grenade so most of this class can
@@ -178,11 +168,11 @@ public final class GsonPlugin extends SerializationPlugin {
 			public void write(JsonWriter out, Listing<E> listing) throws IOException {
 				out.beginObject();
 
-				out.name("domain");
-				referenceAdapter.write(out, listing.domain());
-
 				out.name("ids");
 				idListAdapter.write(out, new ArrayList<>(listing.ids()));
+
+				out.name("domain");
+				referenceAdapter.write(out, listing.domain());
 
 				out.endObject();
 			}
@@ -197,22 +187,22 @@ public final class GsonPlugin extends SerializationPlugin {
 				while (in.hasNext()) {
 					String fieldName = in.nextName();
 					switch (fieldName) {
-					case "domain":
-						if (domain == null) {
-							domain = referenceAdapter.read(in);
-						} else {
-							throw new JsonParseException("'domain' field appears twice");
-						}
-						break;
-					case "ids":
-						if (ids == null) {
-							ids = idListAdapter.read(in);
-						} else {
-							throw new JsonParseException("'ids' field appears twice");
-						}
-						break;
-					default:
-						throw new JsonParseException("Unrecognized field in Listing: " + fieldName);
+						case "ids":
+							if (ids == null) {
+								ids = idListAdapter.read(in);
+							} else {
+								throw new JsonParseException("'ids' field appears twice");
+							}
+							break;
+						case "domain":
+							if (domain == null) {
+								domain = referenceAdapter.read(in);
+							} else {
+								throw new JsonParseException("'domain' field appears twice");
+							}
+							break;
+						default:
+							throw new JsonParseException("Unrecognized field in Listing: " + fieldName);
 					}
 				}
 
@@ -232,26 +222,17 @@ public final class GsonPlugin extends SerializationPlugin {
 	private <K extends Entity, V> TypeAdapter<SideTable<K,V>> sideTableAdapter(Gson gson, TypeToken<SideTable<K,V>> typeToken) {
 		TypeToken<V> valueToken = sideTableValueTypeToken(typeToken);
 		TypeAdapter<Reference<Catalog<K>>> referenceAdapter = gson.getAdapter(new TypeToken<Reference<Catalog<K>>>() {});
-		TypeAdapter<List<Identifier>> idListAdapter = gson.getAdapter(ID_LIST_TOKEN);
-		TypeAdapter<Map<Identifier, V>> mapAdapter = identifierMapAdapter(gson, valueToken);
 		TypeAdapter<V> valueAdapter = gson.getAdapter(valueToken);
 		return new TypeAdapter<SideTable<K,V>>() {
 			@Override
 			public void write(JsonWriter out, SideTable<K,V> sideTable) throws IOException {
 				out.beginObject();
 
+				out.name("valuesById");
+				writeMapEntries(out, sideTable.idEntrySet(), valueAdapter);
+
 				out.name("domain");
 				referenceAdapter.write(out, sideTable.domain());
-
-				if (separateOrderList) {
-					out.name("order");
-					idListAdapter.write(out, sideTable.ids());
-					out.name("valuesById");
-					mapAdapter.write(out, sideTable.asMap());
-				} else {
-					out.name("valuesById");
-					writeMapEntries(out, sideTable.idEntrySet(), valueAdapter);
-				}
 
 				out.endObject();
 			}
@@ -260,44 +241,28 @@ public final class GsonPlugin extends SerializationPlugin {
 			public SideTable<K,V> read(JsonReader in) throws IOException {
 				Reference<Catalog<K>> domain = null;
 				LinkedHashMap<Identifier, V> valuesById = null;
-				List<Identifier> order = null;
 
 				in.beginObject();
 
 				while (in.hasNext()) {
 					String fieldName = in.nextName();
 					switch (fieldName) {
-					case "domain":
-						if (domain == null) {
-							domain = referenceAdapter.read(in);
-						} else {
-							throw new JsonParseException("'domain' field appears twice");
-						}
-						break;
-					case "order":
-						if (order == null) {
-							if (separateOrderList) {
-								order = idListAdapter.read(in);
-							} else {
-								throw new JsonParseException("Unexpected 'oder' field");
-							}
-						} else {
-							throw new JsonParseException("'order' field appears twice");
-						}
-						break;
-					case "valuesById":
-						if (valuesById == null) {
-							if (separateOrderList) {
-								valuesById = (LinkedHashMap<Identifier, V>) mapAdapter.read(in); // We know what type this really returns
-							} else {
+						case "valuesById":
+							if (valuesById == null) {
 								valuesById = readMapEntries(in, valueAdapter);
+							} else {
+								throw new JsonParseException("'valuesById' field appears twice");
 							}
-						} else {
-							throw new JsonParseException("'valuesById' field appears twice");
-						}
-						break;
-					default:
-						throw new JsonParseException("Unrecognized field in SideTable: " + fieldName);
+							break;
+						case "domain":
+							if (domain == null) {
+								domain = referenceAdapter.read(in);
+							} else {
+								throw new JsonParseException("'domain' field appears twice");
+							}
+							break;
+						default:
+							throw new JsonParseException("Unrecognized field in SideTable: " + fieldName);
 					}
 				}
 
@@ -307,12 +272,8 @@ public final class GsonPlugin extends SerializationPlugin {
 					throw new JsonParseException("Missing 'domain' field");
 				} else if (valuesById == null) {
 					throw new JsonParseException("Missing 'valuesById' field");
-				} else if (order == null) {
-					return SideTable.fromOrderedMap(domain, valuesById);
-				} else if (valuesById.size() != order.size() && !valuesById.keySet().equals(new HashSet<>(order))) {
-					throw new JsonParseException("'valuesById' and 'order' don't match");
 				} else {
-					return SideTable.fromFunction(domain, order.stream(), valuesById::get);
+					return SideTable.fromOrderedMap(domain, valuesById);
 				}
 			}
 
@@ -354,119 +315,21 @@ public final class GsonPlugin extends SerializationPlugin {
 	private <E extends Entity> TypeAdapter<Catalog<E>> catalogAdapter(Gson gson, TypeToken<Catalog<E>> typeToken) {
 		TypeToken<E> typeParameterToken = catalogEntryTypeToken(typeToken);
 		TypeAdapter<E> elementAdapter = gson.getAdapter(typeParameterToken);
-		TypeAdapter<Map<Identifier, E>> mapAdapter = identifierMapAdapter(gson, typeParameterToken);
-		TypeAdapter<List<Identifier>> idListAdapter = gson.getAdapter(ID_LIST_TOKEN);
 
 		return new TypeAdapter<Catalog<E>>() {
 			@Override
 			public void write(JsonWriter out, Catalog<E> catalog) throws IOException {
-				if (separateOrderList) {
-					out.beginObject();
-
-					out.name("order");
-					idListAdapter.write(out, catalog.ids());
-
-					out.name("contents");
-					out.beginObject();
-					for (E element: catalog) {
-						out.name(element.id().toString());
-						elementAdapter.write(out, element);
-					}
-					out.endObject();
-
-					out.endObject();
-				} else {
-					writeMapEntries(out, catalog.asMap().entrySet(), elementAdapter);
-				}
+				writeMapEntries(out, catalog.asMap().entrySet(), elementAdapter);
 			}
 
 			@Override
 			public Catalog<E> read(JsonReader in) throws IOException {
-				Map<Identifier, E> contents = null;
-				List<Identifier> order = null;
-
-				if (separateOrderList) {
-					in.beginObject();
-
-					while (in.hasNext()) {
-						String fieldName = in.nextName();
-						switch (fieldName) {
-							case "order":
-								if (order == null) {
-									order = idListAdapter.read(in);
-								} else {
-									throw new JsonParseException("'order' field appears twice");
-								}
-								break;
-							case "contents":
-								if (contents == null) {
-									contents = mapAdapter.read(in);
-								} else {
-									throw new JsonParseException("'contents' field appears twice");
-								}
-								break;
-							default:
-								throw new JsonParseException("Unrecognized field in Catalog: " + fieldName);
-						}
-					}
-
-					in.endObject();
-				} else {
-					contents = readMapEntries(in, elementAdapter);
-				}
-
-				if (contents == null) {
-					throw new JsonParseException("Missing 'contents' field");
-				} else if (order == null) {
-					return Catalog.of(contents.values());
-				} else if (contents.entrySet().size() != order.size() && !contents.keySet().equals(new HashSet<>(order))) {
-					throw new JsonParseException("'contents' and 'order' don't match");
-				} else {
-					return Catalog.of(order.stream().map(contents::get));
-				}
+				return Catalog.of(readMapEntries(in, elementAdapter).values());
 			}
 		};
 	}
 
 	private static final TypeToken<List<Identifier>> ID_LIST_TOKEN = new TypeToken<List<Identifier>>() {};
-
-	/**
-	 * @return {@link TypeAdapter} for {@link Map} that preserves the order of
-	 * fields, and also maintains the deserialization path.
-	 *
-	 * <p>
-	 * This could be more efficient. We usually end up building a LinkedHashMap object
-	 * that we then discard. But man, having this available makes the rest of the logic simpler.
-	 */
-	private <V> TypeAdapter<Map<Identifier, V>> identifierMapAdapter(Gson gson, TypeToken<V> valueTypeToken) {
-		TypeAdapter<V> valueAdapter = gson.getAdapter(valueTypeToken);
-		return new TypeAdapter<Map<Identifier,V>>() {
-			@Override
-			public void write(JsonWriter out, Map<Identifier, V> value) throws IOException {
-				out.beginObject();
-				for (Entry<Identifier, V> element: value.entrySet()) {
-					out.name(element.getKey().toString());
-					valueAdapter.write(out, element.getValue());
-				}
-				out.endObject();
-			}
-
-			@Override
-			public LinkedHashMap<Identifier, V> read(JsonReader in) throws IOException {
-				LinkedHashMap<Identifier, V> result = new LinkedHashMap<>();
-				in.beginObject();
-				while (in.hasNext()) {
-					String fieldName = in.nextName();
-					try (@SuppressWarnings("unused") DeserializationScope scope = innerDeserializationScope(fieldName)) {
-						V value = valueAdapter.read(in);
-						result.put(Identifier.from(fieldName), value);
-					}
-				}
-				in.endObject();
-				return result;
-			}
-		};
-	}
 
 	private TypeAdapter<Identifier> identifierAdapter() {
 		return new TypeAdapter<Identifier>() {
@@ -508,7 +371,7 @@ public final class GsonPlugin extends SerializationPlugin {
 		};
 	}
 
-	<N extends StateTreeNode> TypeAdapter<N> stateTreeNodeAdapter(Gson gson, TypeToken<N> typeToken, Bosk<?> bosk) {
+	private <N extends StateTreeNode> TypeAdapter<N> stateTreeNodeAdapter(Gson gson, TypeToken<N> typeToken, Bosk<?> bosk) {
 		StateTreeNodeFieldModerator moderator = new StateTreeNodeFieldModerator(typeToken.getType());
 		return compiler.compiled(typeToken, bosk, gson, moderator);
 	}
