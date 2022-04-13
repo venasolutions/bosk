@@ -187,22 +187,22 @@ public final class GsonPlugin extends SerializationPlugin {
 				while (in.hasNext()) {
 					String fieldName = in.nextName();
 					switch (fieldName) {
-					case "domain":
-						if (domain == null) {
-							domain = referenceAdapter.read(in);
-						} else {
-							throw new JsonParseException("'domain' field appears twice");
-						}
-						break;
-					case "ids":
-						if (ids == null) {
-							ids = idListAdapter.read(in);
-						} else {
-							throw new JsonParseException("'ids' field appears twice");
-						}
-						break;
-					default:
-						throw new JsonParseException("Unrecognized field in Listing: " + fieldName);
+						case "domain":
+							if (domain == null) {
+								domain = referenceAdapter.read(in);
+							} else {
+								throw new JsonParseException("'domain' field appears twice");
+							}
+							break;
+						case "ids":
+							if (ids == null) {
+								ids = idListAdapter.read(in);
+							} else {
+								throw new JsonParseException("'ids' field appears twice");
+							}
+							break;
+						default:
+							throw new JsonParseException("Unrecognized field in Listing: " + fieldName);
 					}
 				}
 
@@ -247,22 +247,22 @@ public final class GsonPlugin extends SerializationPlugin {
 				while (in.hasNext()) {
 					String fieldName = in.nextName();
 					switch (fieldName) {
-					case "domain":
-						if (domain == null) {
-							domain = referenceAdapter.read(in);
-						} else {
-							throw new JsonParseException("'domain' field appears twice");
-						}
-						break;
-					case "valuesById":
-						if (valuesById == null) {
-							valuesById = readMapEntries(in, valueAdapter);
-						} else {
-							throw new JsonParseException("'valuesById' field appears twice");
-						}
-						break;
-					default:
-						throw new JsonParseException("Unrecognized field in SideTable: " + fieldName);
+						case "domain":
+							if (domain == null) {
+								domain = referenceAdapter.read(in);
+							} else {
+								throw new JsonParseException("'domain' field appears twice");
+							}
+							break;
+						case "valuesById":
+							if (valuesById == null) {
+								valuesById = readMapEntries(in, valueAdapter);
+							} else {
+								throw new JsonParseException("'valuesById' field appears twice");
+							}
+							break;
+						default:
+							throw new JsonParseException("Unrecognized field in SideTable: " + fieldName);
 					}
 				}
 
