@@ -168,11 +168,11 @@ public final class GsonPlugin extends SerializationPlugin {
 			public void write(JsonWriter out, Listing<E> listing) throws IOException {
 				out.beginObject();
 
-				out.name("domain");
-				referenceAdapter.write(out, listing.domain());
-
 				out.name("ids");
 				idListAdapter.write(out, new ArrayList<>(listing.ids()));
+
+				out.name("domain");
+				referenceAdapter.write(out, listing.domain());
 
 				out.endObject();
 			}
@@ -187,18 +187,18 @@ public final class GsonPlugin extends SerializationPlugin {
 				while (in.hasNext()) {
 					String fieldName = in.nextName();
 					switch (fieldName) {
-						case "domain":
-							if (domain == null) {
-								domain = referenceAdapter.read(in);
-							} else {
-								throw new JsonParseException("'domain' field appears twice");
-							}
-							break;
 						case "ids":
 							if (ids == null) {
 								ids = idListAdapter.read(in);
 							} else {
 								throw new JsonParseException("'ids' field appears twice");
+							}
+							break;
+						case "domain":
+							if (domain == null) {
+								domain = referenceAdapter.read(in);
+							} else {
+								throw new JsonParseException("'domain' field appears twice");
 							}
 							break;
 						default:
@@ -228,11 +228,11 @@ public final class GsonPlugin extends SerializationPlugin {
 			public void write(JsonWriter out, SideTable<K,V> sideTable) throws IOException {
 				out.beginObject();
 
-				out.name("domain");
-				referenceAdapter.write(out, sideTable.domain());
-
 				out.name("valuesById");
 				writeMapEntries(out, sideTable.idEntrySet(), valueAdapter);
+
+				out.name("domain");
+				referenceAdapter.write(out, sideTable.domain());
 
 				out.endObject();
 			}
@@ -247,18 +247,18 @@ public final class GsonPlugin extends SerializationPlugin {
 				while (in.hasNext()) {
 					String fieldName = in.nextName();
 					switch (fieldName) {
-						case "domain":
-							if (domain == null) {
-								domain = referenceAdapter.read(in);
-							} else {
-								throw new JsonParseException("'domain' field appears twice");
-							}
-							break;
 						case "valuesById":
 							if (valuesById == null) {
 								valuesById = readMapEntries(in, valueAdapter);
 							} else {
 								throw new JsonParseException("'valuesById' field appears twice");
+							}
+							break;
+						case "domain":
+							if (domain == null) {
+								domain = referenceAdapter.read(in);
+							} else {
+								throw new JsonParseException("'domain' field appears twice");
 							}
 							break;
 						default:
