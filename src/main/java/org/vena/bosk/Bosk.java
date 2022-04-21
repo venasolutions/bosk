@@ -926,13 +926,13 @@ try (ReadContext originalThReadContext = bosk.new ReadContext()) {
 		Class<?> targetClass = rawClass(targetType);
 		if (Optional.class.isAssignableFrom(requestedClass)) {
 			throw new InvalidTypeException("Reference<Optional<T>> not supported; create a Reference<T> instead and use Reference.optionalValue()");
-		} else if (Reference.class.isAssignableFrom(requestedClass)) {
-			// TODO: Disallow references to implicit references {Self and Enclosing}
 		} else if (!requestedClass.isAssignableFrom(targetClass)) {
 			throw new InvalidTypeException("Path from " + rawClass(rootType).getSimpleName()
 				+ " returns " + targetClass.getSimpleName()
 				+ "; requested " + requestedClass.getSimpleName()
 				+ ": " + path);
+		} else if (Reference.class.isAssignableFrom(requestedClass)) {
+			// TODO: Disallow references to implicit references {Self and Enclosing}
 		}
 		return newReference(path, targetType);
 	}
