@@ -26,6 +26,7 @@ import org.junit.jupiter.api.Test;
 import org.vena.bosk.Bosk.ReadContext;
 import org.vena.bosk.exceptions.InvalidTypeException;
 import org.vena.bosk.exceptions.NonexistentReferenceException;
+import org.vena.bosk.util.Classes;
 
 import static java.util.Arrays.asList;
 import static java.util.stream.Collectors.toList;
@@ -239,6 +240,15 @@ class BoskTest {
 				}
 			}
 		}
+	}
+
+	/**
+	 * A regression test for a type checking bug.
+	 */
+	@Test
+	void testBogusReferenceReference() {
+		assertThrows(InvalidTypeException.class, ()->
+			bosk.reference(Classes.reference(String.class), Path.empty())); // Root object isn't a reference to a String
 	}
 
 	@Test
