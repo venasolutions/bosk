@@ -2,7 +2,7 @@ package org.vena.bosk;
 
 /**
  * Used to create a thing that can be referenced (eg. as the {@link Listing#domain() domain}
- * of a {@link Listing} but that is not actually serialized or instantiated.
+ * of a {@link Listing}) but that is not actually serialized or instantiated.
  *
  * <p>
  * Behaves like an {@link java.util.Optional Optional} that is always empty.
