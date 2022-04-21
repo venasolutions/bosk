@@ -204,6 +204,12 @@ class GsonPluginTest extends AbstractBoskTest {
 		assertThat(json, containsString(contents));
 	}
 
+	@Test
+	void testRootReference() {
+		String json = boskGson.toJson(bosk.rootReference());
+		assertEquals("\"/\"", json);
+	}
+
 	@ParameterizedTest
 	@MethodSource("listValueArguments")
 	void testToJson_listValue(List<?> list, TypeToken<?> typeToken) {
