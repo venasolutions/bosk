@@ -40,7 +40,7 @@ public interface BoskDriver<R extends Entity> {
 	 * but it can be used downstream of a {@link ForwardingDriver} provided there is
 	 * another downstream driver that can provide the initial root instead.
 	 */
-	R initialRoot(Type rootType) throws InvalidTypeException;
+	R initialRoot(Type rootType) throws InvalidTypeException, IOException, InterruptedException;
 
 	/**
 	 * Requests that the object referenced by <code>target</code> be changed to <code>newValue</code>.

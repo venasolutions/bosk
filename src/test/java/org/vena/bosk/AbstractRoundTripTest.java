@@ -225,7 +225,7 @@ public abstract class AbstractRoundTripTest extends AbstractBoskTest {
 		abstract <T> T preprocess(Reference<T> reference, T newValue);
 
 		@Override
-		public R initialRoot(Type rootType) throws InvalidTypeException {
+		public R initialRoot(Type rootType) throws InvalidTypeException, IOException, InterruptedException {
 			return downstream.initialRoot(rootType);
 		}
 

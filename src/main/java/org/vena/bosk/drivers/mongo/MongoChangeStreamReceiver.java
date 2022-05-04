@@ -1,6 +1,7 @@
 package org.vena.bosk.drivers.mongo;
 
 import com.mongodb.MongoException;
+import com.mongodb.client.ChangeStreamIterable;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoCursor;
 import com.mongodb.client.model.changestream.ChangeStreamDocument;
@@ -17,7 +18,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import javax.annotation.Nullable;
 import org.bson.BsonDocument;
-import org.bson.BsonString;
 import org.bson.BsonValue;
 import org.bson.Document;
 import org.slf4j.Logger;
@@ -51,7 +51,7 @@ final class MongoChangeStreamReceiver<R extends Entity> implements MongoReceiver
 	private final static String RESUME_TOKEN_KEY = "_data";
 
 	private volatile MongoCursor<ChangeStreamDocument<Document>> eventCursor;
-	private volatile BsonDocument lastProcessedResumeToken;
+	private volatile BsonDocument lastProcessedResumeToken = null;
 	private volatile boolean isClosed = false;
 
 	MongoChangeStreamReceiver(BoskDriver<R> downstream, Reference<R> rootRef, MongoCollection<Document> collection, Formatter formatter) {
@@ -59,16 +59,13 @@ final class MongoChangeStreamReceiver<R extends Entity> implements MongoReceiver
 		this.rootRef = rootRef;
 		this.formatter = formatter;
 
-		this.lastProcessedResumeToken = new BsonDocument();
-		lastProcessedResumeToken.put(RESUME_TOKEN_KEY, new BsonString("0"));
-
 		this.collection = collection;
 		eventCursor = collection.watch().iterator();
 		ex.submit(this::eventProcessingLoop);
 	}
 
 	@Override
-	public R initialRoot(Type rootType) throws InvalidTypeException {
+	public R initialRoot(Type rootType) throws InvalidTypeException, IOException, InterruptedException {
 		return downstream.initialRoot(rootType);
 	}
 
@@ -135,8 +132,14 @@ final class MongoChangeStreamReceiver<R extends Entity> implements MongoReceiver
 		} catch (Exception e) {
 			LOGGER.warn("Unable to close event stream cursor", e);
 		}
-		LOGGER.debug("Attempting to reconnect cursor with resume token {}", lastProcessedResumeToken);
-		eventCursor = collection.watch().resumeAfter(lastProcessedResumeToken).iterator();
+		ChangeStreamIterable<Document> iterable = collection.watch();
+		if (lastProcessedResumeToken == null) {
+			LOGGER.error("No resume token available. Reconnecting cursor from current location. Some update events could be missed.");
+		} else {
+			LOGGER.debug("Attempting to reconnect cursor with resume token {}", lastProcessedResumeToken);
+			iterable = iterable.resumeAfter(lastProcessedResumeToken);
+		}
+		eventCursor = iterable.iterator();
 		LOGGER.debug("Finished reconnecting");
 	}
 

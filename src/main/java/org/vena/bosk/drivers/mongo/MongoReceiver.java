@@ -37,7 +37,7 @@ interface MongoReceiver<R extends Entity> extends Closeable {
 	void close();
 
 	// Proxied methods for downstream driver
-	R initialRoot(Type rootType) throws InvalidTypeException;
+	R initialRoot(Type rootType) throws InvalidTypeException, IOException, InterruptedException;
 	void flushDownstream() throws InterruptedException, IOException;
 
 	// Echo functionality to implement flush()
