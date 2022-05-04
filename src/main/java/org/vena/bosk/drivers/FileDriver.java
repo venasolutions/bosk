@@ -94,7 +94,7 @@ public final class FileDriver<R extends Entity> implements BoskDriver<R> {
 	}
 
 	@Override
-	public R initialRoot(Type rootType) throws InvalidTypeException {
+	public R initialRoot(Type rootType) throws InvalidTypeException, IOException, InterruptedException {
 		try {
 			return readFromFile();
 		} catch (IOException | JsonParseException e) {

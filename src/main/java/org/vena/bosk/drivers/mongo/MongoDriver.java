@@ -68,7 +68,7 @@ public final class MongoDriver<R extends Entity> implements BoskDriver<R> {
 	}
 
 	@Override
-	public R initialRoot(Type rootType) throws InvalidTypeException {
+	public R initialRoot(Type rootType) throws InvalidTypeException, IOException, InterruptedException {
 		LOGGER.debug("+ initialRoot");
 		try (MongoCursor<Document> cursor = collection.find(documentFilter()).limit(1).cursor()) {
 			Document newDocument = cursor.next();

@@ -17,18 +17,18 @@ public class ForwardingDriver<R extends Entity> implements BoskDriver<R> {
 	 * that doesn't throw {@link UnsupportedOperationException}.
 	 */
 	@Override
-	public R initialRoot(Type rootType) throws InvalidTypeException {
-		UnsupportedOperationException lastExceptionThrown = null;
+	public R initialRoot(Type rootType) throws InvalidTypeException, IOException, InterruptedException {
+		UnsupportedOperationException lastUnsupportedOperationException = null;
 		for (BoskDriver<R> d: downstream) {
 			try {
 				return d.initialRoot(rootType);
 			} catch (UnsupportedOperationException e) {
-				lastExceptionThrown = e;
+				lastUnsupportedOperationException = e;
 			}
 		}
 
 		// Oh dear.
-		throw new UnsupportedOperationException("Unable to forward initialRoot request", lastExceptionThrown);
+		throw new UnsupportedOperationException("Unable to forward initialRoot request", lastUnsupportedOperationException);
 	}
 
 	@Override

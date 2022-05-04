@@ -65,7 +65,7 @@ final class MongoChangeStreamReceiver<R extends Entity> implements MongoReceiver
 	}
 
 	@Override
-	public R initialRoot(Type rootType) throws InvalidTypeException {
+	public R initialRoot(Type rootType) throws InvalidTypeException, IOException, InterruptedException {
 		return downstream.initialRoot(rootType);
 	}
 
@@ -134,7 +134,7 @@ final class MongoChangeStreamReceiver<R extends Entity> implements MongoReceiver
 		}
 		ChangeStreamIterable<Document> iterable = collection.watch();
 		if (lastProcessedResumeToken == null) {
-			LOGGER.warn("Attempting to reconnect cursor from current location");
+			LOGGER.error("No resume token available. Reconnecting cursor from current location. Some update events could be missed.");
 		} else {
 			LOGGER.debug("Attempting to reconnect cursor with resume token {}", lastProcessedResumeToken);
 			iterable = iterable.resumeAfter(lastProcessedResumeToken);

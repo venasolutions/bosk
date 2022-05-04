@@ -1,5 +1,6 @@
 package org.vena.bosk;
 
+import java.io.IOException;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
@@ -124,7 +125,7 @@ public class Bosk<R extends Entity> {
 		this.driver = driverFactory.apply(this.localDriver, this);
 		try {
 			this.currentRoot = requireNonNull(driver.initialRoot(rootType));
-		} catch (InvalidTypeException e) {
+		} catch (InvalidTypeException | IOException | InterruptedException e) {
 			throw new IllegalArgumentException("Error computing initial root: " + e.getMessage(), e);
 		}
 		if (!rawClass(rootType).isInstance(this.currentRoot)) {
