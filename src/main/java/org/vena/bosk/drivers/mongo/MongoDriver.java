@@ -119,7 +119,7 @@ public final class MongoDriver<R extends Entity> implements BoskDriver<R> {
 	@Override
 	public void flush() throws IOException, InterruptedException {
 		LOGGER.debug("+ flush");
-		flushToDownstreamDriver();
+		flushToChangeStreamReceiver();
 		receiver.flushDownstream();
 	}
 
@@ -244,7 +244,8 @@ public final class MongoDriver<R extends Entity> implements BoskDriver<R> {
 	}
 
 	/**
-	 * Ensures that all prior updates have been submitted to the downstream driver.
+	 * Ensures that all prior updates have been received and processed by the {@link #receiver},
+	 * which means they've been sent to the downstream driver.
 	 * To do this, we submit a "marker" MongoDB update that doesn't affect the bosk state,
 	 * and then wait for that update to arrive back via the change stream.
 	 * Because all updates are totally ordered, this means all prior updates have also arrived,
@@ -253,7 +254,7 @@ public final class MongoDriver<R extends Entity> implements BoskDriver<R> {
 	 *
 	 * @throws MongoException if something goes wrong with MongoDB
 	 */
-	private void flushToDownstreamDriver() throws IOException, InterruptedException {
+	private void flushToChangeStreamReceiver() throws IOException, InterruptedException {
 		String echoToken = uniqueEchoToken();
 		BlockingQueue<BsonDocument> listener = new ArrayBlockingQueue<>(1);
 		try {
