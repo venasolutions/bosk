@@ -70,6 +70,12 @@ public final class MongoDriver<R extends Entity> implements BoskDriver<R> {
 	@Override
 	public R initialRoot(Type rootType) throws InvalidTypeException, IOException, InterruptedException {
 		LOGGER.debug("+ initialRoot");
+
+		// Ensure at least one change stream update is seen by the receiver before we
+		// read the current state. This makes the receiver's recovery logic solid because
+		// there's always a resume token that pre-dates the read.
+		flushToChangeStreamReceiver();
+
 		try (MongoCursor<Document> cursor = collection.find(documentFilter()).limit(1).cursor()) {
 			Document newDocument = cursor.next();
 			Document newState = newDocument.get(state.name(), Document.class);
@@ -261,7 +267,11 @@ public final class MongoDriver<R extends Entity> implements BoskDriver<R> {
 			receiver.putEchoListener(echoToken, listener);
 			BsonDocument updateDoc = new BsonDocument("$set", new BsonDocument(echo.name(), new BsonString(echoToken)));
 			LOGGER.debug("| Update: {}", updateDoc);
-			collection.updateOne(documentFilter(), updateDoc);
+			UpdateResult result = collection.updateOne(documentFilter(), updateDoc);
+			if (result.getModifiedCount() == 0) {
+				LOGGER.debug("Document does not exist; echo succeeds trivially. Response: {}", result);
+				return;
+			}
 			LOGGER.debug("| Waiting");
 			BsonDocument resumeToken = listener.poll(settings.flushTimeoutMS(), MILLISECONDS);
 			if (resumeToken == null) {
