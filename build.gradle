@@ -31,7 +31,7 @@ allprojects {
 			jUnitPlatformVersion = '1.6.2'
 			logbackVersion = '1.2.11'
 			lombokVersion = '1.18.20'
-			mongoDriverVersion = '3.11.2'
+			mongoDriverVersion = '3.12.11'
 			slf4jVersion = '1.7.35'
 			testcontainersVersion = '1.16.0'
 
