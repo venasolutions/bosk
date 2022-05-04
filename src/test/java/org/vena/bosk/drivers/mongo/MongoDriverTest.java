@@ -225,9 +225,13 @@ class MongoDriverTest extends DriverConformanceTest {
 		// Wait till MongoDB is up and running
 		driver.flush();
 
+		// Make another bosk that doesn't witness any change stream events before the outage
+		Bosk<TestEntity> latecomerBosk = new Bosk<TestEntity>("Latecomer bosk", TestEntity.class, this::initialRoot, driverFactory);
+
 		proxy.setConnectionCut(true);
 
 		assertThrows(MongoException.class, driver::flush);
+		assertThrows(MongoException.class, latecomerBosk.driver()::flush);
 
 		proxy.setConnectionCut(false);
 
@@ -243,6 +247,13 @@ class MongoDriverTest extends DriverConformanceTest {
 			actual = bosk.rootReference().value();
 		}
 		assertEquals(expected, actual);
+
+		latecomerBosk.driver().flush();
+		TestEntity latecomerActual;
+		try (@SuppressWarnings("unused") Bosk<?>.ReadContext readContext = latecomerBosk.readContext()) {
+			latecomerActual = latecomerBosk.rootReference().value();
+		}
+		assertEquals(expected, latecomerActual);
 	}
 
 	@Test
