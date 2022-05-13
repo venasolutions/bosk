@@ -235,7 +235,7 @@ public class Bosk<R extends Entity> {
 		}
 
 		@Override
-		public <T> void submitConditionalReplacement(Reference<T> target, T newValue, Reference<String> precondition, String requiredValue) {
+		public <T> void submitConditionalReplacement(Reference<T> target, T newValue, Reference<Identifier> precondition, Identifier requiredValue) {
 			synchronized (this) {
 				boolean preconditionsSatisfied;
 				try (@SuppressWarnings("unused") ReadContext executionContext = new ReadContext(currentRoot)) {
@@ -253,7 +253,7 @@ public class Bosk<R extends Entity> {
 		}
 
 		@Override
-		public <T> void submitConditionalDeletion(Reference<T> target, Reference<String> precondition, String requiredValue) {
+		public <T> void submitConditionalDeletion(Reference<T> target, Reference<Identifier> precondition, Identifier requiredValue) {
 			synchronized (this) {
 				boolean preconditionsSatisfied;
 				try (@SuppressWarnings("unused") ReadContext executionContext = new ReadContext(currentRoot)) {
@@ -818,6 +818,7 @@ try (ReadContext originalThReadContext = bosk.new ReadContext()) {
 		@SuppressWarnings("unchecked")
 		public T valueIfExists() {
 			R snapshot = rootSnapshot.get();
+			LOGGER.trace("Snapshot is {}", System.identityHashCode(snapshot));
 			if (snapshot == null) {
 				throw new NoReadContextException("No active read context for " + name + " in " + Thread.currentThread());
 			} else try {

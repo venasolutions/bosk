@@ -14,7 +14,7 @@ compileTestJava.options.encoding = 'UTF-8'
 group = 'org.vena'
 archivesBaseName = 'bosk'
 jar.archiveBaseName = "${archivesBaseName}"
-version = '0.0.16'
+version = '0.0.17'
 var publicationType = version.endsWith('-SNAPSHOT') ? 'snapshot' : 'release'
 
 sourceCompatibility = 1.8

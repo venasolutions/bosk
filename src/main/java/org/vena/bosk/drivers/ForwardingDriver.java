@@ -5,6 +5,7 @@ import java.lang.reflect.Type;
 import lombok.RequiredArgsConstructor;
 import org.vena.bosk.BoskDriver;
 import org.vena.bosk.Entity;
+import org.vena.bosk.Identifier;
 import org.vena.bosk.Reference;
 import org.vena.bosk.exceptions.InvalidTypeException;
 
@@ -37,7 +38,7 @@ public class ForwardingDriver<R extends Entity> implements BoskDriver<R> {
 	}
 
 	@Override
-	public <T> void submitConditionalReplacement(Reference<T> target, T newValue, Reference<String> precondition, String requiredValue) {
+	public <T> void submitConditionalReplacement(Reference<T> target, T newValue, Reference<Identifier> precondition, Identifier requiredValue) {
 		downstream.forEach(d -> d.submitConditionalReplacement(target, newValue, precondition, requiredValue));
 	}
 
@@ -52,7 +53,7 @@ public class ForwardingDriver<R extends Entity> implements BoskDriver<R> {
 	}
 
 	@Override
-	public <T> void submitConditionalDeletion(Reference<T> target, Reference<String> precondition, String requiredValue) {
+	public <T> void submitConditionalDeletion(Reference<T> target, Reference<Identifier> precondition, Identifier requiredValue) {
 		downstream.forEach(d -> d.submitConditionalDeletion(target, precondition, requiredValue));
 	}
 

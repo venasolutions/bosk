@@ -59,7 +59,7 @@ public interface BoskDriver<R extends Entity> {
 	 *
 	 * @see #submitReplacement(Reference, T)
 	 */
-	<T> void submitConditionalReplacement(Reference<T> target, T newValue, Reference<String> precondition, String requiredValue);
+	<T> void submitConditionalReplacement(Reference<T> target, T newValue, Reference<Identifier> precondition, Identifier requiredValue);
 
 	/**
 	 * Like {@link #submitReplacement(Reference, T)}, but has no effect if the target object already exists.
@@ -91,7 +91,7 @@ public interface BoskDriver<R extends Entity> {
 	 *
 	 * @see #submitDeletion(Reference)
 	 */
-	<T> void submitConditionalDeletion(Reference<T> target, Reference<String> precondition, String requiredValue);
+	<T> void submitConditionalDeletion(Reference<T> target, Reference<Identifier> precondition, Identifier requiredValue);
 
 	/**
 	 * Blocks until all prior updates have been applied to the Bosk.

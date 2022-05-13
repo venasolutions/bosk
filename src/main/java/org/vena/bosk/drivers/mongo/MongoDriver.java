@@ -28,6 +28,7 @@ import org.vena.bosk.Bosk;
 import org.vena.bosk.BoskDriver;
 import org.vena.bosk.BsonPlugin;
 import org.vena.bosk.Entity;
+import org.vena.bosk.Identifier;
 import org.vena.bosk.Reference;
 import org.vena.bosk.exceptions.FlushTimeoutException;
 import org.vena.bosk.exceptions.InvalidTypeException;
@@ -130,7 +131,7 @@ public final class MongoDriver<R extends Entity> implements BoskDriver<R> {
 	}
 
 	@Override
-	public <T> void submitConditionalReplacement(Reference<T> target, T newValue, Reference<String> precondition, String requiredValue) {
+	public <T> void submitConditionalReplacement(Reference<T> target, T newValue, Reference<Identifier> precondition, Identifier requiredValue) {
 		LOGGER.debug("+ submitConditionalReplacement({}, {} = {})", target, precondition, requiredValue);
 		doUpdate(
 			replacementDoc(target, newValue),
@@ -138,7 +139,7 @@ public final class MongoDriver<R extends Entity> implements BoskDriver<R> {
 	}
 
 	@Override
-	public <T> void submitConditionalDeletion(Reference<T> target, Reference<String> precondition, String requiredValue) {
+	public <T> void submitConditionalDeletion(Reference<T> target, Reference<Identifier> precondition, Identifier requiredValue) {
 		LOGGER.debug("+ submitConditionalDeletion({}, {} = {})", target, precondition, requiredValue);
 		doUpdate(
 			deletionDoc(target),
@@ -172,9 +173,9 @@ public final class MongoDriver<R extends Entity> implements BoskDriver<R> {
 		return filter;
 	}
 
-	private <T> BsonDocument explicitPreconditions(Reference<T> target, Reference<String> preconditionRef, String requiredValue) {
+	private <T> BsonDocument explicitPreconditions(Reference<T> target, Reference<Identifier> preconditionRef, Identifier requiredValue) {
 		BsonDocument filter = standardPreconditions(target);
-		BsonDocument precondition = new BsonDocument("$eq", new BsonString(requiredValue));
+		BsonDocument precondition = new BsonDocument("$eq", new BsonString(requiredValue.toString()));
 		filter.put(dottedFieldNameOf(preconditionRef, rootRef), precondition);
 		return filter;
 	}

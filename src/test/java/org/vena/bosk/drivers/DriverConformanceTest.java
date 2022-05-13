@@ -81,6 +81,42 @@ public abstract class DriverConformanceTest extends AbstractDriverTest {
 	}
 
 	@ParametersByName
+	void testConditionalReplaceFirst(Path enclosingCatalogPath) throws InvalidTypeException {
+		CatalogReference<TestEntity> ref = initializeBoskWithCatalog(enclosingCatalogPath);
+		Reference<Identifier> child1IDRef = ref.then(child1ID).then(Identifier.class, TestEntity.Fields.id);
+		Reference<Identifier> child2IDRef = ref.then(child2ID).then(Identifier.class, TestEntity.Fields.id);
+
+		// Self ID matches
+		driver.submitConditionalReplacement(
+			ref.then(child1ID), newEntity(child1ID, ref).withString("replacement 1"),
+			child1IDRef, child1ID
+		);
+		assertCorrectBoskContents();
+
+		// Self ID does not match
+		driver.submitConditionalReplacement(
+			ref.then(child1ID), newEntity(child1ID, ref).withString("replacement 2"),
+			child1IDRef, child2ID
+		);
+		assertCorrectBoskContents();
+
+		// Other ID matches
+		driver.submitConditionalReplacement(
+			ref.then(child1ID), newEntity(child1ID, ref).withString("replacement 1"),
+			child2IDRef, child2ID
+		);
+		assertCorrectBoskContents();
+
+		// Other ID does not match
+		driver.submitConditionalReplacement(
+			ref.then(child1ID), newEntity(child1ID, ref).withString("replacement 2"),
+			child2IDRef, child1ID
+		);
+		assertCorrectBoskContents();
+
+	}
+
+	@ParametersByName
 	void testDeleteForward(Path enclosingCatalogPath) throws InvalidTypeException {
 		CatalogReference<TestEntity> ref = initializeBoskWithCatalog(enclosingCatalogPath);
 		driver.submitDeletion(ref.then(child1ID));
@@ -96,6 +132,42 @@ public abstract class DriverConformanceTest extends AbstractDriverTest {
 		assertCorrectBoskContents();
 		driver.submitDeletion(ref.then(child1ID));
 		assertCorrectBoskContents();
+	}
+
+	@ParametersByName
+	void testConditionalDelete(Path enclosingCatalogPath) throws InvalidTypeException {
+		CatalogReference<TestEntity> ref = initializeBoskWithCatalog(enclosingCatalogPath);
+		Reference<Identifier> child1IDRef = ref.then(child1ID).then(Identifier.class, TestEntity.Fields.id);
+		Reference<Identifier> child2IDRef = ref.then(child2ID).then(Identifier.class, TestEntity.Fields.id);
+
+		// Self ID does not match - should have no effect
+		driver.submitConditionalDeletion(
+			ref.then(child1ID),
+			child1IDRef, child2ID
+		);
+		assertCorrectBoskContents();
+
+		// Other ID does not match - should have no effect
+		driver.submitConditionalDeletion(
+			ref.then(child1ID),
+			child2IDRef, child1ID
+		);
+		assertCorrectBoskContents();
+
+		// Other ID matches - child2 should disappear
+		driver.submitConditionalDeletion(
+			ref.then(child2ID),
+			child1IDRef, child1ID
+		);
+		assertCorrectBoskContents();
+
+		// Self ID matches - child1 should disappear
+		driver.submitConditionalDeletion(
+			ref.then(child1ID),
+			child1IDRef, child1ID
+		);
+		assertCorrectBoskContents();
+
 	}
 
 	@ParametersByName
