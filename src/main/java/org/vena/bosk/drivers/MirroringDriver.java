@@ -28,7 +28,7 @@ public class MirroringDriver<R extends Entity> implements BoskDriver<R> {
 
 	@Override
 	public <T> void submitConditionalReplacement(Reference<T> target, T newValue, Reference<String> precondition, String requiredValue) {
-		mirror.driver().submitConditionalReplacement(correspondingReference(target), newValue, precondition, requiredValue);
+		mirror.driver().submitConditionalReplacement(correspondingReference(target), newValue, correspondingReference(precondition), requiredValue);
 	}
 
 	@Override
@@ -43,7 +43,7 @@ public class MirroringDriver<R extends Entity> implements BoskDriver<R> {
 
 	@Override
 	public <T> void submitConditionalDeletion(Reference<T> target, Reference<String> precondition, String requiredValue) {
-		mirror.driver().submitConditionalDeletion(correspondingReference(target), precondition, requiredValue);
+		mirror.driver().submitConditionalDeletion(correspondingReference(target), correspondingReference(precondition), requiredValue);
 	}
 
 	@Override
