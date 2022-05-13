@@ -818,6 +818,7 @@ try (ReadContext originalThReadContext = bosk.new ReadContext()) {
 		@SuppressWarnings("unchecked")
 		public T valueIfExists() {
 			R snapshot = rootSnapshot.get();
+			LOGGER.trace("Snapshot is {}", System.identityHashCode(snapshot));
 			if (snapshot == null) {
 				throw new NoReadContextException("No active read context for " + name + " in " + Thread.currentThread());
 			} else try {
