@@ -235,7 +235,7 @@ public class Bosk<R extends Entity> {
 		}
 
 		@Override
-		public <T> void submitConditionalReplacement(Reference<T> target, T newValue, Reference<String> precondition, String requiredValue) {
+		public <T> void submitConditionalReplacement(Reference<T> target, T newValue, Reference<Identifier> precondition, Identifier requiredValue) {
 			synchronized (this) {
 				boolean preconditionsSatisfied;
 				try (@SuppressWarnings("unused") ReadContext executionContext = new ReadContext(currentRoot)) {
@@ -253,7 +253,7 @@ public class Bosk<R extends Entity> {
 		}
 
 		@Override
-		public <T> void submitConditionalDeletion(Reference<T> target, Reference<String> precondition, String requiredValue) {
+		public <T> void submitConditionalDeletion(Reference<T> target, Reference<Identifier> precondition, Identifier requiredValue) {
 			synchronized (this) {
 				boolean preconditionsSatisfied;
 				try (@SuppressWarnings("unused") ReadContext executionContext = new ReadContext(currentRoot)) {

@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import org.vena.bosk.Bosk;
 import org.vena.bosk.BoskDriver;
 import org.vena.bosk.Entity;
+import org.vena.bosk.Identifier;
 import org.vena.bosk.Reference;
 import org.vena.bosk.exceptions.InvalidTypeException;
 
@@ -27,7 +28,7 @@ public class MirroringDriver<R extends Entity> implements BoskDriver<R> {
 	}
 
 	@Override
-	public <T> void submitConditionalReplacement(Reference<T> target, T newValue, Reference<String> precondition, String requiredValue) {
+	public <T> void submitConditionalReplacement(Reference<T> target, T newValue, Reference<Identifier> precondition, Identifier requiredValue) {
 		mirror.driver().submitConditionalReplacement(correspondingReference(target), newValue, correspondingReference(precondition), requiredValue);
 	}
 
@@ -42,7 +43,7 @@ public class MirroringDriver<R extends Entity> implements BoskDriver<R> {
 	}
 
 	@Override
-	public <T> void submitConditionalDeletion(Reference<T> target, Reference<String> precondition, String requiredValue) {
+	public <T> void submitConditionalDeletion(Reference<T> target, Reference<Identifier> precondition, Identifier requiredValue) {
 		mirror.driver().submitConditionalDeletion(correspondingReference(target), correspondingReference(precondition), requiredValue);
 	}
 

@@ -203,12 +203,12 @@ public abstract class AbstractRoundTripTest extends AbstractBoskTest {
 		}
 
 		@Override
-		public <T> void submitConditionalReplacement(Reference<T> target, T newValue, Reference<String> precondition, String requiredValue) {
+		public <T> void submitConditionalReplacement(Reference<T> target, T newValue, Reference<Identifier> precondition, Identifier requiredValue) {
 			downstream.submitConditionalReplacement(target, preprocess(target, newValue), precondition, requiredValue);
 		}
 
 		@Override
-		public <T> void submitConditionalDeletion(Reference<T> target, Reference<String> precondition, String requiredValue) {
+		public <T> void submitConditionalDeletion(Reference<T> target, Reference<Identifier> precondition, Identifier requiredValue) {
 			downstream.submitConditionalDeletion(target, precondition, requiredValue);
 		}
 
