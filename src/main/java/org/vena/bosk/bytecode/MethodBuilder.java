@@ -2,7 +2,7 @@ package org.vena.bosk.bytecode;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
-import org.objectweb.asm.ClassWriter;
+import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
@@ -14,10 +14,10 @@ final class MethodBuilder {
 	private int stackDepth = 0;
 	private int numLocals;
 
-	MethodBuilder(Method method, String signature, ClassWriter classWriter) {
+	MethodBuilder(Method method, String signature, ClassVisitor classVisitor) {
 		this.method = method;
 		this.numLocals = this.numParameters = method.getParameterCount() + ((Modifier.isStatic(method.getModifiers())) ? 0 : 1);
-		this.methodVisitor = classWriter.visitMethod(Opcodes.ACC_PUBLIC, method.getName(), Type.getMethodDescriptor(method), signature, null);
+		this.methodVisitor = classVisitor.visitMethod(Opcodes.ACC_PUBLIC, method.getName(), Type.getMethodDescriptor(method), signature, null);
 	}
 
 	void buildMethod() {

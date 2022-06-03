@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Stream;
+import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
@@ -34,6 +35,7 @@ public final class ClassBuilder<T> implements Opcodes {
 	private final String slashyName; // like "java/lang/Object"
 	private final String dottyName;  // like "java.lang.Object"
 	private final StackTraceElement sourceFileOrigin; // Where this ClassBuilder was instantiated
+	private ClassVisitor classVisitor = null;
 	private ClassWriter classWriter = null;
 	private MethodBuilder currentMethod = null;
 
@@ -69,15 +71,16 @@ public final class ClassBuilder<T> implements Opcodes {
 			interfaces = new String[0];
 		}
 		this.classWriter = new ClassWriter(COMPUTE_FRAMES);
-		classWriter.visit(V1_8, ACC_PUBLIC | ACC_FINAL | ACC_SUPER, slashyName, null, superClassName, interfaces);
-		classWriter.visitSource(sourceFileOrigin.getFileName(), null);
+		this.classVisitor = classWriter;
+		classVisitor.visit(V1_8, ACC_PUBLIC | ACC_FINAL | ACC_SUPER, slashyName, null, superClassName, interfaces);
+		classVisitor.visitSource(sourceFileOrigin.getFileName(), null);
 	}
 
 	private void generateConstructor(StackTraceElement sourceFileOrigin) {
 		String ctorParameterDescriptor = curriedFields.stream()
 			.map(CurriedField::typeDescriptor)
 			.collect(joining());
-		MethodVisitor ctor = classWriter.visitMethod(ACC_PUBLIC, "<init>", "(" + ctorParameterDescriptor + ")V", null, null);
+		MethodVisitor ctor = classVisitor.visitMethod(ACC_PUBLIC, "<init>", "(" + ctorParameterDescriptor + ")V", null, null);
 		ctor.visitCode();
 		Label label = new Label();
 		ctor.visitLabel(label);
@@ -100,7 +103,7 @@ public final class ClassBuilder<T> implements Opcodes {
 
 	public void beginMethod(Method method) {
 		if (currentMethod == null) {
-			currentMethod = new MethodBuilder(method, getMethodDescriptor(method), classWriter);
+			currentMethod = new MethodBuilder(method, getMethodDescriptor(method), classVisitor);
 		} else {
 			throw new IllegalStateException("Method already in progress: " + currentMethod.method);
 		}
@@ -196,7 +199,7 @@ public final class ClassBuilder<T> implements Opcodes {
 			object);
 		curriedFields.add(result);
 
-		classWriter.visitField(
+		classVisitor.visitField(
 			ACC_PRIVATE | ACC_FINAL,
 			result.name(),
 			result.typeDescriptor(),
@@ -305,7 +308,7 @@ public final class ClassBuilder<T> implements Opcodes {
 	 */
 	public T buildInstance() {
 		generateConstructor(sourceFileOrigin);
-		classWriter.visitEnd();
+		classVisitor.visitEnd();
 
 		CustomClassLoader customClassLoader = doPrivileged((PrivilegedAction<CustomClassLoader>) CustomClassLoader::new);
 		Class<?> instanceClass = customClassLoader.loadThemBytes(dottyName, classWriter.toByteArray());
