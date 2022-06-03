@@ -9,8 +9,7 @@
 		<appender-ref ref="CONSOLE" />
 	</root>
 
-	<!-- How to add more tracing for a particular part of Ice Cube during unit tests
-	<logger name="org.vena.bosk.drivers.mongo.MongoChangeStreamReceiver" level="DEBUG"/>
-	-->
+	<!-- How to add more tracing during unit tests -->
+	<logger name="org.vena.bosk.util.MicroBenchmark" level="INFO"/>
 
 </configuration>
