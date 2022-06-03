@@ -24,7 +24,7 @@ allprojects {
 	buildscript {
 		// Global project variables
 		ext {
-			asmVersion = '9.2'
+			asmVersion = '9.3'
 			gsonVersion = '2.8.9'
 			hamcrestVersion = '2.2'
 			jUnitVersion = '5.6.2'
