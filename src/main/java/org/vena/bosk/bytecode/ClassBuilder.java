@@ -310,7 +310,12 @@ public final class ClassBuilder<T> implements Opcodes {
 		generateConstructor(sourceFileOrigin);
 		classVisitor.visitEnd();
 
+		// doPrivileged is deprecated for removal as of Java 17, but removing it
+		// will cause the class loading to fail under certain circumstances in older
+		// versions of Java. We're leaving this in place for now until we're ok with
+		// dropping support for older Java versions.
 		CustomClassLoader customClassLoader = doPrivileged((PrivilegedAction<CustomClassLoader>) CustomClassLoader::new);
+
 		Class<?> instanceClass = customClassLoader.loadThemBytes(dottyName, classWriter.toByteArray());
 		Constructor<?> ctor = instanceClass.getConstructors()[0];
 		Object[] args = curriedFields.stream().map(CurriedField::value).toArray();
