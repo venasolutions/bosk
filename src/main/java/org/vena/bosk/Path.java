@@ -410,12 +410,18 @@ public abstract class Path implements Iterable<String> {
 	 * A {@link Path} that isn't the root path <code>"/"</code>.
 	 * Implemented as a linked list.
 	 */
-	@RequiredArgsConstructor
 	private static final class NestedPath extends Path {
 		private final Path prefix;
 		private final String segment;
+		private final int length;
 
-		@Override public int length() { return 1 + prefix.length(); }
+		public NestedPath(Path prefix, String segment) {
+			this.prefix = prefix;
+			this.segment = segment;
+			this.length = 1 + prefix.length();
+		}
+
+		@Override public int length() { return length; }
 		@Override public String lastSegment() { return segment; }
 
 		@Override
