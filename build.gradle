@@ -14,7 +14,7 @@ compileTestJava.options.encoding = 'UTF-8'
 group = 'org.vena'
 archivesBaseName = 'bosk'
 jar.archiveBaseName = "${archivesBaseName}"
-version = '0.0.17'
+version = '0.0.18'
 var publicationType = version.endsWith('-SNAPSHOT') ? 'snapshot' : 'release'
 
 sourceCompatibility = 1.8
@@ -24,7 +24,7 @@ allprojects {
 	buildscript {
 		// Global project variables
 		ext {
-			asmVersion = '9.2'
+			asmVersion = '9.3'
 			gsonVersion = '2.8.9'
 			hamcrestVersion = '2.2'
 			jUnitVersion = '5.6.2'
