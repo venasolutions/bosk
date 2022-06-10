@@ -80,7 +80,7 @@ public class PathCompilerTest extends AbstractBoskTest {
 	 * Ensure we're not allowed to poke around outside the walled garden.
 	 */
 	@Test
-	void compiler_shouldThrow_withNoseyPaths() {
+	void noseyPath_throws() {
 		assertThrows(InvalidTypeException.class, () -> pathCompiler.compiled(Path.parse("/entities/parent/string/length")));
 	}
 
@@ -139,7 +139,7 @@ public class PathCompilerTest extends AbstractBoskTest {
 					.with(s.entities().get(parentID)
 						.withChildren(s.entities().get(parentID).children().without(child1ID))))
 		);
-		return standardEquivalenceTests(expected, "/entities/parent/children/child1", new TestChild(child1ID, "New child 1", TestEnum.OK));
+		return standardEquivalenceTests(expected, "/entities/parent/children/child1", new TestChild(child1ID, "New child 1", TestEnum.OK, Catalog.empty()));
 	}
 
 	@TestFactory
@@ -279,6 +279,80 @@ public class PathCompilerTest extends AbstractBoskTest {
 		try (Bosk<Entity>.ReadContext context = differentBosk.readContext()) {
 			assertSame(rootID, idRef.valueIfExists());
 		}
+	}
+
+	@Test
+	void parameterize_similarPaths_sameDereferencer() throws InvalidTypeException {
+		Path p1 = Path.of(TestRoot.Fields.entities, "e1", TestEntity.Fields.children, "c1", TestChild.Fields.string);
+		Path p2 = Path.of(TestRoot.Fields.entities, "e2", TestEntity.Fields.children, "c2", TestChild.Fields.string);
+		Dereferencer d1 = pathCompiler.compiled(p1);
+		Dereferencer d2 = pathCompiler.compiled(p2);
+		assertSame(d1, d2);
+	}
+
+	@Test
+	void parameterize_catalogEntry_entryType() throws InvalidTypeException {
+		Path p1 = Path.of(TestRoot.Fields.entities, "e1");
+		Path expected = Path.of(TestRoot.Fields.entities, "-testEntity-");
+		assertEquals(expected, pathCompiler.fullyParameterizedPathOf(p1));
+	}
+
+	@Test
+	void parameterize_listingEntry_entryType() throws InvalidTypeException {
+		Path p1 = Path.of(
+			TestRoot.Fields.entities, "e1",
+			TestEntity.Fields.oddChildren, "c1");
+		Path expected = Path.of(
+			TestRoot.Fields.entities, "-testEntity-",
+			TestEntity.Fields.oddChildren, "-testChild-");
+		assertEquals(expected, pathCompiler.fullyParameterizedPathOf(p1));
+	}
+
+	@Test
+	void parameterize_sideTableEntry_keyType() throws InvalidTypeException {
+		Path p1 = Path.of(
+			TestRoot.Fields.entities, "e1",
+			TestEntity.Fields.stringSideTable, "c1");
+		Path expected = Path.of(
+			TestRoot.Fields.entities, "-testEntity-",
+			TestEntity.Fields.stringSideTable, "-testChild-");
+		assertEquals(expected, pathCompiler.fullyParameterizedPathOf(p1));
+	}
+
+	@Test
+	void parameterize_optional_fieldName() throws InvalidTypeException {
+		Path p1 = Path.of(
+			TestRoot.Fields.entities, "e1",
+			TestEntity.Fields.optionals, Optionals.Fields.optionalString);
+		Path expected = Path.of(
+			TestRoot.Fields.entities, "-testEntity-",
+			TestEntity.Fields.optionals, Optionals.Fields.optionalString);
+		assertEquals(expected, pathCompiler.fullyParameterizedPathOf(p1));
+	}
+
+	@Test
+	void parameterize_phantom_fieldName() throws InvalidTypeException {
+		Path p1 = Path.of(
+			TestRoot.Fields.entities, "e1",
+			TestEntity.Fields.phantoms, Phantoms.Fields.phantomString);
+		Path expected = Path.of(
+			TestRoot.Fields.entities, "-testEntity-",
+			TestEntity.Fields.phantoms, Phantoms.Fields.phantomString);
+		assertEquals(expected, pathCompiler.fullyParameterizedPathOf(p1));
+	}
+
+	@Test
+	void parameterize_recursivePath_disambiguated() throws InvalidTypeException {
+		Path p1 = Path.of(
+			TestRoot.Fields.entities, "e1",
+			TestEntity.Fields.children, "c1",
+			TestChild.Fields.recursiveChildren, "c2");
+		Path parameterized = Path.of(
+			TestRoot.Fields.entities, "-testEntity-",
+			TestEntity.Fields.children, "-testChild-",
+			TestChild.Fields.recursiveChildren, "-testChild_2-");
+		assertEquals(parameterized, pathCompiler.fullyParameterizedPathOf(p1));
+		pathCompiler.compiled(p1); // just make sure this doesn't throw
 	}
 
 	@Value
