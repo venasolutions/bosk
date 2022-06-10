@@ -282,6 +282,15 @@ public class PathCompilerTest extends AbstractBoskTest {
 	}
 
 	@Test
+	void parameterize_similarPaths_sameDereferencer() throws InvalidTypeException {
+		Path p1 = Path.of(TestRoot.Fields.entities, "e1", TestEntity.Fields.children, "c1", TestChild.Fields.string);
+		Path p2 = Path.of(TestRoot.Fields.entities, "e2", TestEntity.Fields.children, "c2", TestChild.Fields.string);
+		Dereferencer d1 = pathCompiler.compiled(p1);
+		Dereferencer d2 = pathCompiler.compiled(p2);
+		assertSame(d1, d2);
+	}
+
+	@Test
 	void parameterize_catalogEntry_entryType() throws InvalidTypeException {
 		Path p1 = Path.of(TestRoot.Fields.entities, "e1");
 		Path expected = Path.of(TestRoot.Fields.entities, "-testEntity-");

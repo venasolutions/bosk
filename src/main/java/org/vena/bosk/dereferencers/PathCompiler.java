@@ -95,14 +95,33 @@ public final class PathCompiler {
 	}
 
 	private DereferencerBuilder builderFor(Path path) throws TunneledCheckedException {
-		return memoizedBuilders.computeIfAbsent(path, this::computeBuilder);
+		// We'd like to use computeIfAbsent for this, but we can't,
+		// because in some cases we need to add two entries to the map
+		// (for the given path and the fully parameterized one)
+		// and computeIfAbsent can't do that.
+		DereferencerBuilder result = memoizedBuilders.get(path);
+		if (result == null) {
+			result = computeBuilder(path);
+			memoizedBuilders.put(path, result); // Might already be there from another thread, but that's ok
+		}
+		return result;
 	}
 
+	/**
+	 * Note: also memoizes the resulting builder under the fully parameterized path
+	 * if different from the given path.
+	 */
 	private DereferencerBuilder computeBuilder(Path path) throws TunneledCheckedException {
 		if (path.isEmpty()) {
 			return ROOT_BUILDER;
 		} else try {
-			return new StepwiseDereferencerBuilder(path, here());
+			StepwiseDereferencerBuilder candidate = new StepwiseDereferencerBuilder(path, here());
+
+			// If there's already an equivalent one filed under
+			// the fully parameterized path, reuse that instead;
+			// else, file our candidate under that path.
+			Path fullyParameterizedPath = candidate.fullyParameterizedPath();
+			return memoizedBuilders.computeIfAbsent(fullyParameterizedPath, x->candidate);
 		} catch (InvalidTypeException e) {
 			throw new TunneledCheckedException(e);
 		}
