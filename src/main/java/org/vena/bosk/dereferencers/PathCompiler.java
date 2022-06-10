@@ -161,7 +161,8 @@ public final class PathCompiler {
 			} else if (Listing.class.isAssignableFrom(currentClass)) {
 				return new ListingEntryStep(segmentNum);
 			} else if (SideTable.class.isAssignableFrom(currentClass)) {
-				return new SideTableEntryStep(parameterType(currentType, SideTable.class, 1), segmentNum);
+				Type targetType = parameterType(currentType, SideTable.class, 1);
+				return new SideTableEntryStep(targetType, segmentNum);
 			} else if (StateTreeNode.class.isAssignableFrom(currentClass)) {
 				if (Path.isParameterSegment(segment)) {
 					throw new InvalidTypeException("Invalid parameter location: expected a field of " + currentClass.getSimpleName());
