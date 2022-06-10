@@ -326,7 +326,13 @@ public final class PathCompiler {
 		public class ListingEntryStep implements DeletableStep {
 			int segmentNum;
 
-			@Override public Type targetType() { return ListingEntry.class; }
+			/**
+			 * A reference to a listing entry points at a {@link ListingEntry},
+			 * not the Listing's entry type.
+			 */
+			@Override public Type targetType() {
+				return ListingEntry.class;
+			}
 
 			@Override public void generate_get() { pushIdAt(segmentNum); pushReference(); invoke(LISTING_GET); }
 			@Override public void generate_with() { pushIdAt(segmentNum); swap(); invoke(LISTING_WITH); }
