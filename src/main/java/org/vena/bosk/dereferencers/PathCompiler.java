@@ -48,8 +48,8 @@ import static org.vena.bosk.bytecode.ClassBuilder.here;
 @RequiredArgsConstructor(access = PRIVATE)
 public final class PathCompiler {
 	private final Type sourceType;
-	private final Map<Path, Dereferencer> memoizedDereferencers = synchronizedMap(new WeakHashMap<>());
 	private final Map<Path, DereferencerBuilder> memoizedBuilders = synchronizedMap(new WeakHashMap<>());
+	private final Map<DereferencerBuilder, Dereferencer> memoizedDereferencers = synchronizedMap(new WeakHashMap<>());
 
 	private static final Map<Type, PathCompiler> compilersByType = new ConcurrentHashMap<>();
 
@@ -61,14 +61,14 @@ public final class PathCompiler {
 		production, because you have a small number of Bosks
 		(usually just one) and once it warms up, it's fast.
 		But for unit tests, we make hundreds of Bosks, so sharing
-		their PathCompilers make the tests much, much faster.
+		their PathCompilers makes the tests much, much faster.
 		 */
 		return compilersByType.computeIfAbsent(sourceType, PathCompiler::new);
 	}
 
 	public Dereferencer compiled(Path path) throws InvalidTypeException {
 		try {
-			return memoizedDereferencers.computeIfAbsent(path, p -> builderFor(p).buildInstance());
+			return memoizedDereferencers.computeIfAbsent(builderFor(path), DereferencerBuilder::buildInstance);
 		} catch (TunneledCheckedException e) {
 			throw e.getCause(InvalidTypeException.class);
 		}
