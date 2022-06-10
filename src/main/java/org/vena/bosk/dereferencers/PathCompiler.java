@@ -5,9 +5,11 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.WeakHashMap;
 import java.util.concurrent.ConcurrentHashMap;
 import lombok.RequiredArgsConstructor;
@@ -28,7 +30,9 @@ import org.vena.bosk.exceptions.InvalidTypeException;
 import org.vena.bosk.exceptions.TunneledCheckedException;
 
 import static java.util.Collections.synchronizedMap;
+import static java.util.Locale.ROOT;
 import static lombok.AccessLevel.PRIVATE;
+import static org.vena.bosk.Path.isParameterSegment;
 import static org.vena.bosk.ReferenceUtils.getterMethod;
 import static org.vena.bosk.ReferenceUtils.gettersForConstructorParameters;
 import static org.vena.bosk.ReferenceUtils.parameterType;
@@ -74,6 +78,14 @@ public final class PathCompiler {
 		}
 	}
 
+	public Path fullyParameterizedPathOf(Path path) throws InvalidTypeException {
+		try {
+			return builderFor(path).fullyParameterizedPath();
+		} catch (TunneledCheckedException e) {
+			throw e.getCause(InvalidTypeException.class);
+		}
+	}
+
 	public Type targetTypeOf(Path path) throws InvalidTypeException {
 		try {
 			return builderFor(path).targetType();
@@ -104,6 +116,11 @@ public final class PathCompiler {
 		 * @return the {@link Type} of the object pointed to by the {@link Path} segment that this Step corresponds to
 		 */
 		Type targetType();
+
+		/**
+		 * @return the segment this step contributes to {@link StepwiseDereferencerBuilder#fullyParameterizedPath()}.
+		 */
+		String fullyParameterizedPathSegment();
 
 		/**
 		 * Initial stack: penultimateObject
@@ -159,12 +176,13 @@ public final class PathCompiler {
 			if (Catalog.class.isAssignableFrom(currentClass)) {
 				return new CatalogEntryStep(parameterType(currentType, Catalog.class, 0), segmentNum);
 			} else if (Listing.class.isAssignableFrom(currentClass)) {
-				return new ListingEntryStep(segmentNum);
+				return new ListingEntryStep(parameterType(currentType, Listing.class, 0), segmentNum);
 			} else if (SideTable.class.isAssignableFrom(currentClass)) {
+				Type keyType = parameterType(currentType, SideTable.class, 0);
 				Type targetType = parameterType(currentType, SideTable.class, 1);
-				return new SideTableEntryStep(targetType, segmentNum);
+				return new SideTableEntryStep(keyType, targetType, segmentNum);
 			} else if (StateTreeNode.class.isAssignableFrom(currentClass)) {
-				if (Path.isParameterSegment(segment)) {
+				if (isParameterSegment(segment)) {
 					throw new InvalidTypeException("Invalid parameter location: expected a field of " + currentClass.getSimpleName());
 				}
 				Map<String, Method> getters = gettersForConstructorParameters(currentClass);
@@ -180,7 +198,7 @@ public final class PathCompiler {
 				if (Optional.class.isAssignableFrom(fieldClass)) {
 					return new OptionalValueStep(parameterType(fieldStep.targetType(), Optional.class, 0), fieldStep);
 				} else if (Phantom.class.isAssignableFrom(fieldClass)) {
-					return new PhantomValueStep(parameterType(fieldStep.targetType(), Phantom.class, 0));
+					return new PhantomValueStep(parameterType(fieldStep.targetType(), Phantom.class, 0), segment);
 				} else {
 					return fieldStep;
 				}
@@ -269,6 +287,53 @@ public final class PathCompiler {
 		}
 
 		//
+		// Fully-parameterized path calculation
+		//
+
+		@Override
+		public Path fullyParameterizedPath() {
+			String[] segments =
+				steps.stream()
+					.map(Step::fullyParameterizedPathSegment)
+					.toArray(String[]::new);
+			disambiguateDuplicateParameters(segments);
+			return Path.of(segments);
+		}
+
+		private void disambiguateDuplicateParameters(String[] segments) {
+			Set<String> parametersAlreadyUsed = new HashSet<>();
+			for (int i = 0; i < segments.length; i++) {
+				String initialSegment = segments[i];
+				if (isParameterSegment(initialSegment)) {
+					String segment = initialSegment;
+
+					// As long as the segment is a dup, keep incrementing the suffix
+					for (
+						int suffix = 2;
+						!parametersAlreadyUsed.add(segment);
+						suffix++
+					) {
+						segment = initialSegment.substring(0, initialSegment.length()-1) + "_" + suffix + "-";
+					}
+
+					segments[i] = segment;
+				}
+			}
+		}
+
+		/**
+		 * @return the conventional name to use for a parameter of the given type
+		 */
+		private String pathParameterName(Type targetType) {
+			String name = rawClass(targetType).getSimpleName();
+			return "-"
+				+ name.substring(0,1).toLowerCase(ROOT)
+				+ name.substring(1)
+				+ "-";
+		}
+
+
+		//
 		// Step implementations for the possible varieties of objects in the tree
 		//
 
@@ -282,6 +347,8 @@ public final class PathCompiler {
 			private Method getter() { return gettersByName.get(name); }
 
 			@Override public Type targetType() { return getter().getGenericReturnType(); }
+
+			@Override public String fullyParameterizedPathSegment() { return name; }
 
 			@Override public void generate_get() { invoke(getter()); }
 
@@ -316,6 +383,8 @@ public final class PathCompiler {
 			Type targetType;
 			int segmentNum;
 
+			@Override public String fullyParameterizedPathSegment() { return pathParameterName(targetType); }
+
 			@Override public void generate_get() { pushIdAt(segmentNum); pushReference(); invoke(CATALOG_GET); }
 			@Override public void generate_with() { invoke(CATALOG_WITH); }
 			@Override public void generate_without() { pushIdAt(segmentNum); invoke(CATALOG_WITHOUT); }
@@ -324,6 +393,7 @@ public final class PathCompiler {
 		@Value
 		@Accessors(fluent = true)
 		public class ListingEntryStep implements DeletableStep {
+			Type entryType;
 			int segmentNum;
 
 			/**
@@ -334,6 +404,8 @@ public final class PathCompiler {
 				return ListingEntry.class;
 			}
 
+			@Override public String fullyParameterizedPathSegment() { return pathParameterName(entryType); }
+
 			@Override public void generate_get() { pushIdAt(segmentNum); pushReference(); invoke(LISTING_GET); }
 			@Override public void generate_with() { pushIdAt(segmentNum); swap(); invoke(LISTING_WITH); }
 			@Override public void generate_without() { pushIdAt(segmentNum); invoke(LISTING_WITHOUT); }
@@ -342,8 +414,11 @@ public final class PathCompiler {
 		@Value
 		@Accessors(fluent = true)
 		public class SideTableEntryStep implements DeletableStep {
+			Type keyType;
 			Type targetType;
 			int segmentNum;
+
+			@Override public String fullyParameterizedPathSegment() { return pathParameterName(keyType); }
 
 			@Override public void generate_get() { pushIdAt(segmentNum); pushReference(); invoke(SIDE_TABLE_GET); }
 			@Override public void generate_with() { pushIdAt(segmentNum); swap(); invoke(SIDE_TABLE_WITH); }
@@ -356,6 +431,8 @@ public final class PathCompiler {
 			Type targetType;
 			FieldStep fieldStep;
 
+			@Override public String fullyParameterizedPathSegment() { return fieldStep.fullyParameterizedPathSegment(); }
+
 			@Override public void generate_get() { fieldStep.generate_get(); pushReference(); invoke(OPTIONAL_OR_THROW); }
 			@Override public void generate_with() { invoke(OPTIONAL_OF); fieldStep.generate_with(); }
 			@Override public void generate_without() { invoke(OPTIONAL_EMPTY); fieldStep.generate_with(); }
@@ -365,6 +442,9 @@ public final class PathCompiler {
 		@Accessors(fluent = true)
 		public class PhantomValueStep implements DeletableStep {
 			Type targetType;
+			String name;
+
+			@Override public String fullyParameterizedPathSegment() { return name; }
 
 			@Override public void generate_get() { pop(); pushReference(); invoke(THROW_NONEXISTENT_ENTRY); }
 			@Override public void generate_with() { pop(); pop(); pushReference(); invoke(THROW_CANNOT_REPLACE_PHANTOM); }
@@ -386,6 +466,7 @@ public final class PathCompiler {
 
 	private final DereferencerBuilder ROOT_BUILDER = new DereferencerBuilder() {
 		@Override public Type targetType() { return sourceType; }
+		@Override public Path fullyParameterizedPath() { return Path.empty(); }
 		@Override public Dereferencer buildInstance() { return new RootDereferencer(); }
 	};
 

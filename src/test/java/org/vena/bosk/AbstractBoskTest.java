@@ -69,6 +69,7 @@ public abstract class AbstractBoskTest {
 		Identifier id;
 		String string;
 		TestEnum testEnum;
+		Catalog<TestChild> recursiveChildren;
 	}
 
 	@Value
@@ -174,18 +175,18 @@ public abstract class AbstractBoskTest {
 		Identifier child2ID = Identifier.from("child2");
 		Identifier child3ID = Identifier.from("child3");
 		TestEntity entity = new TestEntity(parentID, "parent", TestEnum.OK, Catalog.of(
-			new TestChild(child1ID, "child1", TestEnum.OK),
-			new TestChild(child2ID, "child2", TestEnum.NOT_SO_OK),
-			new TestChild(child3ID, "child3", TestEnum.OK)
+			new TestChild(child1ID, "child1", TestEnum.OK, Catalog.empty()),
+			new TestChild(child2ID, "child2", TestEnum.NOT_SO_OK, Catalog.empty()),
+			new TestChild(child3ID, "child3", TestEnum.OK, Catalog.empty())
 		),
 			Listing.empty(childrenRef).withID(child1ID).withID(child3ID),
 			SideTable.empty(childrenRef, String.class).with(child2ID, "I'm child 2"),
 			Phantoms.empty(Identifier.from("phantoms")),
 			new Optionals(Identifier.from("optionals"),
 				Optional.of("rootString"),
-				Optional.of(new TestChild(Identifier.from("entity2"), "entity2", TestEnum.OK)),
+				Optional.of(new TestChild(Identifier.from("entity2"), "entity2", TestEnum.OK, Catalog.empty())),
 				Optional.of(parentRef),
-				Optional.of(Catalog.of(new TestChild(Identifier.from("OptionalTestEntity2"), "OptionalTestEntity2", TestEnum.OK))),
+				Optional.of(Catalog.of(new TestChild(Identifier.from("OptionalTestEntity2"), "OptionalTestEntity2", TestEnum.OK, Catalog.empty()))),
 				Optional.of(Listing.of(childrenRef, child2ID)),
 				Optional.of(SideTable.empty(childrenRef, String.class).with(child2ID, "String value associated with " + child2ID))
 			),
