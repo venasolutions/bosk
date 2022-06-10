@@ -80,7 +80,7 @@ public class PathCompilerTest extends AbstractBoskTest {
 	 * Ensure we're not allowed to poke around outside the walled garden.
 	 */
 	@Test
-	void compiler_shouldThrow_withNoseyPaths() {
+	void noseyPath_throws() {
 		assertThrows(InvalidTypeException.class, () -> pathCompiler.compiled(Path.parse("/entities/parent/string/length")));
 	}
 
