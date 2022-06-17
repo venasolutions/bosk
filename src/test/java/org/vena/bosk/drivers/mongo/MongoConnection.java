@@ -4,6 +4,7 @@ import com.mongodb.MongoClientSettings;
 import com.mongodb.ServerAddress;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
+import java.io.Closeable;
 import org.jetbrains.annotations.NotNull;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
@@ -15,24 +16,42 @@ import static com.mongodb.ReadPreference.secondaryPreferred;
 import static java.util.Collections.singletonList;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
-public class MongoContainerHelpers {
+/**
+ * An interface to the dockerized MongoDB replica set,
+ * suitable for use by a test class.
+ *
+ * <p>
+ * All instances use the same MongoDB container, so
+ * different tests should use different database names.
+ * Each instance gets its own proxy so that network outage tests
+ * can proceed in parallel with other tests without disrupting them.
+ *
+ */
+public class MongoConnection implements Closeable {
+	// Expensive stuff shared among instances as much as possible
 	private static final Network NETWORK = Network.newNetwork();
 	private static final GenericContainer<?> MONGO_CONTAINER = mongoContainer();
 	private static final ToxiproxyContainer TOXIPROXY_CONTAINER = toxiproxyContainer();
-	private static ToxiproxyContainer.ContainerProxy proxy = TOXIPROXY_CONTAINER.getProxy(MONGO_CONTAINER, 27017);
-	private static MongoClientSettings clientSettings = mongoClientSettings(new ServerAddress(proxy.getContainerIpAddress(), proxy.getProxyPort()));
-	private static MongoClient mongoClient = MongoClients.create(clientSettings);
 
-	public static ToxiproxyContainer.ContainerProxy proxy() {
+	private final ToxiproxyContainer.ContainerProxy proxy = TOXIPROXY_CONTAINER.getProxy(MONGO_CONTAINER, 27017);
+	private final MongoClientSettings clientSettings = mongoClientSettings(new ServerAddress(proxy.getContainerIpAddress(), proxy.getProxyPort()));
+	private final MongoClient mongoClient = MongoClients.create(clientSettings);
+
+	public ToxiproxyContainer.ContainerProxy proxy() {
 		return proxy;
 	}
 
-	public static MongoClientSettings clientSettings() {
+	public MongoClientSettings clientSettings() {
 		return clientSettings;
 	}
 
-	public static MongoClient mongoClient() {
+	public MongoClient client() {
 		return mongoClient;
+	}
+
+	@Override
+	public void close() {
+		mongoClient.close();
 	}
 
 	private static GenericContainer<?> mongoContainer() {
@@ -72,5 +91,4 @@ public class MongoContainerHelpers {
 			})
 			.build();
 	}
-
 }
