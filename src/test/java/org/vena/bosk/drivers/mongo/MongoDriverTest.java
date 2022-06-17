@@ -55,27 +55,15 @@ class MongoDriverTest extends DriverConformanceTest {
 	protected static final Identifier entity124 = Identifier.from("124");
 	protected static final Identifier rootID = Identifier.from("root");
 
-	private final Deque<Consumer<MongoClient>> tearDownActions = new ArrayDeque<>();
-
+	// Container goodies
 	private static final Network NETWORK = Network.newNetwork();
 	private static final GenericContainer<?> MONGO_CONTAINER = MongoContainerHelpers.mongoContainer(NETWORK);
 	private static final ToxiproxyContainer TOXIPROXY_CONTAINER = MongoContainerHelpers.toxiproxyContainer(NETWORK);
-	private static ToxiproxyContainer.ContainerProxy proxy;
+	private static ToxiproxyContainer.ContainerProxy proxy = TOXIPROXY_CONTAINER.getProxy(MONGO_CONTAINER, 27017);
+	private static MongoClientSettings clientSettings = MongoContainerHelpers.mongoClientSettings(new ServerAddress(proxy.getContainerIpAddress(), proxy.getProxyPort()));
+	private static MongoClient mongoClient = MongoClients.create(clientSettings);
 
-	private static MongoClientSettings clientSettings;
-	private static MongoDriverSettings driverSettings;
-	private static MongoClient mongoClient;
-
-	@BeforeAll
-	static void setupDatabase() {
-		proxy = TOXIPROXY_CONTAINER.getProxy(MONGO_CONTAINER, 27017);
-		clientSettings = MongoContainerHelpers.mongoClientSettings(new ServerAddress(proxy.getContainerIpAddress(), proxy.getProxyPort()));
-		mongoClient = MongoClients.create(clientSettings);
-		driverSettings = MongoDriverSettings.builder()
-			.database(TEST_DB)
-			.collection(TEST_COLLECTION)
-			.build();
-	}
+	private final Deque<Consumer<MongoClient>> tearDownActions = new ArrayDeque<>();
 
 	@BeforeEach
 	void setupDriverFactory() {
@@ -349,6 +337,10 @@ class MongoDriverTest extends DriverConformanceTest {
 	}
 
 	private <E extends Entity> BiFunction<BoskDriver<E>, Bosk<E>, BoskDriver<E>> createDriverFactory() {
+		MongoDriverSettings driverSettings = MongoDriverSettings.builder()
+			.database(TEST_DB)
+			.collection(TEST_COLLECTION)
+			.build();
 		return (downstream, bosk) -> {
 			MongoDriver<E> driver = new MongoDriver<>(
 				downstream,
