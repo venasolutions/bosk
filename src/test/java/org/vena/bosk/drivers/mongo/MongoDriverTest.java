@@ -51,7 +51,7 @@ class MongoDriverTest extends DriverConformanceTest {
 	protected static final Identifier entity124 = Identifier.from("124");
 	protected static final Identifier rootID = Identifier.from("root");
 
-	private final Deque<Consumer<MongoClient>> tearDownActions = new ArrayDeque<>();
+	private final Deque<Runnable> tearDownActions = new ArrayDeque<>();
 	private static MongoConnection mongoConnection;
 
 	@BeforeAll
@@ -66,7 +66,7 @@ class MongoDriverTest extends DriverConformanceTest {
 
 	@AfterEach
 	void runTearDown() {
-		tearDownActions.forEach(a -> a.accept(mongoConnection.client()));
+		tearDownActions.forEach(Runnable::run);
 	}
 
 	@AfterAll
@@ -342,9 +342,9 @@ class MongoDriverTest extends DriverConformanceTest {
 				mongoConnection.clientSettings(),
 				driverSettings,
 				new BsonPlugin());
-			tearDownActions.addFirst(mongoClient->{
+			tearDownActions.addFirst(()->{
 				driver.close();
-				mongoClient
+				mongoConnection.client()
 					.getDatabase(driverSettings.database())
 					.getCollection(driverSettings.collection())
 					.drop();
