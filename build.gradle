@@ -5,7 +5,7 @@ plugins {
 	//id 'com.jfrog.artifactory' version '4.24.16'
 	id 'maven-publish'
 	id 'info.solidsoft.pitest' version '1.6.0'
-	id 'com.github.spotbugs' version '4.5.0' // 4.6 drops support for Java 8
+	id 'com.github.spotbugs' version '5.0.6'
 	id 'com.diffplug.gradle.spotless' version '3.25.0'
 }
 
