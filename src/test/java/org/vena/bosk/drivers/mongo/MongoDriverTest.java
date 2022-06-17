@@ -23,8 +23,6 @@ import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.ToxiproxyContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
 import org.vena.bosk.Bosk;
 import org.vena.bosk.BoskDriver;
 import org.vena.bosk.BsonPlugin;
@@ -49,7 +47,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.vena.bosk.ListingEntry.LISTING_ENTRY;
 
-@Testcontainers
 class MongoDriverTest extends DriverConformanceTest {
 	public static final String TEST_DB = "testDB";
 	public static final String TEST_COLLECTION = "testCollection";
@@ -60,13 +57,8 @@ class MongoDriverTest extends DriverConformanceTest {
 	private final Deque<Consumer<MongoClient>> tearDownActions = new ArrayDeque<>();
 
 	private static final Network NETWORK = Network.newNetwork();
-
-	@Container
 	private static final GenericContainer<?> MONGO_CONTAINER = MongoContainerHelpers.mongoContainer(NETWORK);
-
-	@Container
 	private static final ToxiproxyContainer TOXIPROXY_CONTAINER = MongoContainerHelpers.toxiproxyContainer(NETWORK);
-
 	private static ToxiproxyContainer.ContainerProxy proxy;
 
 	private static MongoClientSettings clientSettings;

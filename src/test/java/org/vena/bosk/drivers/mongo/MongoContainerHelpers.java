@@ -15,7 +15,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class MongoContainerHelpers {
 	static GenericContainer<?> mongoContainer(Network network) {
-		return new GenericContainer<>(
+		GenericContainer<?> result = new GenericContainer<>(
 			new ImageFromDockerfile().withDockerfileFromBuilder(builder -> builder
 				.from("mongo:4.0")
 				.run("echo \"rs.initiate()\" > /docker-entrypoint-initdb.d/rs-initiate.js")
@@ -23,12 +23,16 @@ public class MongoContainerHelpers {
 				.build()))
 			.withNetwork(network)
 			.withExposedPorts(27017);
+		result.start();
+		return result;
 	}
 
 	static ToxiproxyContainer toxiproxyContainer(Network network) {
-		return new ToxiproxyContainer(
+		ToxiproxyContainer result = new ToxiproxyContainer(
 			DockerImageName.parse("ghcr.io/shopify/toxiproxy:2.2.0").asCompatibleSubstituteFor("shopify/toxiproxy"))
 			.withNetwork(network);
+		result.start();
+		return result;
 	}
 
 	@NotNull
