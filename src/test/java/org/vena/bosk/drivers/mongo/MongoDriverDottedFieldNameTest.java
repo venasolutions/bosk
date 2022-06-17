@@ -13,6 +13,7 @@ import org.vena.bosk.Identifier;
 import org.vena.bosk.Path;
 import org.vena.bosk.Reference;
 import org.vena.bosk.drivers.AbstractDriverTest;
+import org.vena.bosk.drivers.state.TestEntity;
 import org.vena.bosk.exceptions.InvalidTypeException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;

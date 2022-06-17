@@ -1,31 +1,15 @@
 package org.vena.bosk.drivers;
 
 import java.io.IOException;
-import java.util.Optional;
 import java.util.function.BiFunction;
 import javax.annotation.Nonnull;
-import lombok.AccessLevel;
-import lombok.EqualsAndHashCode;
-import lombok.Getter;
-import lombok.RequiredArgsConstructor;
-import lombok.ToString;
-import lombok.With;
-import lombok.experimental.Accessors;
-import lombok.experimental.FieldDefaults;
-import lombok.experimental.FieldNameConstants;
 import org.vena.bosk.Bosk;
 import org.vena.bosk.BoskDriver;
-import org.vena.bosk.Catalog;
 import org.vena.bosk.CatalogReference;
-import org.vena.bosk.Entity;
 import org.vena.bosk.Identifier;
-import org.vena.bosk.ListValue;
-import org.vena.bosk.Listing;
-import org.vena.bosk.MapValue;
 import org.vena.bosk.Path;
 import org.vena.bosk.Reference;
-import org.vena.bosk.SideTable;
-import org.vena.bosk.StateTreeNode;
+import org.vena.bosk.drivers.state.TestEntity;
 import org.vena.bosk.exceptions.InvalidTypeException;
 
 import static java.lang.Thread.currentThread;
@@ -109,40 +93,4 @@ public class AbstractDriverTest {
 		assertEquals(expected, actual);
 	}
 
-	@EqualsAndHashCode(callSuper=false) @ToString
-	@Accessors(fluent=true) @Getter @With
-	@FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
-	@FieldNameConstants
-	public static class TestEntity implements Entity {
-		Identifier id;
-		String string;
-		Catalog<TestEntity> catalog;
-		Listing<TestEntity> listing;
-		SideTable<TestEntity, TestEntity> sideTable;
-		Optional<TestValues> values;
-
-		public static TestEntity empty(Identifier id, Reference<Catalog<TestEntity>> catalogRef) {
-			return new TestEntity(id,
-				id.toString(),
-				Catalog.empty(),
-				Listing.empty(catalogRef),
-				SideTable.empty(catalogRef),
-				Optional.empty());
-		}
-
-	}
-
-	@EqualsAndHashCode(callSuper=false) @ToString
-	@Accessors(fluent=true) @Getter @With
-	@FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
-	@FieldNameConstants
-	public static class TestValues implements StateTreeNode {
-		String string;
-		ListValue<String> list;
-		MapValue<String> map;
-
-		public static TestValues blank() {
-			return new TestValues("", ListValue.empty(), MapValue.empty());
-		}
-	}
 }

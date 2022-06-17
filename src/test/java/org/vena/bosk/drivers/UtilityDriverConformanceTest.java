@@ -4,6 +4,7 @@ import java.util.function.BiFunction;
 import java.util.stream.Stream;
 import org.vena.bosk.Bosk;
 import org.vena.bosk.BoskDriver;
+import org.vena.bosk.drivers.state.TestEntity;
 import org.vena.bosk.junit.ParametersByName;
 
 import static java.util.Collections.singletonList;

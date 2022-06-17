@@ -38,6 +38,7 @@ import org.vena.bosk.Reference;
 import org.vena.bosk.SideTable;
 import org.vena.bosk.drivers.BufferingDriver;
 import org.vena.bosk.drivers.DriverConformanceTest;
+import org.vena.bosk.drivers.state.TestEntity;
 import org.vena.bosk.exceptions.InvalidTypeException;
 
 import static java.lang.Long.max;
