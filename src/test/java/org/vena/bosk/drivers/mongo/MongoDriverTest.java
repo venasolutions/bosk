@@ -1,10 +1,7 @@
 package org.vena.bosk.drivers.mongo;
 
-import com.mongodb.MongoClientSettings;
 import com.mongodb.MongoException;
-import com.mongodb.ServerAddress;
 import com.mongodb.client.MongoClient;
-import com.mongodb.client.MongoClients;
 import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.Deque;
@@ -17,12 +14,8 @@ import lombok.Value;
 import lombok.experimental.Accessors;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.containers.Network;
-import org.testcontainers.containers.ToxiproxyContainer;
 import org.vena.bosk.Bosk;
 import org.vena.bosk.BoskDriver;
 import org.vena.bosk.BsonPlugin;
@@ -55,14 +48,6 @@ class MongoDriverTest extends DriverConformanceTest {
 	protected static final Identifier entity124 = Identifier.from("124");
 	protected static final Identifier rootID = Identifier.from("root");
 
-	// Container goodies
-	private static final Network NETWORK = Network.newNetwork();
-	private static final GenericContainer<?> MONGO_CONTAINER = MongoContainerHelpers.mongoContainer(NETWORK);
-	private static final ToxiproxyContainer TOXIPROXY_CONTAINER = MongoContainerHelpers.toxiproxyContainer(NETWORK);
-	private static ToxiproxyContainer.ContainerProxy proxy = TOXIPROXY_CONTAINER.getProxy(MONGO_CONTAINER, 27017);
-	private static MongoClientSettings clientSettings = MongoContainerHelpers.mongoClientSettings(new ServerAddress(proxy.getContainerIpAddress(), proxy.getProxyPort()));
-	private static MongoClient mongoClient = MongoClients.create(clientSettings);
-
 	private final Deque<Consumer<MongoClient>> tearDownActions = new ArrayDeque<>();
 
 	@BeforeEach
@@ -72,13 +57,13 @@ class MongoDriverTest extends DriverConformanceTest {
 
 	@AfterEach
 	void runTearDown() {
-		tearDownActions.forEach(a -> a.accept(mongoClient));
+		tearDownActions.forEach(a -> a.accept(MongoContainerHelpers.mongoClient));
 	}
 
 	@AfterAll
 	static void deleteDatabase() {
-		mongoClient.getDatabase(TEST_DB).drop();
-		mongoClient.close();
+		MongoContainerHelpers.mongoClient.getDatabase(TEST_DB).drop();
+		MongoContainerHelpers.mongoClient.close();
 	}
 
 	@Test
@@ -208,12 +193,12 @@ class MongoDriverTest extends DriverConformanceTest {
 		// Make another bosk that doesn't witness any change stream events before the outage
 		Bosk<TestEntity> latecomerBosk = new Bosk<TestEntity>("Latecomer bosk", TestEntity.class, this::initialRoot, driverFactory);
 
-		proxy.setConnectionCut(true);
+		MongoContainerHelpers.proxy.setConnectionCut(true);
 
 		assertThrows(MongoException.class, driver::flush);
 		assertThrows(MongoException.class, latecomerBosk.driver()::flush);
 
-		proxy.setConnectionCut(false);
+		MongoContainerHelpers.proxy.setConnectionCut(false);
 
 		// Make a change to the bosk and verify that it gets through
 		driver.submitReplacement(listingRef.then(entity123), LISTING_ENTRY);
@@ -345,7 +330,7 @@ class MongoDriverTest extends DriverConformanceTest {
 			MongoDriver<E> driver = new MongoDriver<>(
 				downstream,
 				bosk,
-				clientSettings,
+				MongoContainerHelpers.clientSettings,
 				driverSettings,
 				new BsonPlugin());
 			tearDownActions.addFirst(mongoClient->{
