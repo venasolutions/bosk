@@ -64,22 +64,17 @@ class MongoDriverTest extends DriverConformanceTest {
 
 	private static MongoClientSettings clientSettings;
 	private static MongoDriverSettings driverSettings;
+	private static MongoClient mongoClient;
 
 	@BeforeAll
 	static void setupDatabase() {
 		proxy = TOXIPROXY_CONTAINER.getProxy(MONGO_CONTAINER, 27017);
 		clientSettings = MongoContainerHelpers.mongoClientSettings(new ServerAddress(proxy.getContainerIpAddress(), proxy.getProxyPort()));
+		mongoClient = MongoClients.create(clientSettings);
 		driverSettings = MongoDriverSettings.builder()
 			.database(TEST_DB)
 			.collection(TEST_COLLECTION)
 			.build();
-	}
-
-	@AfterAll
-	static void deleteDatabase() {
-		MongoClient mongoClient = MongoClients.create(clientSettings);
-		mongoClient.getDatabase(TEST_DB).drop();
-		mongoClient.close();
 	}
 
 	@BeforeEach
@@ -89,8 +84,12 @@ class MongoDriverTest extends DriverConformanceTest {
 
 	@AfterEach
 	void runTearDown() {
-		MongoClient mongoClient = MongoClients.create(clientSettings);
 		tearDownActions.forEach(a -> a.accept(mongoClient));
+	}
+
+	@AfterAll
+	static void deleteDatabase() {
+		mongoClient.getDatabase(TEST_DB).drop();
 		mongoClient.close();
 	}
 
