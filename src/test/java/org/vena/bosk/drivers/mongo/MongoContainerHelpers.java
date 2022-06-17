@@ -19,9 +19,21 @@ public class MongoContainerHelpers {
 	private static final Network NETWORK = Network.newNetwork();
 	private static final GenericContainer<?> MONGO_CONTAINER = mongoContainer();
 	private static final ToxiproxyContainer TOXIPROXY_CONTAINER = toxiproxyContainer();
-	static ToxiproxyContainer.ContainerProxy proxy = TOXIPROXY_CONTAINER.getProxy(MONGO_CONTAINER, 27017);
-	static MongoClientSettings clientSettings = mongoClientSettings(new ServerAddress(proxy.getContainerIpAddress(), proxy.getProxyPort()));
-	static MongoClient mongoClient = MongoClients.create(clientSettings);
+	private static ToxiproxyContainer.ContainerProxy proxy = TOXIPROXY_CONTAINER.getProxy(MONGO_CONTAINER, 27017);
+	private static MongoClientSettings clientSettings = mongoClientSettings(new ServerAddress(proxy.getContainerIpAddress(), proxy.getProxyPort()));
+	private static MongoClient mongoClient = MongoClients.create(clientSettings);
+
+	public static ToxiproxyContainer.ContainerProxy proxy() {
+		return proxy;
+	}
+
+	public static MongoClientSettings clientSettings() {
+		return clientSettings;
+	}
+
+	public static MongoClient mongoClient() {
+		return mongoClient;
+	}
 
 	private static GenericContainer<?> mongoContainer() {
 		GenericContainer<?> result = new GenericContainer<>(
@@ -60,4 +72,5 @@ public class MongoContainerHelpers {
 			})
 			.build();
 	}
+
 }

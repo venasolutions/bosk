@@ -57,13 +57,13 @@ class MongoDriverTest extends DriverConformanceTest {
 
 	@AfterEach
 	void runTearDown() {
-		tearDownActions.forEach(a -> a.accept(MongoContainerHelpers.mongoClient));
+		tearDownActions.forEach(a -> a.accept(MongoContainerHelpers.mongoClient()));
 	}
 
 	@AfterAll
 	static void deleteDatabase() {
-		MongoContainerHelpers.mongoClient.getDatabase(TEST_DB).drop();
-		MongoContainerHelpers.mongoClient.close();
+		MongoContainerHelpers.mongoClient().getDatabase(TEST_DB).drop();
+		MongoContainerHelpers.mongoClient().close();
 	}
 
 	@Test
@@ -193,12 +193,12 @@ class MongoDriverTest extends DriverConformanceTest {
 		// Make another bosk that doesn't witness any change stream events before the outage
 		Bosk<TestEntity> latecomerBosk = new Bosk<TestEntity>("Latecomer bosk", TestEntity.class, this::initialRoot, driverFactory);
 
-		MongoContainerHelpers.proxy.setConnectionCut(true);
+		MongoContainerHelpers.proxy().setConnectionCut(true);
 
 		assertThrows(MongoException.class, driver::flush);
 		assertThrows(MongoException.class, latecomerBosk.driver()::flush);
 
-		MongoContainerHelpers.proxy.setConnectionCut(false);
+		MongoContainerHelpers.proxy().setConnectionCut(false);
 
 		// Make a change to the bosk and verify that it gets through
 		driver.submitReplacement(listingRef.then(entity123), LISTING_ENTRY);
@@ -330,7 +330,7 @@ class MongoDriverTest extends DriverConformanceTest {
 			MongoDriver<E> driver = new MongoDriver<>(
 				downstream,
 				bosk,
-				MongoContainerHelpers.clientSettings,
+				MongoContainerHelpers.clientSettings(),
 				driverSettings,
 				new BsonPlugin());
 			tearDownActions.addFirst(mongoClient->{
