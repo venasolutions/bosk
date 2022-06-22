@@ -6,6 +6,7 @@ import java.util.stream.Stream;
 import org.vena.bosk.Bosk;
 import org.vena.bosk.BoskDriver;
 import org.vena.bosk.Path;
+import org.vena.bosk.drivers.state.TestEntity;
 import org.vena.bosk.exceptions.InvalidTypeException;
 import org.vena.bosk.junit.ParametersByName;
 

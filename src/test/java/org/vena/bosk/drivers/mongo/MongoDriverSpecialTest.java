@@ -1,10 +1,6 @@
 package org.vena.bosk.drivers.mongo;
 
-import com.mongodb.MongoClientSettings;
 import com.mongodb.MongoException;
-import com.mongodb.ServerAddress;
-import com.mongodb.client.MongoClient;
-import com.mongodb.client.MongoClients;
 import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.Deque;
@@ -12,19 +8,12 @@ import java.util.Optional;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.function.BiFunction;
-import java.util.function.Consumer;
 import lombok.Value;
 import lombok.experimental.Accessors;
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.containers.Network;
-import org.testcontainers.containers.ToxiproxyContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
 import org.vena.bosk.Bosk;
 import org.vena.bosk.BoskDriver;
 import org.vena.bosk.BsonPlugin;
@@ -39,7 +28,7 @@ import org.vena.bosk.Path;
 import org.vena.bosk.Reference;
 import org.vena.bosk.SideTable;
 import org.vena.bosk.drivers.BufferingDriver;
-import org.vena.bosk.drivers.DriverConformanceTest;
+import org.vena.bosk.drivers.state.TestEntity;
 import org.vena.bosk.exceptions.InvalidTypeException;
 
 import static java.lang.Long.max;
@@ -49,44 +38,24 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.vena.bosk.ListingEntry.LISTING_ENTRY;
 
-@Testcontainers
-class MongoDriverTest extends DriverConformanceTest {
-	public static final String TEST_DB = "testDB";
+/**
+ * Tests for MongoDB-specific functionality
+ */
+class MongoDriverSpecialTest {
+	public static final String TEST_DB = MongoDriverSpecialTest.class.getSimpleName() + "_DB";
 	public static final String TEST_COLLECTION = "testCollection";
 	protected static final Identifier entity123 = Identifier.from("123");
 	protected static final Identifier entity124 = Identifier.from("124");
 	protected static final Identifier rootID = Identifier.from("root");
 
-	private final Deque<Consumer<MongoClient>> tearDownActions = new ArrayDeque<>();
+	private final Deque<Runnable> tearDownActions = new ArrayDeque<>();
+	private static MongoService mongoService;
 
-	private static final Network NETWORK = Network.newNetwork();
-
-	@Container
-	private static final GenericContainer<?> MONGO_CONTAINER = MongoContainerHelpers.mongoContainer(NETWORK);
-
-	@Container
-	private static final ToxiproxyContainer TOXIPROXY_CONTAINER = MongoContainerHelpers.toxiproxyContainer(NETWORK);
-
-	private static ToxiproxyContainer.ContainerProxy proxy;
-
-	private static MongoClientSettings clientSettings;
-	private static MongoDriverSettings driverSettings;
+	private BiFunction<BoskDriver<TestEntity>, Bosk<TestEntity>, BoskDriver<TestEntity>> driverFactory;
 
 	@BeforeAll
-	static void setupDatabase() {
-		proxy = TOXIPROXY_CONTAINER.getProxy(MONGO_CONTAINER, 27017);
-		clientSettings = MongoContainerHelpers.mongoClientSettings(new ServerAddress(proxy.getContainerIpAddress(), proxy.getProxyPort()));
-		driverSettings = MongoDriverSettings.builder()
-			.database(TEST_DB)
-			.collection(TEST_COLLECTION)
-			.build();
-	}
-
-	@AfterAll
-	static void deleteDatabase() {
-		MongoClient mongoClient = MongoClients.create(clientSettings);
-		mongoClient.getDatabase(TEST_DB).drop();
-		mongoClient.close();
+	static void setupMongoConnection() {
+		mongoService = new MongoService();
 	}
 
 	@BeforeEach
@@ -96,12 +65,17 @@ class MongoDriverTest extends DriverConformanceTest {
 
 	@AfterEach
 	void runTearDown() {
-		MongoClient mongoClient = MongoClients.create(clientSettings);
-		tearDownActions.forEach(a -> a.accept(mongoClient));
-		mongoClient.close();
+		tearDownActions.forEach(Runnable::run);
+	}
+
+	//@AfterAll
+	static void deleteDatabase() {
+		mongoService.client().getDatabase(TEST_DB).drop();
+		mongoService.close();
 	}
 
 	@Test
+	@UsesMongoService
 	void warmStart_stateMatches() throws InvalidTypeException, InterruptedException, IOException {
 		Bosk<TestEntity> setupBosk = new Bosk<TestEntity>("Test bosk", TestEntity.class, this::initialRoot, driverFactory);
 		CatalogReference<TestEntity> catalogRef = setupBosk.catalogReference(TestEntity.class, Path.just(TestEntity.Fields.catalog));
@@ -125,6 +99,7 @@ class MongoDriverTest extends DriverConformanceTest {
 	}
 
 	@Test
+	@UsesMongoService
 	void flush_localStateUpdated() throws InvalidTypeException, InterruptedException, IOException {
 		// Set up MongoDriver writing to a modified BufferingDriver that lets us
 		// have tight control over all the comings and goings from MongoDriver.
@@ -179,6 +154,7 @@ class MongoDriverTest extends DriverConformanceTest {
 	}
 
 	@Test
+	@UsesMongoService
 	void listing_stateMatches() throws InvalidTypeException, InterruptedException, IOException {
 		Bosk<TestEntity> bosk = new Bosk<TestEntity>("Test bosk", TestEntity.class, this::initialRoot, driverFactory);
 		BoskDriver<TestEntity> driver = bosk.driver();
@@ -216,6 +192,7 @@ class MongoDriverTest extends DriverConformanceTest {
 	}
 
 	@Test
+	@DisruptsMongoService
 	void networkOutage_boskRecovers() throws InvalidTypeException, InterruptedException, IOException {
 		Bosk<TestEntity> bosk = new Bosk<TestEntity>("Test bosk", TestEntity.class, this::initialRoot, driverFactory);
 		BoskDriver<TestEntity> driver = bosk.driver();
@@ -228,12 +205,12 @@ class MongoDriverTest extends DriverConformanceTest {
 		// Make another bosk that doesn't witness any change stream events before the outage
 		Bosk<TestEntity> latecomerBosk = new Bosk<TestEntity>("Latecomer bosk", TestEntity.class, this::initialRoot, driverFactory);
 
-		proxy.setConnectionCut(true);
+		mongoService.proxy().setConnectionCut(true);
 
 		assertThrows(MongoException.class, driver::flush);
 		assertThrows(MongoException.class, latecomerBosk.driver()::flush);
 
-		proxy.setConnectionCut(false);
+		mongoService.proxy().setConnectionCut(false);
 
 		// Make a change to the bosk and verify that it gets through
 		driver.submitReplacement(listingRef.then(entity123), LISTING_ENTRY);
@@ -257,15 +234,16 @@ class MongoDriverTest extends DriverConformanceTest {
 	}
 
 	@Test
+	@UsesMongoService
 	void initialStateHasNonexistentFields_ignored() {
 		// Upon creating bosk, the initial value will be saved to MongoDB
-		bosk = new Bosk<TestEntity>("Newer bosk", TestEntity.class, this::initialRoot, driverFactory);
+		Bosk<TestEntity> bosk = new Bosk<TestEntity>("Newer bosk", TestEntity.class, this::initialRoot, driverFactory);
 
 		// Upon creating prevBosk, the state in the database will be loaded into the local.
 		Bosk<OldEntity> prevBosk = new Bosk<OldEntity>(
 			"Older bosk",
 			OldEntity.class,
-			(bosk) -> { throw new AssertionError("prevBosk should use the state from MongoDB"); },
+			(b) -> { throw new AssertionError("prevBosk should use the state from MongoDB"); },
 			createDriverFactory());
 
 		OldEntity expected = new OldEntity(rootID, rootID.toString());
@@ -278,12 +256,13 @@ class MongoDriverTest extends DriverConformanceTest {
 	}
 
 	@Test
+	@UsesMongoService
 	void updateHasNonexistentFields_ignored() throws InvalidTypeException, IOException, InterruptedException {
-		bosk = new Bosk<TestEntity>("Newer bosk", TestEntity.class, this::initialRoot, driverFactory);
+		Bosk<TestEntity> bosk = new Bosk<TestEntity>("Newer bosk", TestEntity.class, this::initialRoot, driverFactory);
 		Bosk<OldEntity> prevBosk = new Bosk<OldEntity>(
 			"Older bosk",
 			OldEntity.class,
-			(bosk) -> { throw new AssertionError("prevBosk should use the state from MongoDB"); },
+			(b) -> { throw new AssertionError("prevBosk should use the state from MongoDB"); },
 			createDriverFactory());
 
 		TestEntity initialRoot = initialRoot(bosk);
@@ -305,12 +284,13 @@ class MongoDriverTest extends DriverConformanceTest {
 	}
 
 	@Test
+	@UsesMongoService
 	void updateNonexistentField_ignored() throws InvalidTypeException, IOException, InterruptedException {
-		bosk = new Bosk<TestEntity>("Newer bosk", TestEntity.class, this::initialRoot, driverFactory);
+		Bosk<TestEntity> bosk = new Bosk<TestEntity>("Newer bosk", TestEntity.class, this::initialRoot, driverFactory);
 		Bosk<OldEntity> prevBosk = new Bosk<OldEntity>(
 			"Older bosk",
 			OldEntity.class,
-			(bosk) -> { throw new AssertionError("prevBosk should use the state from MongoDB"); },
+			(b) -> { throw new AssertionError("prevBosk should use the state from MongoDB"); },
 			createDriverFactory());
 
 		ListingReference<TestEntity> listingRef = bosk.rootReference().thenListing(TestEntity.class, TestEntity.Fields.listing);
@@ -332,12 +312,13 @@ class MongoDriverTest extends DriverConformanceTest {
 	}
 
 	@Test
+	@UsesMongoService
 	void deleteNonexistentField_ignored() throws InvalidTypeException, IOException, InterruptedException {
-		bosk = new Bosk<TestEntity>("Newer bosk", TestEntity.class, this::initialRoot, driverFactory);
+		Bosk<TestEntity> bosk = new Bosk<TestEntity>("Newer bosk", TestEntity.class, this::initialRoot, driverFactory);
 		Bosk<OldEntity> prevBosk = new Bosk<OldEntity>(
 			"Older bosk",
 			OldEntity.class,
-			(bosk) -> { throw new AssertionError("prevBosk should use the state from MongoDB"); },
+			(b) -> { throw new AssertionError("prevBosk should use the state from MongoDB"); },
 			createDriverFactory());
 
 		ListingReference<TestEntity> listingRef = bosk.rootReference().thenListing(TestEntity.class, TestEntity.Fields.listing);
@@ -357,16 +338,20 @@ class MongoDriverTest extends DriverConformanceTest {
 	}
 
 	private <E extends Entity> BiFunction<BoskDriver<E>, Bosk<E>, BoskDriver<E>> createDriverFactory() {
+		MongoDriverSettings driverSettings = MongoDriverSettings.builder()
+			.database(TEST_DB)
+			.collection(TEST_COLLECTION)
+			.build();
 		return (downstream, bosk) -> {
 			MongoDriver<E> driver = new MongoDriver<>(
 				downstream,
 				bosk,
-				clientSettings,
+				mongoService.clientSettings(),
 				driverSettings,
 				new BsonPlugin());
-			tearDownActions.addFirst(mongoClient->{
+			tearDownActions.addFirst(()->{
 				driver.close();
-				mongoClient
+				mongoService.client()
 					.getDatabase(driverSettings.database())
 					.getCollection(driverSettings.collection())
 					.drop();

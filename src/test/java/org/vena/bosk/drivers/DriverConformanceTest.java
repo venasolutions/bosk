@@ -11,6 +11,8 @@ import org.vena.bosk.ListValue;
 import org.vena.bosk.MapValue;
 import org.vena.bosk.Path;
 import org.vena.bosk.Reference;
+import org.vena.bosk.drivers.state.TestEntity;
+import org.vena.bosk.drivers.state.TestValues;
 import org.vena.bosk.exceptions.InvalidTypeException;
 import org.vena.bosk.junit.ParametersByName;
 
