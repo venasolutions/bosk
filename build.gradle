@@ -1,130 +1,17 @@
 
 plugins {
-	id 'java-library'
-	id 'maven-publish'
+	id 'bosk.development'
 	id 'info.solidsoft.pitest' version '1.6.0'
 	id 'com.github.spotbugs' version '5.0.6'
 	id 'com.diffplug.gradle.spotless' version '3.25.0'
 }
 
-compileTestJava.options.encoding = 'UTF-8'
-
-group = 'org.vena'
-archivesBaseName = 'bosk'
-jar.archiveBaseName = "${archivesBaseName}"
-version = '0.0.21'
-var publicationType = version.endsWith('-SNAPSHOT') ? 'snapshot' : 'release'
-
-sourceCompatibility = 1.8
-targetCompatibility = 1.8
-
-allprojects {
-	repositories {
-		maven {
-			url 'https://plugins.gradle.org/m2/'
-		}
-		mavenCentral()
-	}
-
-	apply plugin: 'java'
-	apply plugin: 'eclipse'
-	apply plugin: 'idea'
-	apply plugin: 'jacoco'
-	apply plugin: 'com.github.spotbugs'
-	apply plugin: 'com.diffplug.gradle.spotless'
-	apply plugin: 'maven-publish'
-
-	spotless {
-		enforceCheck false
-		java {
-			importOrder '', '\\#' // Static imports after regular imports, as per mt-server standard and IntelliJ default
-			removeUnusedImports()
-			trimTrailingWhitespace()
-			indentWithTabs()
-			replaceRegex 'class-level javadoc indentation fix', /^\*/, ' *'
-			replaceRegex 'method-level javadoc indentation fix', /\t\*/, '\t *'
-			paddedCell()
-		}
-		format 'misc', {
-			target '**/*.gradle', '**/*.md', '**/.gitignore'
-
-			trimTrailingWhitespace()
-			indentWithTabs()
-			replaceRegex 'class-level javadoc indentation fix', /^\*/, ' *'
-			replaceRegex 'method-level javadoc indentation fix', /\t\*/, '\t *'
-			endWithNewline()
-		}
-	}
-
-	// SpotBugs warnings on test code are not useful and often counterproductive
-	spotbugsTest.enabled = false
-
-	spotbugs {
-		// Won't fail the build if errors are found
-		ignoreFailures = true
-	}
-
-	tasks.withType(Tar) {
-		enabled = false
-	}
-}
-
 dependencies {
-	compileJava {
-		options.compilerArgs << '-parameters'
-		options.compilerArgs << '-Xlint'
-		options.compilerArgs << '-Xlint:-serial'     // Don't care about Java serialization
-		options.compilerArgs << '-Xlint:-try'        // Really annoying bogus "auto-closeable never used" warnings
-		options.compilerArgs << '-Xlint:-processing' // Not all annotations are meant for compile-time "annotation processing"
-	}
-
-	compileTestJava {
-		options.compilerArgs << '-parameters'
-	}
-
-	annotationProcessor "org.projectlombok:lombok:1.18.24"
-	compileOnly "org.projectlombok:lombok:1.18.24"
-	testAnnotationProcessor "org.projectlombok:lombok:1.18.24"
-	testCompileOnly "org.projectlombok:lombok:1.18.24"
-
-	testImplementation "org.junit.jupiter:junit-jupiter-api:5.8.2"
-	testImplementation "org.junit.jupiter:junit-jupiter-params:5.8.2"
-	testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:5.8.2"
-
-	testImplementation "org.testcontainers:testcontainers:1.17.2"
-	testImplementation "org.testcontainers:junit-jupiter:1.17.2"
-	testImplementation "org.testcontainers:toxiproxy:1.17.2"
-
-	testImplementation "org.hamcrest:hamcrest:2.2"
-	testImplementation "org.hamcrest:hamcrest-library:2.2"
-
-	// https://mvnrepository.com/artifact/ch.qos.logback/logback-classic
-	testImplementation "ch.qos.logback:logback-classic:1.2.11"
-
-	// https://github.com/spotbugs/spotbugs-gradle-plugin/blob/61023da1c663facd308e696a4376e282df559a2b/README.md#refer-the-version-in-the-build-script
-	implementation "com.github.spotbugs:spotbugs-annotations:${spotbugs.toolVersion.get()}"
+	// Unfortunately, we depend on Gson in our API right now
+	api "com.google.code.gson:gson:2.9.0"
 
 	implementation "org.mongodb:mongo-java-driver:3.12.11"
-
-	api "com.google.code.gson:gson:2.9.0"
-	implementation "org.slf4j:slf4j-api:1.7.36"
 	implementation group: 'org.ow2.asm', name: 'asm', version: "9.3"
-}
-
-test {
-	useJUnitPlatform()
-
-	// High-performance code sometimes uses `assert` statements instead of explicit checks.
-	// Our unit tests should be able to check for the presence of these assertions.
-	enableAssertions = true
-
-	testLogging.showStandardStreams = true
-
-	reports {
-		// Used to convert gradle test output to be understood by Jenkins JUnit publishing
-		junitXml.enabled = true
-		html.enabled = false
-	}
 }
 
 pitest {
@@ -135,64 +22,4 @@ pitest {
 	threads = 4
 	outputFormats = ['XML', 'HTML']
 	timestampedReports = false
-}
-
-task sourcesJar(type: Jar, dependsOn: classes) {
-	// https://stackoverflow.com/questions/41825699/publishing-artifactswith-sources-and-javadoc-with-gradle
-	archiveClassifier.set('sources')
-	from sourceSets.main.allSource
-}
-
-publishing {
-	publications {
-		mavenJava(MavenPublication) {
-			artifactId = 'bosk'
-			from components.java
-			artifact sourcesJar
-			versionMapping {
-				usage('java-api') {
-					fromResolutionOf('runtimeClasspath')
-				}
-				usage('java-runtime') {
-					fromResolutionResult()
-				}
-			}
-			pom {
-				name = 'Bosk'
-				description = 'Control plane state management library'
-				url = 'http://bosk.works'
-				licenses {
-					license {
-						name = 'The Apache License, Version 2.0'
-						url = 'http://www.apache.org/licenses/LICENSE-2.0.txt'
-					}
-				}
-				developers {
-					developer {
-						id = 'pdoyle'
-						name = 'Patrick Doyle'
-						email = 'pdoyle@venacorp.com'
-					}
-					developer {
-						id = 'gjohnson'
-						name = 'Grady Johnson'
-						email = 'gjohnson@venacorp.com'
-					}
-				}
-//				scm {
-//					connection = 'scm:git:git://example.com/my-library.git'
-//					developerConnection = 'scm:git:ssh://example.com/my-library.git'
-//					url = 'http://example.com/my-library/'
-//				}
-			}
-		}
-	}
-	repositories {
-		maven {
-			name = "VenaArtifactory"
-			credentials( PasswordCredentials )
-			allowInsecureProtocol = true
-			url = "http://artifactory.devops.vena.vpn:8081/artifactory/libs-${publicationType}-local/"
-		}
-	}
 }
