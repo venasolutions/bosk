@@ -1,8 +1,6 @@
 
 plugins {
 	id 'java-library'
-	id 'application'
-	//id 'com.jfrog.artifactory' version '4.24.16'
 	id 'maven-publish'
 	id 'info.solidsoft.pitest' version '1.6.0'
 	id 'com.github.spotbugs' version '5.0.6'
