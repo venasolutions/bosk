@@ -1,14 +1,9 @@
 package org.vena.bosk.drivers.state;
 
 import java.util.Optional;
-import lombok.AccessLevel;
-import lombok.EqualsAndHashCode;
-import lombok.Getter;
-import lombok.RequiredArgsConstructor;
-import lombok.ToString;
+import lombok.Value;
 import lombok.With;
 import lombok.experimental.Accessors;
-import lombok.experimental.FieldDefaults;
 import lombok.experimental.FieldNameConstants;
 import org.vena.bosk.Catalog;
 import org.vena.bosk.Entity;
@@ -17,13 +12,9 @@ import org.vena.bosk.Listing;
 import org.vena.bosk.Reference;
 import org.vena.bosk.SideTable;
 
-@EqualsAndHashCode(callSuper = false)
-@ToString
+@Value
 @Accessors(fluent = true)
-@Getter
 @With
-@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
-@RequiredArgsConstructor
 @FieldNameConstants
 public class TestEntity implements Entity {
 	Identifier id;

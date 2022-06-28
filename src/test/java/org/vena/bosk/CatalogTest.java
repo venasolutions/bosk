@@ -11,13 +11,10 @@ import java.util.NoSuchElementException;
 import java.util.Spliterator;
 import java.util.function.Function;
 import java.util.stream.Stream;
-import lombok.AccessLevel;
 import lombok.EqualsAndHashCode;
-import lombok.Getter;
-import lombok.RequiredArgsConstructor;
-import lombok.ToString;
+import lombok.Value;
 import lombok.experimental.Accessors;
-import lombok.experimental.FieldDefaults;
+import lombok.experimental.NonFinal;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -39,21 +36,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class CatalogTest {
 
-	@EqualsAndHashCode(callSuper = false)
-	@ToString
+	@Value
+	@NonFinal
 	@Accessors(fluent = true)
-	@Getter
-	@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
-	@RequiredArgsConstructor
 	private static class BasicEntity implements Entity {
 		Identifier id;
 	}
 
-	@EqualsAndHashCode(callSuper = false, onlyExplicitlyIncluded = true)
-	@ToString
+	@Value
 	@Accessors(fluent = true)
-	@Getter
-	@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
+	@EqualsAndHashCode(callSuper = true)
 	private static class ComplexEntity extends BasicEntity {
 		@EqualsAndHashCode.Include
 		String value;
