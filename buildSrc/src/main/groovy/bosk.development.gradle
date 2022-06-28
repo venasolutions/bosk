@@ -6,7 +6,6 @@
 
 plugins {
 	id 'java-library'
-	id 'maven-publish'
 }
 
 compileTestJava.options.encoding = 'UTF-8'
