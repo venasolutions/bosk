@@ -1,0 +1,21 @@
+plugins {
+	id 'bosk.development'
+	id 'com.github.spotbugs' version '5.0.6'
+	id 'com.diffplug.gradle.spotless' version '3.25.0'
+}
+
+dependencies {
+	// Tests from other projects can depend on this one,
+	// which in turn can depend on the main code from other projects.
+	// It's a mild kind of circular dependency we can probably live with for now.
+	implementation project(":bosk-core")
+
+	// The bosk.development plugin brings these in as test dependencies,
+	// but we need them as main dependencies.
+	// It's gross that we need to repeat the version info here.
+	// There must be a clean way to do this in Gradle??
+	implementation "org.mongodb:mongo-java-driver:3.12.11"
+	implementation "org.junit.jupiter:junit-jupiter-api:5.8.2"
+	implementation "org.junit.jupiter:junit-jupiter-params:5.8.2"
+	runtimeOnly "org.junit.jupiter:junit-jupiter-engine:5.8.2"
+}
