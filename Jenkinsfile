@@ -93,9 +93,9 @@ pipeline {
         }
 
         stage('Publish to Artifactory') {
-            //when {
-            //    branch 'develop'
-            //}
+            when {
+                branch 'develop'
+            }
 
             steps {
                 script { VenaCommon.publishCustomStatus(this, 'pending', STATUS_PUBLISH, 'Publishing to artifactory...', 'display/redirect') }
