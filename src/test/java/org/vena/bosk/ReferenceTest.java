@@ -7,7 +7,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.vena.bosk.exceptions.InvalidTypeException;
 import org.vena.bosk.junit.PerformanceTest;
-import org.vena.bosk.util.MicroBenchmark;
 
 import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
@@ -15,12 +14,12 @@ import static java.util.stream.Collectors.toList;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.vena.bosk.MicroBenchmark.callingMethodInfo;
 import static org.vena.bosk.util.Classes.catalog;
 import static org.vena.bosk.util.Classes.listing;
 import static org.vena.bosk.util.Classes.mapValue;
 import static org.vena.bosk.util.Classes.reference;
 import static org.vena.bosk.util.Classes.sideTable;
-import static org.vena.bosk.util.MicroBenchmark.callingMethodInfo;
 
 class ReferenceTest extends AbstractBoskTest {
 	private Bosk<TestRoot> bosk;

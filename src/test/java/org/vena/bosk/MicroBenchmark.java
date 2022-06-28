@@ -1,4 +1,4 @@
-package org.vena.bosk.util;
+package org.vena.bosk;
 
 import java.text.DecimalFormat;
 import org.slf4j.Logger;
