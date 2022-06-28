@@ -1,2 +1,2 @@
 rootProject.name = 'bosk'
-include 'bosk-core', 'testing'
+include 'bosk-core', 'bosk-mongo', 'testing'

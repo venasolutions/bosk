@@ -9,6 +9,7 @@ dependencies {
 	// which in turn can depend on the main code from other projects.
 	// It's a mild kind of circular dependency we can probably live with for now.
 	implementation project(":bosk-core")
+	implementation project(":bosk-mongo")
 
 	// The bosk.development plugin brings these in as test dependencies,
 	// but we need them as main dependencies.
