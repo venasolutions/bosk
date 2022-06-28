@@ -102,7 +102,12 @@ public final class PathCompiler {
 		DereferencerBuilder result = memoizedBuilders.get(path);
 		if (result == null) {
 			result = computeBuilder(path);
-			memoizedBuilders.put(path, result); // Might already be there from another thread, but that's ok
+			DereferencerBuilder previous = memoizedBuilders.putIfAbsent(path, result);
+			if (previous != null) {
+				// Must not switch to a new DereferencerBuilder, even if it's equivalent.
+				// We guarantee that we'll always use the same one.
+				return previous;
+			}
 		}
 		return result;
 	}
