@@ -2,3 +2,8 @@
 plugins {
 	id 'java'
 }
+
+allprojects {
+	group = 'org.vena'
+	version = '0.0.21'
+}

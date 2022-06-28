@@ -10,12 +10,6 @@ plugins {
 
 compileTestJava.options.encoding = 'UTF-8'
 
-group = 'org.vena'
-archivesBaseName = 'bosk'
-jar.archiveBaseName = "${archivesBaseName}"
-version = '0.0.21'
-var publicationType = version.endsWith('-SNAPSHOT') ? 'snapshot' : 'release'
-
 sourceCompatibility = 1.8
 targetCompatibility = 1.8
 
@@ -123,65 +117,5 @@ test {
 		// Used to convert gradle test output to be understood by Jenkins JUnit publishing
 		junitXml.enabled = true
 		html.enabled = false
-	}
-}
-
-task sourcesJar(type: Jar, dependsOn: classes) {
-	// https://stackoverflow.com/questions/41825699/publishing-artifactswith-sources-and-javadoc-with-gradle
-	archiveClassifier.set('sources')
-	from sourceSets.main.allSource
-}
-
-publishing {
-	publications {
-		mavenJava(MavenPublication) {
-			artifactId = 'bosk'
-			from components.java
-			artifact sourcesJar
-			versionMapping {
-				usage('java-api') {
-					fromResolutionOf('runtimeClasspath')
-				}
-				usage('java-runtime') {
-					fromResolutionResult()
-				}
-			}
-			pom {
-				name = 'Bosk'
-				description = 'Control plane state management library'
-				url = 'http://bosk.works'
-				licenses {
-					license {
-						name = 'The Apache License, Version 2.0'
-						url = 'http://www.apache.org/licenses/LICENSE-2.0.txt'
-					}
-				}
-				developers {
-					developer {
-						id = 'pdoyle'
-						name = 'Patrick Doyle'
-						email = 'pdoyle@venacorp.com'
-					}
-					developer {
-						id = 'gjohnson'
-						name = 'Grady Johnson'
-						email = 'gjohnson@venacorp.com'
-					}
-				}
-//				scm {
-//					connection = 'scm:git:git://example.com/my-library.git'
-//					developerConnection = 'scm:git:ssh://example.com/my-library.git'
-//					url = 'http://example.com/my-library/'
-//				}
-			}
-		}
-	}
-	repositories {
-		maven {
-			name = "VenaArtifactory"
-			credentials( PasswordCredentials )
-			allowInsecureProtocol = true
-			url = "http://artifactory.devops.vena.vpn:8081/artifactory/libs-${publicationType}-local/"
-		}
 	}
 }

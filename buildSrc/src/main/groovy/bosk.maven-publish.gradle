@@ -1,0 +1,72 @@
+
+/*
+ * Settings related to Bosk development and developers.
+ * Actual technological dependencies of Bosk should go into the project's Gradle files.
+ */
+
+plugins {
+	id 'java-library'
+	id 'maven-publish'
+}
+
+jar.archiveBaseName = "${archivesBaseName}"
+var publicationType = version.endsWith('-SNAPSHOT') ? 'snapshot' : 'release'
+
+task sourcesJar(type: Jar, dependsOn: classes) {
+	// https://stackoverflow.com/questions/41825699/publishing-artifactswith-sources-and-javadoc-with-gradle
+	archiveClassifier.set('sources')
+	from sourceSets.main.allSource
+}
+
+publishing {
+	publications {
+		mavenJava(MavenPublication) {
+			from components.java
+			artifact sourcesJar
+			versionMapping {
+				usage('java-api') {
+					fromResolutionOf('runtimeClasspath')
+				}
+				usage('java-runtime') {
+					fromResolutionResult()
+				}
+			}
+			pom {
+				name = 'Bosk'
+				description = 'Control plane state management library'
+				url = 'http://bosk.works'
+				licenses {
+					license {
+						name = 'The Apache License, Version 2.0'
+						url = 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+					}
+				}
+				developers {
+					developer {
+						id = 'pdoyle'
+						name = 'Patrick Doyle'
+						email = 'pdoyle@venacorp.com'
+					}
+					developer {
+						id = 'gjohnson'
+						name = 'Grady Johnson'
+						email = 'gjohnson@venacorp.com'
+					}
+				}
+//				scm {
+//					connection = 'scm:git:git://example.com/my-library.git'
+//					developerConnection = 'scm:git:ssh://example.com/my-library.git'
+//					url = 'http://example.com/my-library/'
+//				}
+			}
+		}
+	}
+	repositories {
+		maven {
+			name = "VenaArtifactory"
+			credentials( PasswordCredentials )
+			allowInsecureProtocol = true
+			url = "http://artifactory.devops.vena.vpn:8081/artifactory/libs-${publicationType}-local/"
+		}
+	}
+}

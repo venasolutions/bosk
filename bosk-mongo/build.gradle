@@ -1,10 +1,12 @@
 
 plugins {
 	id 'bosk.development'
-	id 'maven-publish'
+	id 'bosk.maven-publish'
 	id 'com.github.spotbugs' version '5.0.6'
 	id 'com.diffplug.gradle.spotless' version '3.25.0'
 }
+
+archivesBaseName = 'bosk-mongo'
 
 dependencies {
 	api project(":bosk-core")
