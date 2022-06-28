@@ -1,0 +1,29 @@
+
+plugins {
+	id 'bosk.development'
+	id 'bosk.maven-publish'
+	id 'info.solidsoft.pitest' version '1.6.0'
+	id 'com.github.spotbugs' version '5.0.6'
+	id 'com.diffplug.gradle.spotless' version '3.25.0'
+}
+
+archivesBaseName = 'bosk-core'
+
+dependencies {
+	implementation group: 'org.ow2.asm', name: 'asm', version: "9.3"
+
+	// Unfortunately, we depend on Gson in our API right now
+	api "com.google.code.gson:gson:2.9.0"
+
+	testImplementation project(':testing')
+}
+
+pitest {
+	junit5PluginVersion = '0.15'
+	jvmArgs = ['-ea'] // Our unit tests check for assert statements
+	targetClasses = ['org.vena.bosk.Path*']  //by default "${project.group}.*"
+	targetTests   = ['org.vena.bosk.PathTest*']
+	threads = 4
+	outputFormats = ['XML', 'HTML']
+	timestampedReports = false
+}
