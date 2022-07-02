@@ -27,7 +27,7 @@ public abstract class DriverConformanceTest extends AbstractDriverTest {
 	protected BiFunction<BoskDriver<TestEntity>, Bosk<TestEntity>, BoskDriver<TestEntity>> driverFactory;
 
 	@ParametersByName
-	void testInitialState(Path enclosingCatalogPath) throws InvalidTypeException {
+	void testInitialState(Path enclosingCatalogPath) {
 		initializeBoskWithCatalog(enclosingCatalogPath);
 		assertCorrectBoskContents();
 	}
@@ -76,7 +76,7 @@ public abstract class DriverConformanceTest extends AbstractDriverTest {
 	}
 
 	@ParametersByName
-	void testReplaceCatalogEmpty(Path enclosingCatalogPath) throws InvalidTypeException {
+	void testReplaceCatalogEmpty(Path enclosingCatalogPath) {
 		CatalogReference<TestEntity> ref = initializeBoskWithCatalog(enclosingCatalogPath);
 		driver.submitReplacement(ref, Catalog.empty());
 		assertCorrectBoskContents();
@@ -119,7 +119,7 @@ public abstract class DriverConformanceTest extends AbstractDriverTest {
 	}
 
 	@ParametersByName
-	void testDeleteForward(Path enclosingCatalogPath) throws InvalidTypeException {
+	void testDeleteForward(Path enclosingCatalogPath) {
 		CatalogReference<TestEntity> ref = initializeBoskWithCatalog(enclosingCatalogPath);
 		driver.submitDeletion(ref.then(child1ID));
 		assertCorrectBoskContents();
@@ -128,7 +128,7 @@ public abstract class DriverConformanceTest extends AbstractDriverTest {
 	}
 
 	@ParametersByName
-	void testDeleteBackward(Path enclosingCatalogPath) throws InvalidTypeException {
+	void testDeleteBackward(Path enclosingCatalogPath) {
 		CatalogReference<TestEntity> ref = initializeBoskWithCatalog(enclosingCatalogPath);
 		driver.submitDeletion(ref.then(child2ID));
 		assertCorrectBoskContents();
@@ -182,7 +182,7 @@ public abstract class DriverConformanceTest extends AbstractDriverTest {
 	}
 
 	@ParametersByName
-	void testDeleteCatalog_fails(Path enclosingCatalogPath) throws InvalidTypeException {
+	void testDeleteCatalog_fails(Path enclosingCatalogPath) {
 		CatalogReference<TestEntity> ref = initializeBoskWithCatalog(enclosingCatalogPath);
 		assertThrows(IllegalArgumentException.class, ()->
 			driver.submitDeletion(ref));
@@ -289,7 +289,7 @@ public abstract class DriverConformanceTest extends AbstractDriverTest {
 		return ref;
 	}
 
-	private CatalogReference<TestEntity> initializeBoskWithCatalog(Path enclosingCatalogPath) throws InvalidTypeException {
+	private CatalogReference<TestEntity> initializeBoskWithCatalog(Path enclosingCatalogPath) {
 		setupBosksAndReferences(driverFactory);
 		try {
 			CatalogReference<TestEntity> ref = bosk.catalogReference(TestEntity.class, enclosingCatalogPath);
