@@ -312,7 +312,11 @@ public abstract class DriverConformanceTest extends AbstractDriverTest {
 		return Stream.of(
 			"child1",
 			"child2",
-			"nonexistent"
+			"nonexistent",
+			"name.with.dots",
+			"$name$with$dollars$",
+			"$name.with%everything\uD83D\uDE09",
+			"emojis\uD83C\uDF33\uD83E\uDDCA"
 		).map(Identifier::from);
 	}
 

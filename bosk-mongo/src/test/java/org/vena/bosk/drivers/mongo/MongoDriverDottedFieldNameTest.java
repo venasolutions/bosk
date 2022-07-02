@@ -46,7 +46,9 @@ class MongoDriverDottedFieldNameTest extends AbstractDriverTest {
 				args("/sideTable", base + ".sideTable"),
 				args("/catalog/xyz", base + ".catalog.xyz"),
 				args("/listing/xyz", base + ".listing.ids.xyz"),
-				args("/sideTable/xyz", base + ".sideTable.valuesById.xyz")
+				args("/sideTable/xyz", base + ".sideTable.valuesById.xyz"),
+				args(Path.of("catalog", "$field.with%unusual\uD83D\uDE09characters").toString(), base + ".catalog.%24field%2Ewith%25unusual\uD83D\uDE09characters")
+
 			);
 		}
 
