@@ -313,10 +313,11 @@ public abstract class DriverConformanceTest extends AbstractDriverTest {
 			"child1",
 			"child2",
 			"nonexistent",
-			"name.with.dots",
-			"$name$with$dollars$",
-			"$name.with%everything\uD83D\uDE09",
-			"emojis\uD83C\uDF33\uD83E\uDDCA"
+			"id.with.dots",
+			"id/with/slashes",
+			"$id$with$dollars$",
+			"$id.with%everything\uD83D\uDE09",
+			"idWithEmojis\uD83C\uDF33\uD83E\uDDCA"
 		).map(Identifier::from);
 	}
 
