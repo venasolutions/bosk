@@ -40,14 +40,14 @@ class MongoDriverDottedFieldNameTest extends AbstractDriverTest {
 		public Stream<? extends Arguments> provideArguments(ExtensionContext context) {
 			final String base = "state";
 			return Stream.of(
-					args("/", base),
-					args("/catalog", base + ".catalog"),
-					args("/listing", base + ".listing"),
-					args("/sideTable", base + ".sideTable"),
-					args("/catalog/xyz", base + ".catalog.xyz"),
-					args("/listing/xyz", base + ".listing.ids.xyz"),
-					args("/sideTable/xyz", base + ".sideTable.valuesById.xyz")
-					);
+				args("/", base),
+				args("/catalog", base + ".catalog"),
+				args("/listing", base + ".listing"),
+				args("/sideTable", base + ".sideTable"),
+				args("/catalog/xyz", base + ".catalog.xyz"),
+				args("/listing/xyz", base + ".listing.ids.xyz"),
+				args("/sideTable/xyz", base + ".sideTable.valuesById.xyz")
+			);
 		}
 
 		private Arguments args(String boskPath, String dottedFieldName) {
