@@ -27,39 +27,30 @@ public abstract class DriverConformanceTest extends AbstractDriverTest {
 	protected BiFunction<BoskDriver<TestEntity>, Bosk<TestEntity>, BoskDriver<TestEntity>> driverFactory;
 
 	@ParametersByName
-	void testInitialState(Path enclosingCatalogPath) throws InvalidTypeException {
+	void testInitialState(Path enclosingCatalogPath) {
 		initializeBoskWithCatalog(enclosingCatalogPath);
 		assertCorrectBoskContents();
 	}
 
 	@ParametersByName
-	void testReplaceIdentical(Path enclosingCatalogPath) throws InvalidTypeException {
+	void testReplaceIdentical(Path enclosingCatalogPath, Identifier childID) throws InvalidTypeException {
 		CatalogReference<TestEntity> ref = initializeBoskWithCatalog(enclosingCatalogPath);
-		driver.submitReplacement(ref.then(child1ID), newEntity(child1ID, ref));
+		driver.submitReplacement(ref.then(childID), newEntity(childID, ref));
 		assertCorrectBoskContents();
 	}
 
 	@ParametersByName
-	void testReplaceFirst(Path enclosingCatalogPath) throws InvalidTypeException {
+	void testReplaceDifferent(Path enclosingCatalogPath, Identifier childID) throws InvalidTypeException {
 		CatalogReference<TestEntity> ref = initializeBoskWithCatalog(enclosingCatalogPath);
-		driver.submitReplacement(ref.then(child1ID), newEntity(child1ID, ref)
+		driver.submitReplacement(ref.then(childID), newEntity(childID, ref)
 			.withString("replaced"));
 		assertCorrectBoskContents();
 	}
 
 	@ParametersByName
-	void testReplaceSecond(Path enclosingCatalogPath) throws InvalidTypeException {
+	void testDelete(Path enclosingCatalogPath, Identifier childID) {
 		CatalogReference<TestEntity> ref = initializeBoskWithCatalog(enclosingCatalogPath);
-		driver.submitReplacement(ref.then(child2ID), newEntity(child2ID, ref)
-			.withString("replaced"));
-		assertCorrectBoskContents();
-	}
-
-	@ParametersByName
-	void testReplaceNonexistent(Path enclosingCatalogPath) throws InvalidTypeException {
-		CatalogReference<TestEntity> ref = initializeBoskWithCatalog(enclosingCatalogPath);
-		Identifier unique = Identifier.unique("child");
-		driver.submitReplacement(ref.then(unique), newEntity(unique, ref));
+		driver.submitDeletion(ref.then(childID));
 		assertCorrectBoskContents();
 	}
 
@@ -76,7 +67,7 @@ public abstract class DriverConformanceTest extends AbstractDriverTest {
 	}
 
 	@ParametersByName
-	void testReplaceCatalogEmpty(Path enclosingCatalogPath) throws InvalidTypeException {
+	void testReplaceCatalogEmpty(Path enclosingCatalogPath) {
 		CatalogReference<TestEntity> ref = initializeBoskWithCatalog(enclosingCatalogPath);
 		driver.submitReplacement(ref, Catalog.empty());
 		assertCorrectBoskContents();
@@ -119,7 +110,7 @@ public abstract class DriverConformanceTest extends AbstractDriverTest {
 	}
 
 	@ParametersByName
-	void testDeleteForward(Path enclosingCatalogPath) throws InvalidTypeException {
+	void testDeleteForward(Path enclosingCatalogPath) {
 		CatalogReference<TestEntity> ref = initializeBoskWithCatalog(enclosingCatalogPath);
 		driver.submitDeletion(ref.then(child1ID));
 		assertCorrectBoskContents();
@@ -128,7 +119,7 @@ public abstract class DriverConformanceTest extends AbstractDriverTest {
 	}
 
 	@ParametersByName
-	void testDeleteBackward(Path enclosingCatalogPath) throws InvalidTypeException {
+	void testDeleteBackward(Path enclosingCatalogPath) {
 		CatalogReference<TestEntity> ref = initializeBoskWithCatalog(enclosingCatalogPath);
 		driver.submitDeletion(ref.then(child2ID));
 		assertCorrectBoskContents();
@@ -182,7 +173,7 @@ public abstract class DriverConformanceTest extends AbstractDriverTest {
 	}
 
 	@ParametersByName
-	void testDeleteCatalog_fails(Path enclosingCatalogPath) throws InvalidTypeException {
+	void testDeleteCatalog_fails(Path enclosingCatalogPath) {
 		CatalogReference<TestEntity> ref = initializeBoskWithCatalog(enclosingCatalogPath);
 		assertThrows(IllegalArgumentException.class, ()->
 			driver.submitDeletion(ref));
@@ -194,9 +185,9 @@ public abstract class DriverConformanceTest extends AbstractDriverTest {
 		CatalogReference<TestEntity> ref = initializeBoskWithCatalog(enclosingCatalogPath);
 		// Use loops instead of parameters to avoid unnecessarily creating and initializing
 		// a new bosk for every case. None of them affect the bosk anyway.
-		for (String childID: childID().collect(toList())) {
+		for (Identifier childID: childID().collect(toList())) {
 			for (String field: testEntityField().collect(toList())) {
-				Reference<Object> target = ref.then(Object.class, childID, field);
+				Reference<Object> target = ref.then(Object.class, childID.toString(), field);
 				assertThrows(IllegalArgumentException.class, () ->
 					driver.submitDeletion(target), "Must not allow deletion of field " + target);
 				assertCorrectBoskContents();
@@ -289,7 +280,7 @@ public abstract class DriverConformanceTest extends AbstractDriverTest {
 		return ref;
 	}
 
-	private CatalogReference<TestEntity> initializeBoskWithCatalog(Path enclosingCatalogPath) throws InvalidTypeException {
+	private CatalogReference<TestEntity> initializeBoskWithCatalog(Path enclosingCatalogPath) {
 		setupBosksAndReferences(driverFactory);
 		try {
 			CatalogReference<TestEntity> ref = bosk.catalogReference(TestEntity.class, enclosingCatalogPath);
@@ -317,8 +308,17 @@ public abstract class DriverConformanceTest extends AbstractDriverTest {
 	}
 
 	@SuppressWarnings("unused")
-	static Stream<String> childID() {
-		return Stream.of("child1", "child2", "nonexistent");
+	static Stream<Identifier> childID() {
+		return Stream.of(
+			"child1",
+			"child2",
+			"nonexistent",
+			"id.with.dots",
+			"id/with/slashes",
+			"$id$with$dollars$",
+			"$id.with%everything\uD83D\uDE09",
+			"idWithEmojis\uD83C\uDF33\uD83E\uDDCA"
+		).map(Identifier::from);
 	}
 
 	@SuppressWarnings("unused")

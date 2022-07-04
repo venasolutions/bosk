@@ -1,11 +1,15 @@
 package org.vena.bosk.drivers.mongo;
 
+import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Type;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 import java.util.function.Function;
+import java.util.function.UnaryOperator;
 import java.util.regex.Pattern;
 import org.bson.BsonDocument;
 import org.bson.BsonDocumentWriter;
@@ -141,7 +145,7 @@ final class Formatter {
 			} else if (SideTable.class.isAssignableFrom(enclosingReference.targetClass())) {
 				segments.add("valuesById");
 			}
-			segments.add(ref.path().lastSegment());
+			segments.add(ENCODER.apply(ref.path().lastSegment()));
 		}
 	}
 
@@ -161,7 +165,7 @@ final class Formatter {
 				skipField(ref, iter, "valuesById");
 			}
 			if (iter.hasNext()) {
-				String segment = iter.next();
+				String segment = DECODER.apply(iter.next());
 				ref = ref.then(Object.class, segment);
 			}
 		}
@@ -191,6 +195,27 @@ final class Formatter {
 		} catch (InvalidTypeException e) {
 			throw new AssertionError(format("Reference must have an enclosing Object: '%s'", ref), e);
 		}
+	}
+
+	private static final UnaryOperator<String> DECODER;
+	private static final UnaryOperator<String> ENCODER;
+
+	static {
+		DECODER = s->{
+			try {
+				return URLDecoder.decode(s, StandardCharsets.UTF_8.name());
+			} catch (UnsupportedEncodingException e) {
+				throw new AssertionError(e);
+			}
+		};
+
+		ENCODER = s->{
+			// Selective URLEncoding of characters MongoDB doesn't like
+			return s
+				.replace("%", "%25")
+				.replace("$", "%24")
+				.replace(".", "%2E");
+		};
 	}
 
 }

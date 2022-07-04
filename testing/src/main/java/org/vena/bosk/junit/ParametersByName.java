@@ -12,6 +12,5 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(ParametersByNameContextProvider.class)
 @TestTemplate
 public @interface ParametersByName {
-	String name() default "";
 	int singleInvocationIndex() default 0; // 0 runs all tests; indexes count from 1
 }
