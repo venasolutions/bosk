@@ -62,7 +62,7 @@ public final class MongoDriver<R extends Entity> implements BoskDriver<R> {
 			.getCollection(driverSettings.collection());
 		this.receiver = new MongoChangeStreamReceiver<>(downstream, bosk.rootReference(), collection, formatter);
 		this.echoPrefix = bosk.instanceID().toString();
-		this.documentID = new BsonString(driverSettings.documentID().toString());
+		this.documentID = new BsonString("boskDocument");
 		this.rootRef = bosk.rootReference();
 
 	}
