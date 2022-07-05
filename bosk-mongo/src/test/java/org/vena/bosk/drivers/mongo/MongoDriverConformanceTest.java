@@ -8,7 +8,6 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.vena.bosk.Bosk;
 import org.vena.bosk.BoskDriver;
-import org.vena.bosk.BsonPlugin;
 import org.vena.bosk.Entity;
 import org.vena.bosk.drivers.DriverConformanceTest;
 

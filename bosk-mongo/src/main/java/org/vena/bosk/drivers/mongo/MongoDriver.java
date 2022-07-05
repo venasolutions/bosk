@@ -26,7 +26,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.vena.bosk.Bosk;
 import org.vena.bosk.BoskDriver;
-import org.vena.bosk.BsonPlugin;
 import org.vena.bosk.Entity;
 import org.vena.bosk.Identifier;
 import org.vena.bosk.Reference;
