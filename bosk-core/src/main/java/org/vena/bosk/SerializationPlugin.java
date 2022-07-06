@@ -1,6 +1,5 @@
 package org.vena.bosk;
 
-import com.google.gson.JsonParseException;
 import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Field;
 import java.lang.reflect.Parameter;
@@ -20,6 +19,7 @@ import lombok.experimental.Accessors;
 import org.vena.bosk.annotations.DeserializationPath;
 import org.vena.bosk.annotations.Enclosing;
 import org.vena.bosk.annotations.Self;
+import org.vena.bosk.exceptions.DeserializationException;
 import org.vena.bosk.exceptions.InvalidTypeException;
 import org.vena.bosk.exceptions.MalformedPathException;
 import org.vena.bosk.exceptions.ParameterUnboundException;
@@ -176,16 +176,16 @@ public abstract class SerializationPlugin {
 				} else if (Phantom.class.equals(type)) {
 					parameterValues.add(Phantom.empty());
 				} else {
-					throw new JsonParseException("Missing field: " + name);
+					throw new DeserializationException("Missing field: " + name);
 				}
 			} else if (implicitReference == null) {
 				parameterValues.add(value);
 			} else {
-				throw new JsonParseException("Unexpected field \"" + name + "\" for implicit reference");
+				throw new DeserializationException("Unexpected field \"" + name + "\" for implicit reference");
 			}
 		}
 		if (parameterValuesByName.size() >= 1) {
-			throw new JsonParseException("Unrecognized fields: " + parameterValuesByName.keySet());
+			throw new DeserializationException("Unrecognized fields: " + parameterValuesByName.keySet());
 		}
 		return parameterValues;
 	}
