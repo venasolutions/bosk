@@ -9,9 +9,9 @@ plugins {
 archivesBaseName = 'bosk-gson'
 
 dependencies {
-	api project(":bosk-core")
 	api "com.google.code.gson:gson:2.9.0"
-	implementation group: 'org.ow2.asm', name: 'asm', version: "9.3" // TODO: Bytecode generation needs to be its own subproject!
+	implementation project(":bosk-core")
+	implementation project(":util")
 
 	testImplementation project(":testing")
 }

@@ -2,9 +2,7 @@ package org.vena.bosk;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodType;
-import java.lang.reflect.AccessibleObject;
 import java.lang.reflect.Constructor;
-import java.lang.reflect.Executable;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
@@ -25,9 +23,9 @@ import org.vena.bosk.exceptions.InvalidTypeException;
 import org.vena.bosk.util.Types;
 
 import static java.lang.String.format;
-import static java.lang.reflect.Modifier.isPrivate;
 import static java.util.Arrays.asList;
 import static java.util.stream.Collectors.toList;
+import static org.vena.bosk.util.Util.setAccessible;
 
 /**
  * Collection of utilities for implementing {@link Reference}s.
@@ -327,29 +325,6 @@ C&lt;String> someField;
 			result.put(name, getterMethod(nodeClass, name));
 		}
 		return result;
-	}
-
-	public static Field setAccessible(Field field) {
-		makeAccessible(field, field.getModifiers());
-		return field;
-	}
-
-	public static <T extends Executable> T setAccessible(T method) {
-		makeAccessible(method, method.getModifiers());
-		return method;
-	}
-
-	private static void makeAccessible(AccessibleObject object, int modifiers) {
-		// Let's honour "private" modifiers so people can know that private
-		// methods and fields aren't being called by us. That allows them to
-		// refactor them freely without concern for breaking some Bosk magic.
-		//
-		if (isPrivate(modifiers)) {
-			throw new IllegalArgumentException("Access to private " + object.getClass().getSimpleName() + " is forbidden: " + object);
-		}
-
-		//... but otherwise, it's open season.
-		object.setAccessible(true);
 	}
 
 }
