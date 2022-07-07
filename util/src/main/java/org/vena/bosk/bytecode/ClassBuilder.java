@@ -20,7 +20,7 @@ import static java.security.AccessController.doPrivileged;
 import static java.util.stream.Collectors.joining;
 import static org.objectweb.asm.ClassWriter.COMPUTE_FRAMES;
 import static org.objectweb.asm.Type.getMethodDescriptor;
-import static org.vena.bosk.ReferenceUtils.setAccessible;
+import static org.vena.bosk.util.Util.setAccessible;
 
 /**
  * Wrapper around {@link ClassWriter} to simplify things for our purposes.

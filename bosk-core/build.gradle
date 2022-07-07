@@ -10,11 +10,7 @@ plugins {
 archivesBaseName = 'bosk-core'
 
 dependencies {
-	implementation group: 'org.ow2.asm', name: 'asm', version: "9.3"
-
-	// Unfortunately, we depend on Gson in our API right now
-	api "com.google.code.gson:gson:2.9.0"
-
+	implementation project(':util')
 	testImplementation project(':testing')
 }
 
