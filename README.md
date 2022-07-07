@@ -1,15 +1,25 @@
 # Bosk
 Control plane state management library
 
-## Structure
+## Usage
+
+The `bosk-core` library is enough to get started.
+You can create a `Bosk` object and start writing your application.
+
+Add in other packages as you need them,
+like `bosk-gson` for JSON serialization
+or `bosk-mongo` for persistence and replication.
+Use the same version number for all packages.
+
+## Development
+
+### Code Structure
 
 The repo is structured as a collection of subprojects because we publish several separate libraries.
 `bosk-core` is the main functionality, and then other packages like `bosk-mongo` and `bosk-gson`
 provide integrations with other technologies.
 
 The subprojects are listed in `settings.gradle`, and each has its own `README.md` describing what it is.
-
-## Development
 
 ### Maven publishing
 
@@ -26,3 +36,11 @@ If you'd like to publish a snapshot version, you can comment out this code from 
 //          branch 'develop'
 //      }
 ```
+
+### Versioning
+
+In the long run, we'll use the usual semantic versioning.
+
+For the 0.x.y releases, treat x as a manjor release number.
+
+For the 0.0.x releases, all bets are off, and no backward compatibility is guaranteed.
