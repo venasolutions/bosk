@@ -27,6 +27,7 @@ import org.bson.codecs.configuration.CodecRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.vena.bosk.SerializationPlugin.DeserializationScope;
+import org.vena.bosk.drivers.mongo.BsonPlugin;
 import org.vena.bosk.exceptions.InvalidTypeException;
 
 import static java.lang.System.identityHashCode;

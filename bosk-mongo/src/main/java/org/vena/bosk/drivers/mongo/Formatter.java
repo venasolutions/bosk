@@ -24,7 +24,6 @@ import org.bson.codecs.ValueCodecProvider;
 import org.bson.codecs.configuration.CodecRegistries;
 import org.bson.codecs.configuration.CodecRegistry;
 import org.vena.bosk.Bosk;
-import org.vena.bosk.BsonPlugin;
 import org.vena.bosk.Listing;
 import org.vena.bosk.Reference;
 import org.vena.bosk.SerializationPlugin;

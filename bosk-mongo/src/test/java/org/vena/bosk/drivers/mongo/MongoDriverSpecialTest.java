@@ -16,7 +16,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.vena.bosk.Bosk;
 import org.vena.bosk.BoskDriver;
-import org.vena.bosk.BsonPlugin;
 import org.vena.bosk.Catalog;
 import org.vena.bosk.CatalogReference;
 import org.vena.bosk.Entity;

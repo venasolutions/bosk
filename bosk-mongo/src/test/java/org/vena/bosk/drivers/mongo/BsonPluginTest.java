@@ -1,4 +1,4 @@
-package org.vena.bosk;
+package org.vena.bosk.drivers.mongo;
 
 import lombok.EqualsAndHashCode;
 import lombok.Value;
@@ -14,7 +14,14 @@ import org.bson.codecs.ValueCodecProvider;
 import org.bson.codecs.configuration.CodecRegistries;
 import org.bson.codecs.configuration.CodecRegistry;
 import org.junit.jupiter.api.Test;
+import org.vena.bosk.Bosk;
 import org.vena.bosk.Bosk.ReadContext;
+import org.vena.bosk.Catalog;
+import org.vena.bosk.CatalogReference;
+import org.vena.bosk.Entity;
+import org.vena.bosk.Identifier;
+import org.vena.bosk.Path;
+import org.vena.bosk.SideTable;
 import org.vena.bosk.exceptions.InvalidTypeException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
