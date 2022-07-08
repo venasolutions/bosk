@@ -13,5 +13,5 @@ dependencies {
 	implementation project(":bosk-core")
 	implementation project(":util")
 
-	testImplementation project(":testing")
+	testImplementation project(":lib-testing")
 }

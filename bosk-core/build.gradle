@@ -11,7 +11,7 @@ archivesBaseName = 'bosk-core'
 
 dependencies {
 	implementation project(':util')
-	testImplementation project(':testing')
+	testImplementation project(':lib-testing')
 }
 
 pitest {
