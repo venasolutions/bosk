@@ -11,7 +11,7 @@ archivesBaseName = 'bosk-gson'
 dependencies {
 	api "com.google.code.gson:gson:2.9.0"
 	implementation project(":bosk-core")
-	implementation project(":util")
+	implementation project(":lib-bytecode")
 
 	testImplementation project(":lib-testing")
 }

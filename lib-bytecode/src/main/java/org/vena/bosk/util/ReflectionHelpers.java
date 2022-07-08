@@ -6,7 +6,7 @@ import java.lang.reflect.Field;
 
 import static java.lang.reflect.Modifier.isPrivate;
 
-public class Util {
+public class ReflectionHelpers {
 
 	public static Field setAccessible(Field field) {
 		makeAccessible(field, field.getModifiers());

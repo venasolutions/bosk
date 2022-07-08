@@ -10,7 +10,7 @@ plugins {
 archivesBaseName = 'bosk-core'
 
 dependencies {
-	implementation project(':util')
+	implementation project(':lib-bytecode')
 	testImplementation project(':lib-testing')
 }
 
