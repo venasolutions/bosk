@@ -28,6 +28,7 @@ import org.vena.bosk.Reference;
 import org.vena.bosk.SideTable;
 import org.vena.bosk.drivers.BufferingDriver;
 import org.vena.bosk.drivers.state.TestEntity;
+import org.vena.bosk.drivers.state.TestValues;
 import org.vena.bosk.exceptions.InvalidTypeException;
 
 import static java.lang.Long.max;
@@ -336,6 +337,40 @@ class MongoDriverSpecialTest {
 		assertEquals(expected, actual);
 	}
 
+	@Test
+	@UsesMongoService
+	void refurbish_createsField() throws IOException, InterruptedException {
+		// We'll use this as an honest observer of the actual state
+		Bosk<TestEntity> originalBosk = new Bosk<TestEntity>(
+			"Original",
+			TestEntity.class,
+			this::initialRoot,
+			createDriverFactory()
+		);
+
+		Bosk<UpgradeableEntity> upgradeableBosk = new Bosk<UpgradeableEntity>(
+			"Upgradeable",
+			UpgradeableEntity.class,
+			(b) -> { throw new AssertionError("upgradeableBosk should use the state from MongoDB"); },
+			createDriverFactory()
+		);
+
+		Optional<TestValues> before;
+		try (@SuppressWarnings("unused") Bosk<?>.ReadContext readContext = originalBosk.readContext()) {
+			before = originalBosk.rootReference().value().values();
+		}
+		assertEquals(Optional.empty(), before); // Not there yet
+
+		((MongoDriver<?>)upgradeableBosk.driver()).refurbish();
+		originalBosk.driver().flush(); // Not the bosk that did refurbish!
+
+		Optional<TestValues> after;
+		try (@SuppressWarnings("unused") Bosk<?>.ReadContext readContext = originalBosk.readContext()) {
+			after = originalBosk.rootReference().value().values();
+		}
+		assertEquals(Optional.of(TestValues.blank()), after); // Now it's there
+	}
+
 	private <E extends Entity> BiFunction<BoskDriver<E>, Bosk<E>, BoskDriver<E>> createDriverFactory() {
 		MongoDriverSettings driverSettings = MongoDriverSettings.builder()
 			.database(TEST_DB)
@@ -364,6 +399,25 @@ class MongoDriverSpecialTest {
 	public static class OldEntity implements Entity {
 		Identifier id;
 		String string;
+	}
+
+	/**
+	 * A version of {@link TestEntity} where the {@link Optional} {@link TestEntity#values()}
+	 * field has a default (and some other fields have been deleted).
+	 */
+	@Value
+	@Accessors(fluent = true)
+	public static class UpgradeableEntity implements Entity {
+		Identifier id;
+		String string;
+		Catalog<TestEntity> catalog;
+		Listing<TestEntity> listing;
+		SideTable<TestEntity, TestEntity> sideTable;
+		Optional<TestValues> values;
+
+		public Optional<TestValues> values() {
+			return Optional.of(values.orElse(TestValues.blank()));
+		}
 	}
 
 	private TestEntity initialRoot(Bosk<TestEntity> testEntityBosk) throws InvalidTypeException {

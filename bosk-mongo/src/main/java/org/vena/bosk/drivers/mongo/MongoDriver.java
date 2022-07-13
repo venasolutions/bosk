@@ -169,6 +169,31 @@ public final class MongoDriver<R extends Entity> implements BoskDriver<R> {
 		}
 	}
 
+	/**
+	 * Deserializes and re-serializes the entire bosk contents,
+	 * thus updating the database to match the current serialized format.
+	 *
+	 * <p>
+	 * Used to "upgrade" the database contents for schema evolution.
+	 */
+	public void refurbish() {
+		Document newState = null;
+		try (MongoCursor<Document> cursor = collection.find(documentFilter()).limit(1).cursor()) {
+			Document newDocument = cursor.next();
+			newState = newDocument.get(state.name(), Document.class);
+		} catch (NoSuchElementException e) {
+			LOGGER.debug("No document to refurbish", e);
+			return;
+		}
+		if (newState == null) {
+			LOGGER.debug("No state to refurbish");
+			return;
+		}
+
+		R root = formatter.document2object(newState, rootRef);
+		doUpdate(replacementDoc(rootRef, root), documentFilter());
+	}
+
 	//
 	// MongoDB helpers
 	//
