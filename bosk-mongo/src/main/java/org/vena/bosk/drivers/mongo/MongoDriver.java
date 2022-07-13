@@ -4,6 +4,8 @@ import com.mongodb.ErrorCategory;
 import com.mongodb.MongoClientSettings;
 import com.mongodb.MongoException;
 import com.mongodb.MongoWriteException;
+import com.mongodb.ReadConcern;
+import com.mongodb.WriteConcern;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
 import com.mongodb.client.MongoCollection;
@@ -54,6 +56,7 @@ public final class MongoDriver<R extends Entity> implements BoskDriver<R> {
 	private final AtomicLong echoCounter = new AtomicLong(1_000_000_000_000L); // Start with a big number so the length doesn't change often
 
 	public MongoDriver(BoskDriver<R> downstream, Bosk<R> bosk, MongoClientSettings clientSettings, MongoDriverSettings driverSettings, BsonPlugin bsonPlugin) {
+		validateMongoClientSettings(clientSettings);
 		this.settings = driverSettings;
 		this.mongoClient = MongoClients.create(clientSettings);
 		this.formatter = new Formatter(bosk, bsonPlugin);
@@ -65,6 +68,19 @@ public final class MongoDriver<R extends Entity> implements BoskDriver<R> {
 		this.documentID = new BsonString("boskDocument");
 		this.rootRef = bosk.rootReference();
 
+	}
+
+	private void validateMongoClientSettings(MongoClientSettings clientSettings) {
+		// We require ReadConcern and WriteConcern to be MAJORITY to ensure the Causal Consistency
+		// guarantees needed to meet the requirements of the BoskDriver interface.
+		// https://www.mongodb.com/docs/manual/core/causal-consistency-read-write-concerns/
+
+		if (clientSettings.getReadConcern() != ReadConcern.MAJORITY) {
+			throw new IllegalArgumentException("MongoDriver requires MongoClientSettings to specify ReadConcern.MAJORITY");
+		}
+		if (clientSettings.getWriteConcern() != WriteConcern.MAJORITY) {
+			throw new IllegalArgumentException("MongoDriver requires MongoClientSettings to specify WriteConcern.MAJORITY");
+		}
 	}
 
 	@Override

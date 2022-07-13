@@ -1,7 +1,9 @@
 package org.vena.bosk.drivers.mongo;
 
 import com.mongodb.MongoClientSettings;
+import com.mongodb.ReadConcern;
 import com.mongodb.ServerAddress;
+import com.mongodb.WriteConcern;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
 import java.io.Closeable;
@@ -85,6 +87,8 @@ public class MongoService implements Closeable {
 		int queryTimeoutMS = 5_000; // Don't wait an inordinately long time for network outage testing
 		return MongoClientSettings.builder()
 			.readPreference(secondaryPreferred())
+			.writeConcern(WriteConcern.MAJORITY)
+			.readConcern(ReadConcern.MAJORITY)
 			.applyToClusterSettings(builder -> {
 				builder.hosts(singletonList(serverAddress));
 				builder.serverSelectionTimeout(initialTimeoutMS, MILLISECONDS);
