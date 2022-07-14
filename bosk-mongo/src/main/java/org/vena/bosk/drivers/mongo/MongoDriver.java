@@ -1,11 +1,14 @@
 package org.vena.bosk.drivers.mongo;
 
+import com.mongodb.ClientSessionOptions;
 import com.mongodb.ErrorCategory;
 import com.mongodb.MongoClientSettings;
 import com.mongodb.MongoException;
 import com.mongodb.MongoWriteException;
 import com.mongodb.ReadConcern;
+import com.mongodb.TransactionOptions;
 import com.mongodb.WriteConcern;
+import com.mongodb.client.ClientSession;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
 import com.mongodb.client.MongoCollection;
@@ -177,21 +180,39 @@ public final class MongoDriver<R extends Entity> implements BoskDriver<R> {
 	 * Used to "upgrade" the database contents for schema evolution.
 	 */
 	public void refurbish() {
-		Document newState = null;
-		try (MongoCursor<Document> cursor = collection.find(documentFilter()).limit(1).cursor()) {
-			Document newDocument = cursor.next();
-			newState = newDocument.get(state.name(), Document.class);
-		} catch (NoSuchElementException e) {
-			LOGGER.debug("No document to refurbish", e);
-			return;
-		}
-		if (newState == null) {
-			LOGGER.debug("No state to refurbish");
-			return;
-		}
+		ClientSessionOptions sessionOptions = ClientSessionOptions.builder()
+			.causallyConsistent(true)
+			.defaultTransactionOptions(TransactionOptions.builder()
+				.writeConcern(WriteConcern.MAJORITY)
+				.readConcern(ReadConcern.MAJORITY)
+				.build())
+			.build();
+		try (ClientSession session = mongoClient.startSession(sessionOptions)) {
+			try {
+				session.startTransaction();
 
-		R root = formatter.document2object(newState, rootRef);
-		doUpdate(replacementDoc(rootRef, root), documentFilter());
+				Document newState = null;
+				try (MongoCursor<Document> cursor = collection.find(documentFilter()).limit(1).cursor()) {
+					Document newDocument = cursor.next();
+					newState = newDocument.get(state.name(), Document.class);
+				} catch (NoSuchElementException e) {
+					LOGGER.debug("No document to refurbish", e);
+					return;
+				}
+				if (newState == null) {
+					LOGGER.debug("No state to refurbish");
+					return;
+				}
+
+				R root = formatter.document2object(newState, rootRef);
+				doUpdate(replacementDoc(rootRef, root), documentFilter());
+				session.commitTransaction();
+			} finally {
+				if (session.hasActiveTransaction()) {
+					session.abortTransaction();
+				}
+			}
+		}
 	}
 
 	//
