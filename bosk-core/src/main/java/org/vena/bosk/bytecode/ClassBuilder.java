@@ -43,7 +43,7 @@ import static org.objectweb.asm.Type.getMethodDescriptor;
 import static org.vena.bosk.util.ReflectionHelpers.setAccessible;
 
 /**
- * Wrapper around {@link ClassWriter} to simplify things for our purposes.
+ * Wrapper around ASM's {@link ClassWriter} to simplify things for our purposes.
  * Users of this should not need to import anything from org.objectweb.asm.
  *
  * @param <T> The interface class that resulting class will implement.
