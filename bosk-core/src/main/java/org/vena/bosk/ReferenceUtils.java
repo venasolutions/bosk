@@ -25,7 +25,7 @@ import org.vena.bosk.util.Types;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static java.util.stream.Collectors.toList;
-import static org.vena.bosk.util.Util.setAccessible;
+import static org.vena.bosk.util.ReflectionHelpers.setAccessible;
 
 /**
  * Collection of utilities for implementing {@link Reference}s.

@@ -10,6 +10,6 @@ archivesBaseName = 'bosk-mongo'
 
 dependencies {
 	api project(":bosk-core")
-	testImplementation project(":testing")
+	testImplementation project(":lib-testing")
 	implementation "org.mongodb:mongo-java-driver:3.12.11"
 }
