@@ -1,9 +1,14 @@
 package org.vena.bosk.drivers.mongo;
 
+import com.mongodb.ClientSessionOptions;
 import com.mongodb.ErrorCategory;
 import com.mongodb.MongoClientSettings;
 import com.mongodb.MongoException;
 import com.mongodb.MongoWriteException;
+import com.mongodb.ReadConcern;
+import com.mongodb.TransactionOptions;
+import com.mongodb.WriteConcern;
+import com.mongodb.client.ClientSession;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
 import com.mongodb.client.MongoCollection;
@@ -54,6 +59,7 @@ public final class MongoDriver<R extends Entity> implements BoskDriver<R> {
 	private final AtomicLong echoCounter = new AtomicLong(1_000_000_000_000L); // Start with a big number so the length doesn't change often
 
 	public MongoDriver(BoskDriver<R> downstream, Bosk<R> bosk, MongoClientSettings clientSettings, MongoDriverSettings driverSettings, BsonPlugin bsonPlugin) {
+		validateMongoClientSettings(clientSettings);
 		this.settings = driverSettings;
 		this.mongoClient = MongoClients.create(clientSettings);
 		this.formatter = new Formatter(bosk, bsonPlugin);
@@ -65,6 +71,19 @@ public final class MongoDriver<R extends Entity> implements BoskDriver<R> {
 		this.documentID = new BsonString("boskDocument");
 		this.rootRef = bosk.rootReference();
 
+	}
+
+	private void validateMongoClientSettings(MongoClientSettings clientSettings) {
+		// We require ReadConcern and WriteConcern to be MAJORITY to ensure the Causal Consistency
+		// guarantees needed to meet the requirements of the BoskDriver interface.
+		// https://www.mongodb.com/docs/manual/core/causal-consistency-read-write-concerns/
+
+		if (clientSettings.getReadConcern() != ReadConcern.MAJORITY) {
+			throw new IllegalArgumentException("MongoDriver requires MongoClientSettings to specify ReadConcern.MAJORITY");
+		}
+		if (clientSettings.getWriteConcern() != WriteConcern.MAJORITY) {
+			throw new IllegalArgumentException("MongoDriver requires MongoClientSettings to specify WriteConcern.MAJORITY");
+		}
 	}
 
 	@Override
@@ -150,6 +169,49 @@ public final class MongoDriver<R extends Entity> implements BoskDriver<R> {
 			receiver.close();
 		} finally {
 			mongoClient.close();
+		}
+	}
+
+	/**
+	 * Deserializes and re-serializes the entire bosk contents,
+	 * thus updating the database to match the current serialized format.
+	 *
+	 * <p>
+	 * Used to "upgrade" the database contents for schema evolution.
+	 */
+	public void refurbish() {
+		ClientSessionOptions sessionOptions = ClientSessionOptions.builder()
+			.causallyConsistent(true)
+			.defaultTransactionOptions(TransactionOptions.builder()
+				.writeConcern(WriteConcern.MAJORITY)
+				.readConcern(ReadConcern.MAJORITY)
+				.build())
+			.build();
+		try (ClientSession session = mongoClient.startSession(sessionOptions)) {
+			try {
+				session.startTransaction();
+
+				Document newState = null;
+				try (MongoCursor<Document> cursor = collection.find(documentFilter()).limit(1).cursor()) {
+					Document newDocument = cursor.next();
+					newState = newDocument.get(state.name(), Document.class);
+				} catch (NoSuchElementException e) {
+					LOGGER.debug("No document to refurbish", e);
+					return;
+				}
+				if (newState == null) {
+					LOGGER.debug("No state to refurbish");
+					return;
+				}
+
+				R root = formatter.document2object(newState, rootRef);
+				doUpdate(replacementDoc(rootRef, root), documentFilter());
+				session.commitTransaction();
+			} finally {
+				if (session.hasActiveTransaction()) {
+					session.abortTransaction();
+				}
+			}
 		}
 	}
 
