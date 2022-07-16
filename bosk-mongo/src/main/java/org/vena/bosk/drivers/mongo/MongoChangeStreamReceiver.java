@@ -163,17 +163,22 @@ final class MongoChangeStreamReceiver<R extends Entity> implements MongoReceiver
 	public void close() {
 		isClosed = true;
 		LOGGER.debug("Closing {}", identityString);
-		eventCursor.close();
-		ex.shutdown();
 		try {
-			LOGGER.debug("Awaiting termination of {}", identityString);
-			boolean success = ex.awaitTermination(10, SECONDS);
-			if (!success) {
-				LOGGER.warn("Timeout during shutdown of {}", identityString);
+			eventCursor.close();
+			ex.shutdown();
+			try {
+				LOGGER.debug("Awaiting termination of {}", identityString);
+				boolean success = ex.awaitTermination(10, SECONDS);
+				if (!success) {
+					LOGGER.warn("Timeout during shutdown of {}", identityString);
+				}
+			} catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
+				LOGGER.warn("Interrupted during shutdown of {}", identityString, e);
 			}
-		} catch (InterruptedException e) {
-			Thread.currentThread().interrupt();
-			LOGGER.warn("Interrupted during shutdown of {}", identityString, e);
+		} catch (Throwable t) {
+			LOGGER.error("Exception attempting to close {}", identityString, t);
+			throw t;
 		}
 	}
 
