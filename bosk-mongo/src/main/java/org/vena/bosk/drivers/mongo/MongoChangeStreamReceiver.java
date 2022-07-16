@@ -48,8 +48,6 @@ final class MongoChangeStreamReceiver<R extends Entity> implements MongoReceiver
 	private final ConcurrentHashMap<String, BlockingQueue<BsonDocument>> echoListeners = new ConcurrentHashMap<>();
 	private final MongoCollection<Document> collection;
 
-	private final static String RESUME_TOKEN_KEY = "_data";
-
 	private volatile MongoCursor<ChangeStreamDocument<Document>> eventCursor;
 	private volatile BsonDocument lastProcessedResumeToken = null;
 	private volatile boolean isClosed = false;
