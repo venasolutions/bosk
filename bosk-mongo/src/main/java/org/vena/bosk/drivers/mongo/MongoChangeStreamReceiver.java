@@ -167,10 +167,10 @@ final class MongoChangeStreamReceiver<R extends Entity> implements MongoReceiver
 	private void processEvent(ChangeStreamDocument<Document> event) {
 		LOGGER.debug("# EVENT: {}", event);
 		switch (event.getOperationType()) {
-			case INSERT: case REPLACE:// Both of these represent replacing the whole tenant document
+			case INSERT: case REPLACE:// Both of these represent replacing the whole document
 				// getFullDocument is reliable for INSERT and REPLACE operations:
 				//   https://docs.mongodb.com/v4.0/reference/change-events/#change-stream-output
-				LOGGER.debug("| Replace tenant - IGNORE");
+				LOGGER.debug("| Replace document - IGNORE");
 				//driver.submitReplacement(rootRef, document2object(event.getFullDocument().get(DocumentFields.root), rootRef));
 				// TODO
 				break;
