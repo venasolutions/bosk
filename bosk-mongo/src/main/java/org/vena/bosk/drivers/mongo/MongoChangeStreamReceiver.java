@@ -29,6 +29,8 @@ import org.vena.bosk.drivers.mongo.Formatter.DocumentFields;
 import org.vena.bosk.exceptions.InvalidTypeException;
 import org.vena.bosk.exceptions.NotYetImplementedException;
 
+import static java.lang.String.format;
+import static java.lang.System.identityHashCode;
 import static java.lang.Thread.currentThread;
 import static java.util.Collections.synchronizedSet;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -48,6 +50,8 @@ final class MongoChangeStreamReceiver<R extends Entity> implements MongoReceiver
 	private final ConcurrentHashMap<String, BlockingQueue<BsonDocument>> echoListeners = new ConcurrentHashMap<>();
 	private final MongoCollection<Document> collection;
 
+	private final String identityString = format("%08x", identityHashCode(this));
+
 	private volatile MongoCursor<ChangeStreamDocument<Document>> eventCursor;
 	private volatile BsonDocument lastProcessedResumeToken = null;
 	private volatile boolean isClosed = false;
@@ -59,6 +63,13 @@ final class MongoChangeStreamReceiver<R extends Entity> implements MongoReceiver
 
 		this.collection = collection;
 		eventCursor = collection.watch().iterator();
+		if (LOGGER.isDebugEnabled()) {
+			LOGGER.debug(
+				"Initiate event processing loop for mcsr-{}: collection=\"{}\"",
+				identityString,
+				collection.getNamespace().getCollectionName(),
+				new Exception("Here's your stack trace"));
+		}
 		ex.submit(this::eventProcessingLoop);
 	}
 
@@ -91,7 +102,7 @@ final class MongoChangeStreamReceiver<R extends Entity> implements MongoReceiver
 
 	private void eventProcessingLoop() {
 		String oldName = currentThread().getName();
-		currentThread().setName(getClass().getSimpleName());
+		currentThread().setName("mcsr-" + identityString);
 		try {
 			while (!ex.isShutdown()) {
 				ChangeStreamDocument<Document> event;
@@ -151,16 +162,18 @@ final class MongoChangeStreamReceiver<R extends Entity> implements MongoReceiver
 	@Override
 	public void close() {
 		isClosed = true;
+		LOGGER.debug("Closing {}", identityString);
 		eventCursor.close();
 		ex.shutdown();
 		try {
+			LOGGER.debug("Awaiting termination of {}", identityString);
 			boolean success = ex.awaitTermination(10, SECONDS);
 			if (!success) {
-				LOGGER.warn("Timeout during shutdown");
+				LOGGER.warn("Timeout during shutdown of {}", identityString);
 			}
 		} catch (InterruptedException e) {
 			Thread.currentThread().interrupt();
-			LOGGER.warn("Interrupted during shutdown", e);
+			LOGGER.warn("Interrupted during shutdown of {}", identityString, e);
 		}
 	}
 
