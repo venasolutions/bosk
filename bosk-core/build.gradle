@@ -3,7 +3,7 @@ plugins {
 	id 'bosk.development'
 	id 'bosk.maven-publish'
 	id 'info.solidsoft.pitest' version '1.6.0'
-	id 'com.github.spotbugs' version '5.0.6'
+	id 'com.github.spotbugs' version '5.0.9'
 	id 'com.diffplug.gradle.spotless' version '3.25.0'
 }
 
