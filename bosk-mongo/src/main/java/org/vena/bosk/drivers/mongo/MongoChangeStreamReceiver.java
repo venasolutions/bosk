@@ -16,6 +16,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nullable;
 import org.bson.BsonDocument;
 import org.bson.BsonValue;
@@ -54,7 +55,7 @@ final class MongoChangeStreamReceiver<R extends Entity> implements MongoReceiver
 
 	private volatile MongoCursor<ChangeStreamDocument<Document>> eventCursor;
 	private volatile BsonDocument lastProcessedResumeToken = null;
-	private volatile boolean isClosed = false;
+	private final AtomicBoolean isClosed = new AtomicBoolean(false);
 
 	MongoChangeStreamReceiver(BoskDriver<R> downstream, Reference<R> rootRef, MongoCollection<Document> collection, Formatter formatter) {
 		this.downstream = downstream;
@@ -110,7 +111,7 @@ final class MongoChangeStreamReceiver<R extends Entity> implements MongoReceiver
 					LOGGER.debug("- Awaiting event");
 					event = eventCursor.next();
 				} catch (MongoException e) {
-					if (isClosed) {
+					if (isClosed.get()) {
 						LOGGER.trace("Receiver is closed. Exiting event processing loop", e);
 						break;
 					} else {
@@ -161,24 +162,27 @@ final class MongoChangeStreamReceiver<R extends Entity> implements MongoReceiver
 	 */
 	@Override
 	public void close() {
-		isClosed = true;
-		LOGGER.debug("Closing {}", identityString);
-		try {
-			eventCursor.close();
-			ex.shutdown();
+		if (isClosed.compareAndSet(false, true)) {
+			LOGGER.debug("Closing {}", identityString);
 			try {
-				LOGGER.debug("Awaiting termination of {}", identityString);
-				boolean success = ex.awaitTermination(10, SECONDS);
-				if (!success) {
-					LOGGER.warn("Timeout during shutdown of {}", identityString);
+				eventCursor.close();
+				ex.shutdown();
+				try {
+					LOGGER.debug("Awaiting termination of {}", identityString);
+					boolean success = ex.awaitTermination(10, SECONDS);
+					if (!success) {
+						LOGGER.warn("Timeout during shutdown of {}", identityString);
+					}
+				} catch (InterruptedException e) {
+					Thread.currentThread().interrupt();
+					LOGGER.warn("Interrupted during shutdown of {}", identityString, e);
 				}
-			} catch (InterruptedException e) {
-				Thread.currentThread().interrupt();
-				LOGGER.warn("Interrupted during shutdown of {}", identityString, e);
+			} catch (Throwable t) {
+				LOGGER.error("Exception attempting to close {}", identityString, t);
+				throw t;
 			}
-		} catch (Throwable t) {
-			LOGGER.error("Exception attempting to close {}", identityString, t);
-			throw t;
+		} else {
+			LOGGER.debug("Already closed: {}", identityString);
 		}
 	}
 
