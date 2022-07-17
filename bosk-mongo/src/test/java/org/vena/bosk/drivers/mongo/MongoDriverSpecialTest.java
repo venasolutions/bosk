@@ -42,11 +42,12 @@ import static org.vena.bosk.ListingEntry.LISTING_ENTRY;
  * Tests for MongoDB-specific functionality
  */
 class MongoDriverSpecialTest {
-	public static final String TEST_DB = MongoDriverSpecialTest.class.getSimpleName() + "_DB";
-	public static final String TEST_COLLECTION = "testCollection";
-	protected static final Identifier entity123 = Identifier.from("123");
-	protected static final Identifier entity124 = Identifier.from("124");
-	protected static final Identifier rootID = Identifier.from("root");
+	private static final String TEST_DB = MongoDriverSpecialTest.class.getSimpleName() + "_DB";
+	private static final String TEST_COLLECTION = "testCollection";
+
+	private static final Identifier entity123 = Identifier.from("123");
+	private static final Identifier entity124 = Identifier.from("124");
+	private static final Identifier rootID = Identifier.from("root");
 
 	private final Deque<Runnable> tearDownActions = new ArrayDeque<>();
 	private static MongoService mongoService;
