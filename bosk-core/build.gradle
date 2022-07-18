@@ -10,7 +10,7 @@ plugins {
 archivesBaseName = 'bosk-core'
 
 dependencies {
-	implementation project(':lib-bytecode')
+	implementation group: 'org.ow2.asm', name: 'asm', version: "9.3"
 	testImplementation project(':lib-testing')
 }
 
