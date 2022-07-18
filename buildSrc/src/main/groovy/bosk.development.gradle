@@ -25,7 +25,7 @@ allprojects {
 	apply plugin: 'eclipse'
 	apply plugin: 'idea'
 	apply plugin: 'jacoco'
-	apply plugin: 'com.github.spotbugs'
+	apply plugin: 'com.github.spotbugs' // https://plugins.gradle.org/plugin/com.github.spotbugs
 	apply plugin: 'com.diffplug.gradle.spotless'
 	apply plugin: 'maven-publish'
 

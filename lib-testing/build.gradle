@@ -1,6 +1,6 @@
 plugins {
 	id 'bosk.development'
-	id 'com.github.spotbugs' version '5.0.6'
+	id 'com.github.spotbugs' version '5.0.9'
 	id 'com.diffplug.gradle.spotless' version '3.25.0'
 }
 

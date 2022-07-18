@@ -16,6 +16,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nullable;
 import org.bson.BsonDocument;
 import org.bson.BsonValue;
@@ -29,6 +30,8 @@ import org.vena.bosk.drivers.mongo.Formatter.DocumentFields;
 import org.vena.bosk.exceptions.InvalidTypeException;
 import org.vena.bosk.exceptions.NotYetImplementedException;
 
+import static java.lang.String.format;
+import static java.lang.System.identityHashCode;
 import static java.lang.Thread.currentThread;
 import static java.util.Collections.synchronizedSet;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -48,11 +51,11 @@ final class MongoChangeStreamReceiver<R extends Entity> implements MongoReceiver
 	private final ConcurrentHashMap<String, BlockingQueue<BsonDocument>> echoListeners = new ConcurrentHashMap<>();
 	private final MongoCollection<Document> collection;
 
-	private final static String RESUME_TOKEN_KEY = "_data";
+	private final String identityString = format("%08x", identityHashCode(this));
 
 	private volatile MongoCursor<ChangeStreamDocument<Document>> eventCursor;
 	private volatile BsonDocument lastProcessedResumeToken = null;
-	private volatile boolean isClosed = false;
+	private final AtomicBoolean isClosed = new AtomicBoolean(false);
 
 	MongoChangeStreamReceiver(BoskDriver<R> downstream, Reference<R> rootRef, MongoCollection<Document> collection, Formatter formatter) {
 		this.downstream = downstream;
@@ -61,6 +64,13 @@ final class MongoChangeStreamReceiver<R extends Entity> implements MongoReceiver
 
 		this.collection = collection;
 		eventCursor = collection.watch().iterator();
+		if (LOGGER.isDebugEnabled()) {
+			LOGGER.debug(
+				"Initiate event processing loop for mcsr-{}: collection=\"{}\"",
+				identityString,
+				collection.getNamespace().getCollectionName(),
+				new Exception("Here's your stack trace"));
+		}
 		ex.submit(this::eventProcessingLoop);
 	}
 
@@ -93,7 +103,7 @@ final class MongoChangeStreamReceiver<R extends Entity> implements MongoReceiver
 
 	private void eventProcessingLoop() {
 		String oldName = currentThread().getName();
-		currentThread().setName(getClass().getSimpleName());
+		currentThread().setName("mcsr-" + identityString);
 		try {
 			while (!ex.isShutdown()) {
 				ChangeStreamDocument<Document> event;
@@ -101,7 +111,7 @@ final class MongoChangeStreamReceiver<R extends Entity> implements MongoReceiver
 					LOGGER.debug("- Awaiting event");
 					event = eventCursor.next();
 				} catch (MongoException e) {
-					if (isClosed) {
+					if (isClosed.get()) {
 						LOGGER.trace("Receiver is closed. Exiting event processing loop", e);
 						break;
 					} else {
@@ -152,27 +162,37 @@ final class MongoChangeStreamReceiver<R extends Entity> implements MongoReceiver
 	 */
 	@Override
 	public void close() {
-		isClosed = true;
-		eventCursor.close();
-		ex.shutdown();
-		try {
-			boolean success = ex.awaitTermination(10, SECONDS);
-			if (!success) {
-				LOGGER.warn("Timeout during shutdown");
+		if (isClosed.compareAndSet(false, true)) {
+			LOGGER.debug("Closing {}", identityString);
+			try {
+				eventCursor.close();
+				ex.shutdown();
+				try {
+					LOGGER.debug("Awaiting termination of {}", identityString);
+					boolean success = ex.awaitTermination(10, SECONDS);
+					if (!success) {
+						LOGGER.warn("Timeout during shutdown of {}", identityString);
+					}
+				} catch (InterruptedException e) {
+					Thread.currentThread().interrupt();
+					LOGGER.warn("Interrupted during shutdown of {}", identityString, e);
+				}
+			} catch (Throwable t) {
+				LOGGER.error("Exception attempting to close {}", identityString, t);
+				throw t;
 			}
-		} catch (InterruptedException e) {
-			Thread.currentThread().interrupt();
-			LOGGER.warn("Interrupted during shutdown", e);
+		} else {
+			LOGGER.debug("Already closed: {}", identityString);
 		}
 	}
 
 	private void processEvent(ChangeStreamDocument<Document> event) {
 		LOGGER.debug("# EVENT: {}", event);
 		switch (event.getOperationType()) {
-			case INSERT: case REPLACE:// Both of these represent replacing the whole tenant document
+			case INSERT: case REPLACE:// Both of these represent replacing the whole document
 				// getFullDocument is reliable for INSERT and REPLACE operations:
 				//   https://docs.mongodb.com/v4.0/reference/change-events/#change-stream-output
-				LOGGER.debug("| Replace tenant - IGNORE");
+				LOGGER.debug("| Replace document - IGNORE");
 				//driver.submitReplacement(rootRef, document2object(event.getFullDocument().get(DocumentFields.root), rootRef));
 				// TODO
 				break;

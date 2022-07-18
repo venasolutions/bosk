@@ -42,11 +42,16 @@ import static org.vena.bosk.ListingEntry.LISTING_ENTRY;
  * Tests for MongoDB-specific functionality
  */
 class MongoDriverSpecialTest {
-	public static final String TEST_DB = MongoDriverSpecialTest.class.getSimpleName() + "_DB";
-	public static final String TEST_COLLECTION = "testCollection";
-	protected static final Identifier entity123 = Identifier.from("123");
-	protected static final Identifier entity124 = Identifier.from("124");
-	protected static final Identifier rootID = Identifier.from("root");
+	private static final String TEST_DB = MongoDriverSpecialTest.class.getSimpleName() + "_DB";
+	private static final String TEST_COLLECTION = "testCollection";
+	private static final MongoDriverSettings driverSettings = MongoDriverSettings.builder()
+		.database(TEST_DB)
+		.collection(TEST_COLLECTION)
+		.build();
+
+	private static final Identifier entity123 = Identifier.from("123");
+	private static final Identifier entity124 = Identifier.from("124");
+	private static final Identifier rootID = Identifier.from("root");
 
 	private final Deque<Runnable> tearDownActions = new ArrayDeque<>();
 	private static MongoService mongoService;
@@ -61,6 +66,12 @@ class MongoDriverSpecialTest {
 	@BeforeEach
 	void setupDriverFactory() {
 		driverFactory = createDriverFactory();
+
+		// Start with a clean slate
+		mongoService.client()
+			.getDatabase(driverSettings.database())
+			.getCollection(driverSettings.collection())
+			.drop();
 	}
 
 	@AfterEach
@@ -372,10 +383,6 @@ class MongoDriverSpecialTest {
 	}
 
 	private <E extends Entity> BiFunction<BoskDriver<E>, Bosk<E>, BoskDriver<E>> createDriverFactory() {
-		MongoDriverSettings driverSettings = MongoDriverSettings.builder()
-			.database(TEST_DB)
-			.collection(TEST_COLLECTION)
-			.build();
 		return (downstream, bosk) -> {
 			MongoDriver<E> driver = new MongoDriver<>(
 				downstream,
@@ -383,13 +390,7 @@ class MongoDriverSpecialTest {
 				mongoService.clientSettings(),
 				driverSettings,
 				new BsonPlugin());
-			tearDownActions.addFirst(()->{
-				driver.close();
-				mongoService.client()
-					.getDatabase(driverSettings.database())
-					.getCollection(driverSettings.collection())
-					.drop();
-			});
+			tearDownActions.addFirst(driver::close);
 			return driver;
 		};
 	}
