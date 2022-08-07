@@ -19,7 +19,7 @@ import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
-import lombok.ToString;
+import lombok.Value;
 import lombok.experimental.Accessors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -442,11 +442,10 @@ public class Bosk<R extends Entity> {
 		localDriver.triggerEverywhere(reg);
 	}
 
-	@RequiredArgsConstructor
-	@ToString
-	private final class HookRegistration<S> {
-		final Reference<S> scope;
-		final BoskHook<S> hook;
+	@Value
+	private class HookRegistration<S> {
+		Reference<S> scope;
+		BoskHook<S> hook;
 
 		/**
 		 * Calls <code>action</code> for every object whose path matches <code>scope</code> that
