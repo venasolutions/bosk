@@ -582,11 +582,11 @@ public class Bosk<R extends Entity> {
 			if (originalRoot == null) {
 				snapshot = currentRoot;
 				rootSnapshot.set(snapshot);
-				LOGGER.trace("New " + this);
+				LOGGER.trace("New {}", this);
 			} else {
 				// Inner scopes use the same snapshot as outer scopes
 				snapshot = originalRoot;
-				LOGGER.trace("Nested " + this);
+				LOGGER.trace("Nested {}", this);
 			}
 		}
 
@@ -633,11 +633,11 @@ try (ReadContext originalThReadContext = bosk.new ReadContext()) {
 			originalRoot = rootSnapshot.get();
 			if (originalRoot == null) {
 				rootSnapshot.set(this.snapshot = snapshotToInherit);
-				LOGGER.trace("Sharing " + this);
+				LOGGER.trace("Sharing {}", this);
 			} else if (originalRoot == snapshotToInherit) {
 				// Some thread pools recruit the calling thread itself; don't want to disallow this.
 				this.snapshot = originalRoot;
-				LOGGER.trace("Re-sharing " + this);
+				LOGGER.trace("Re-sharing {}", this);
 			} else {
 				throw new IllegalStateException("Read scope for " + name + " already active in " + Thread.currentThread());
 			}
@@ -654,7 +654,7 @@ try (ReadContext originalThReadContext = bosk.new ReadContext()) {
 			originalRoot = rootSnapshot.get();
 			snapshot = requireNonNull(root);
 			rootSnapshot.set(snapshot);
-			LOGGER.trace("Using " + this);
+			LOGGER.trace("Using {}", this);
 		}
 
 		/**
@@ -668,7 +668,7 @@ try (ReadContext originalThReadContext = bosk.new ReadContext()) {
 
 		@Override
 		public void close() {
-			LOGGER.trace("Exiting " + this + "; restoring " + System.identityHashCode(originalRoot));
+			LOGGER.trace("Exiting {}; restoring {}", this, System.identityHashCode(originalRoot));
 			rootSnapshot.set(originalRoot);
 		}
 
