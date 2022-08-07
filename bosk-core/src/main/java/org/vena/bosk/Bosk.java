@@ -436,14 +436,15 @@ public class Bosk<R extends Entity> {
 	 * <p>
 	 * Before returning, runs the hook on the current state.
 	 */
-	public <T> void registerHook(@NonNull Reference<T> scope, @NonNull BoskHook<T> hook) {
-		HookRegistration<T> reg = new HookRegistration<>(requireNonNull(scope), requireNonNull(hook));
+	public <T> void registerHook(String name, @NonNull Reference<T> scope, @NonNull BoskHook<T> action) {
+		HookRegistration<T> reg = new HookRegistration<>(name, requireNonNull(scope), requireNonNull(action));
 		hooks.add(reg);
 		localDriver.triggerEverywhere(reg);
 	}
 
 	@Value
 	private class HookRegistration<S> {
+		String name;
 		Reference<S> scope;
 		BoskHook<S> hook;
 
