@@ -181,7 +181,7 @@ public class Bosk<R extends Entity> {
 
 		@Override
 		public R initialRoot(Type rootType) throws InvalidTypeException {
-			R initialRoot = initialRootFunction.apply(Bosk.this);
+			R initialRoot = computeInitialRoot();
 			rawClass(rootType).cast(initialRoot);
 			return initialRoot;
 		}
@@ -270,6 +270,10 @@ public class Bosk<R extends Entity> {
 			drainQueueIfAllowed();
 		}
 
+		private R computeInitialRoot() throws InvalidTypeException {
+			return initialRootFunction.apply(Bosk.this);
+		}
+
 		/**
 		 * Run the given hook on every existing object that matches its scope.
 		 */
@@ -344,10 +348,14 @@ public class Bosk<R extends Entity> {
 				hookExecutionQueue.addLast(() -> {
 					try (@SuppressWarnings("unused") ReadContext executionContext = new ReadContext(rootForHook)) {
 						LOGGER.debug("Hook: RUN {}", changedRef);
-						reg.hook.onChanged(changedRef);
+						runHook(reg, changedRef);
 					}
 				});
 			});
+		}
+
+		private <S> void runHook(HookRegistration<S> reg, Reference<S> changedRef) {
+			reg.hook.onChanged(changedRef);
 		}
 
 		/**
