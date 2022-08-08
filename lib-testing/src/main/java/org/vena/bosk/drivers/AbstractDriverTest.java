@@ -17,7 +17,6 @@ import static java.util.Arrays.asList;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class AbstractDriverTest {
-	protected final Identifier rootID = Identifier.from("root");
 	protected final Identifier child1ID = Identifier.from("child1");
 	protected final Identifier child2ID = Identifier.from("child2");
 	protected Bosk<TestEntity> canonicalBosk;
@@ -26,10 +25,10 @@ public class AbstractDriverTest {
 
 	protected void setupBosksAndReferences(BiFunction<BoskDriver<TestEntity>, Bosk<TestEntity>, BoskDriver<TestEntity>> driverFactory) {
 		// This is the bosk whose behaviour we'll consider to be correct by definition
-		canonicalBosk = new Bosk<TestEntity>("Canonical bosk", TestEntity.class, this::initialRoot, Bosk::simpleDriver);
+		canonicalBosk = new Bosk<TestEntity>("Canonical bosk", TestEntity.class, AbstractDriverTest::initialRoot, Bosk::simpleDriver);
 
 		// This is the bosk we're testing
-		bosk = new Bosk<TestEntity>("Test bosk", TestEntity.class, this::initialRoot, (d,b) -> new ForwardingDriver<>(asList(
+		bosk = new Bosk<TestEntity>("Test bosk", TestEntity.class, AbstractDriverTest::initialRoot, (d,b) -> new ForwardingDriver<>(asList(
 			new MirroringDriver<>(canonicalBosk),
 			driverFactory.apply(d, b)
 		)));
@@ -37,8 +36,8 @@ public class AbstractDriverTest {
 	}
 
 	@Nonnull
-	private TestEntity initialRoot(Bosk<TestEntity> b) throws InvalidTypeException {
-		return TestEntity.empty(rootID, b.catalogReference(TestEntity.class, Path.just(TestEntity.Fields.catalog)));
+	private static TestEntity initialRoot(Bosk<TestEntity> b) throws InvalidTypeException {
+		return TestEntity.empty(Identifier.from("root"), b.catalogReference(TestEntity.class, Path.just(TestEntity.Fields.catalog)));
 	}
 
 	TestEntity autoInitialize(Reference<TestEntity> ref) {
