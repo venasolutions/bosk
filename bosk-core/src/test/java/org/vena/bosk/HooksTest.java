@@ -57,7 +57,7 @@ public class HooksTest extends AbstractBoskTest {
 
 	@Test
 	void testBasic_NoIrrelevantHooks() throws InvalidTypeException {
-		bosk.registerHook(child2Ref, recorder.hookNamed("child2"));
+		bosk.registerHook("child2", child2Ref, recorder.hookNamed("child2"));
 		recorder.restart();
 		bosk.driver().submitReplacement(child1StringRef, "Child 1 only");
 		assertEquals(emptyList(), recorder.events(), "Hook shouldn't see updates for objects that neither enclose nor are enclosed by them");
@@ -209,11 +209,11 @@ public class HooksTest extends AbstractBoskTest {
 	 * Provides a good test that hooks are run in registration order.
 	 */
 	private void registerInterleavedHooks() {
-		bosk.registerHook(child2Ref, recorder.hookNamed("child2 A"));
-		bosk.registerHook(parentRef, recorder.hookNamed("parent B"));
-		bosk.registerHook(child2Ref, recorder.hookNamed("child2 C"));
-		bosk.registerHook(parentRef, recorder.hookNamed("parent D"));
-		bosk.registerHook(anyChildRef, recorder.hookNamed("Any child"));
+		bosk.registerHook("child2 A", child2Ref, recorder.hookNamed("child2 A"));
+		bosk.registerHook("parent B", parentRef, recorder.hookNamed("parent B"));
+		bosk.registerHook("child2 C", child2Ref, recorder.hookNamed("child2 C"));
+		bosk.registerHook("parent D", parentRef, recorder.hookNamed("parent D"));
+		bosk.registerHook("Any child", anyChildRef, recorder.hookNamed("Any child"));
 		recorder.restart();
 	}
 
@@ -237,19 +237,19 @@ public class HooksTest extends AbstractBoskTest {
 	@Test
 	void testNested_breadthFirst() {
 		// Register hooks to propagate string updates from parent -> child 1 -> 2 -> 3 with a tag
-		bosk.registerHook(parentStringRef, recorder.hookNamed("P", ref -> {
+		bosk.registerHook("+P", parentStringRef, recorder.hookNamed("P", ref -> {
 			bosk.driver().submitReplacement(child1StringRef, ref.value() + "+P");
 			bosk.driver().submitReplacement(child2StringRef, ref.value() + "+P");
 			bosk.driver().submitReplacement(child3StringRef, ref.value() + "+P");
 		}));
-		bosk.registerHook(child1StringRef, recorder.hookNamed("C1", ref -> {
+		bosk.registerHook("+C1", child1StringRef, recorder.hookNamed("C1", ref -> {
 			bosk.driver().submitReplacement(child2StringRef, ref.value() + "+C1");
 			bosk.driver().submitReplacement(child3StringRef, ref.value() + "+C1");
 		}));
-		bosk.registerHook(child2StringRef, recorder.hookNamed("C2", ref -> {
+		bosk.registerHook("+C2", child2StringRef, recorder.hookNamed("C2", ref -> {
 			bosk.driver().submitReplacement(child3StringRef, ref.value() + "+C2");
 		}));
-		bosk.registerHook(child3StringRef, recorder.hookNamed("C3"));
+		bosk.registerHook("C3", child3StringRef, recorder.hookNamed("C3"));
 
 		List<Event> expectedEvents = asList(
 			new Event("P", CHANGED, parentStringRef, "replacement"),
@@ -287,7 +287,7 @@ public class HooksTest extends AbstractBoskTest {
 
 	@Test
 	void testNested_correctReadContext() {
-		bosk.registerHook(child2Ref, recorder.hookNamed("stringCopier", ref ->
+		bosk.registerHook("stringCopier", child2Ref, recorder.hookNamed("stringCopier", ref ->
 			bosk.driver().submitReplacement(child1StringRef, ref.value().string())));
 		recorder.restart();
 		String expectedString = "expected string";
