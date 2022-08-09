@@ -58,7 +58,7 @@ public final class MongoDriver<R extends Entity> implements BoskDriver<R> {
 	private final String echoPrefix;
 	private final AtomicLong echoCounter = new AtomicLong(1_000_000_000_000L); // Start with a big number so the length doesn't change often
 
-	public MongoDriver(BoskDriver<R> downstream, Bosk<R> bosk, MongoClientSettings clientSettings, MongoDriverSettings driverSettings, BsonPlugin bsonPlugin) {
+	public MongoDriver(Bosk<R> bosk, MongoClientSettings clientSettings, MongoDriverSettings driverSettings, BsonPlugin bsonPlugin, BoskDriver<R> downstream) {
 		validateMongoClientSettings(clientSettings);
 		this.settings = driverSettings;
 		this.mongoClient = MongoClients.create(clientSettings);

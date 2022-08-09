@@ -47,11 +47,9 @@ class MongoDriverConformanceTest extends DriverConformanceTest {
 			.build();
 		return (downstream, bosk) -> {
 			MongoDriver<E> driver = new MongoDriver<>(
-				downstream,
-				bosk,
-				mongoService.clientSettings(),
-				driverSettings,
-				new BsonPlugin());
+				bosk, mongoService.clientSettings(), driverSettings, new BsonPlugin(),
+				downstream
+			);
 			tearDownActions.addFirst(()->{
 				driver.close();
 				mongoService.client()
