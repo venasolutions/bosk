@@ -160,39 +160,4 @@ public interface BoskDriver<R extends Entity> {
 		submitReplacement(newValue.reference(), newValue);
 	}
 
-	/*
-	 * A thought about schema evolution.
-	 *
-	 * We'd like to be able to support the addition of new
-	 * fields to an entity without needing to upgrade every object in the
-	 * collection. (Other schema changes can require this.) This interface does
-	 * not support providing partial objects, possibly with some missing (null?)
-	 * fields, and having those fields filled in with defaults before they get
-	 * stored in the Bosk. That means the caller must do this work, and must
-	 * take a single object update and turn it into potentially many updates on
-	 * individual fields. Knowing whether this is valid (because the object
-	 * exists, or because all missing fields have defaults) or not (because the
-	 * object doesn't exist and some mandatory fields are missing) requires a
-	 * ReadContext in general, which is gross again. But if we do support partial
-	 * objects, how do we do that? With null fields? With a different type of
-	 * object that is not an actual Java Entity object?
-	 *
-	 * 20201129: Need to do careful thinking about what scenarios we want to
-	 * support "out of the box" with schema evolution, and which ones we're
-	 * willing to require the application to do the work. We probably only
-	 * need to support adding new fields that have a default value, and we
-	 * don't need to support wholesale "upgrading" of the existing records
-	 * in the database. During the period when both versions of the server
-	 * code are running (with and without the field), I think there's no need
-	 * to preserve the new field's value when an object is replaced on the
-	 * old server: servers should be using targeted updates to parts of
-	 * objects anyway; if a whole object is replaced, you're going to get
-	 * what you get. Result: the Bosk library requires very little support
-	 * for newly added fields; old servers can ignore them and things ought
-	 * to work out.
-	 *
-	 *  - PD
-	 *
-	 */
-
 }

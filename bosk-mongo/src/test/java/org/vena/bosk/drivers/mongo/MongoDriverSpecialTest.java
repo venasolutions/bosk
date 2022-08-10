@@ -385,11 +385,9 @@ class MongoDriverSpecialTest {
 	private <E extends Entity> BiFunction<BoskDriver<E>, Bosk<E>, BoskDriver<E>> createDriverFactory() {
 		return (downstream, bosk) -> {
 			MongoDriver<E> driver = new MongoDriver<>(
-				downstream,
-				bosk,
-				mongoService.clientSettings(),
-				driverSettings,
-				new BsonPlugin());
+				bosk, mongoService.clientSettings(), driverSettings, new BsonPlugin(),
+				downstream
+			);
 			tearDownActions.addFirst(driver::close);
 			return driver;
 		};
