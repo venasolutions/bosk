@@ -34,7 +34,7 @@ import org.vena.bosk.BoskDriver;
 import org.vena.bosk.Entity;
 import org.vena.bosk.Identifier;
 import org.vena.bosk.Reference;
-import org.vena.bosk.exceptions.FlushTimeoutException;
+import org.vena.bosk.exceptions.FlushFailureException;
 import org.vena.bosk.exceptions.InvalidTypeException;
 import org.vena.bosk.exceptions.NotYetImplementedException;
 
@@ -322,7 +322,7 @@ public final class MongoDriver<R extends Entity> implements BoskDriver<R> {
 	 *
 	 * @throws MongoException if something goes wrong with MongoDB
 	 */
-	private void flushToChangeStreamReceiver() throws IOException, InterruptedException {
+	private void flushToChangeStreamReceiver() throws InterruptedException, FlushFailureException {
 		String echoToken = uniqueEchoToken();
 		BlockingQueue<BsonDocument> listener = new ArrayBlockingQueue<>(1);
 		try {
@@ -337,7 +337,7 @@ public final class MongoDriver<R extends Entity> implements BoskDriver<R> {
 			LOGGER.debug("| Waiting");
 			BsonDocument resumeToken = listener.poll(settings.flushTimeoutMS(), MILLISECONDS);
 			if (resumeToken == null) {
-				throw new FlushTimeoutException("No flush response after " + settings.flushTimeoutMS() + "ms");
+				throw new FlushFailureException("No flush response after " + settings.flushTimeoutMS() + "ms");
 			} else {
 				MongoResumeTokenSequenceMark sequenceMark = new MongoResumeTokenSequenceMark(resumeToken.getString("_data").getValue());
 				LOGGER.debug("| SequenceMark: {}", sequenceMark);

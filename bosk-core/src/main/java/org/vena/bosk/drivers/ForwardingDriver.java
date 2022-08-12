@@ -2,6 +2,8 @@ package org.vena.bosk.drivers;
 
 import java.io.IOException;
 import java.lang.reflect.Type;
+import java.util.ArrayList;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.vena.bosk.BoskDriver;
 import org.vena.bosk.Entity;
@@ -15,21 +17,24 @@ public class ForwardingDriver<R extends Entity> implements BoskDriver<R> {
 
 	/**
 	 * @return The result of calling <code>initialRoot</code> on the first downstream driver
-	 * that doesn't throw {@link UnsupportedOperationException}.
+	 * that doesn't throw {@link UnsupportedOperationException}. Other exceptions are propagated as-is,
+	 * and abort the initialization immediately.
 	 */
 	@Override
 	public R initialRoot(Type rootType) throws InvalidTypeException, IOException, InterruptedException {
-		UnsupportedOperationException lastUnsupportedOperationException = null;
+		List<UnsupportedOperationException> exceptions = new ArrayList<>();
 		for (BoskDriver<R> d: downstream) {
 			try {
 				return d.initialRoot(rootType);
 			} catch (UnsupportedOperationException e) {
-				lastUnsupportedOperationException = e;
+				exceptions.add(e);
 			}
 		}
 
 		// Oh dear.
-		throw new UnsupportedOperationException("Unable to forward initialRoot request", lastUnsupportedOperationException);
+		UnsupportedOperationException exception = new UnsupportedOperationException("Unable to forward initialRoot request");
+		exceptions.forEach(exception::addSuppressed);
+		throw exception;
 	}
 
 	@Override
