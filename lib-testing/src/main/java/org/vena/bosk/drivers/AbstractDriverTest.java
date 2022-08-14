@@ -23,14 +23,14 @@ public class AbstractDriverTest {
 	protected Bosk<TestEntity> bosk;
 	protected BoskDriver<TestEntity> driver;
 
-	protected void setupBosksAndReferences(BiFunction<BoskDriver<TestEntity>, Bosk<TestEntity>, BoskDriver<TestEntity>> driverFactory) {
+	protected void setupBosksAndReferences(BiFunction<Bosk<TestEntity>, BoskDriver<TestEntity>, BoskDriver<TestEntity>> driverFactory) {
 		// This is the bosk whose behaviour we'll consider to be correct by definition
 		canonicalBosk = new Bosk<TestEntity>("Canonical bosk", TestEntity.class, AbstractDriverTest::initialRoot, Bosk::simpleDriver);
 
 		// This is the bosk we're testing
-		bosk = new Bosk<TestEntity>("Test bosk", TestEntity.class, AbstractDriverTest::initialRoot, (d,b) -> new ForwardingDriver<>(asList(
+		bosk = new Bosk<TestEntity>("Test bosk", TestEntity.class, AbstractDriverTest::initialRoot, (Bosk<TestEntity> b, BoskDriver<TestEntity> d) -> new ForwardingDriver<>(asList(
 			new MirroringDriver<>(canonicalBosk),
-			driverFactory.apply(d, b)
+			driverFactory.apply(b,d)
 		)));
 		driver = bosk.driver();
 	}

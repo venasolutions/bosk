@@ -40,12 +40,12 @@ class MongoDriverConformanceTest extends DriverConformanceTest {
 		mongoService.close();
 	}
 
-	private <E extends Entity> BiFunction<BoskDriver<E>, Bosk<E>, BoskDriver<E>> createDriverFactory() {
+	private <E extends Entity> BiFunction<Bosk<E>, BoskDriver<E>, BoskDriver<E>> createDriverFactory() {
 		MongoDriverSettings driverSettings = MongoDriverSettings.builder()
 			.database(TEST_DB)
 			.collection(TEST_COLLECTION)
 			.build();
-		return (downstream, bosk) -> {
+		return (bosk, downstream) -> {
 			MongoDriver<E> driver = new MongoDriver<>(
 				bosk, mongoService.clientSettings(), driverSettings, new BsonPlugin(),
 				downstream

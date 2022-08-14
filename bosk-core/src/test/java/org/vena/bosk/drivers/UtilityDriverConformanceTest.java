@@ -11,14 +11,14 @@ import static java.util.Collections.singletonList;
 
 public class UtilityDriverConformanceTest extends DriverConformanceTest {
 	@ParametersByName
-	public UtilityDriverConformanceTest(BiFunction<BoskDriver<TestEntity>, Bosk<TestEntity>, BoskDriver<TestEntity>> driverFactory) {
+	public UtilityDriverConformanceTest(BiFunction<Bosk<TestEntity>, BoskDriver<TestEntity>, BoskDriver<TestEntity>> driverFactory) {
 		this.driverFactory = driverFactory;
 	}
 
-	static Stream<BiFunction<BoskDriver<TestEntity>, Bosk<TestEntity>, BoskDriver<TestEntity>>> driverFactory() {
+	static Stream<BiFunction<Bosk<TestEntity>, BoskDriver<TestEntity>, BoskDriver<TestEntity>>> driverFactory() {
 		return Stream.of(
-			(d,b)-> new BufferingDriver<>(d),
-			(d,b)-> new ForwardingDriver<>(singletonList(d))
+			(b,d)-> new BufferingDriver<>(d),
+			(b,d)-> new ForwardingDriver<>(singletonList(d))
 		);
 	}
 }

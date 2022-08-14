@@ -16,11 +16,11 @@ import static org.vena.bosk.AbstractRoundTripTest.gsonRoundTripFactory;
 
 public class RoundTripDriverConformanceTest extends DriverConformanceTest {
 	@ParametersByName
-	RoundTripDriverConformanceTest(BiFunction<BoskDriver<TestEntity>, Bosk<TestEntity>, BoskDriver<TestEntity>> driverFactory) {
+	RoundTripDriverConformanceTest(BiFunction<Bosk<TestEntity>, BoskDriver<TestEntity>, BoskDriver<TestEntity>> driverFactory) {
 		this.driverFactory = driverFactory;
 	}
 
-	static Stream<BiFunction<BoskDriver<TestEntity>, Bosk<TestEntity>, BoskDriver<TestEntity>>> driverFactory() {
+	static Stream<BiFunction<Bosk<TestEntity>, BoskDriver<TestEntity>, BoskDriver<TestEntity>>> driverFactory() {
 		return Stream.of(
 			bsonRoundTripFactory(),
 			gsonRoundTripFactory(identity()),

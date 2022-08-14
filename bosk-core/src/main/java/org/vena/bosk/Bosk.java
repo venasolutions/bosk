@@ -108,7 +108,7 @@ public class Bosk<R extends Entity> {
 	 * BoskDriver#submitReplacement(Reference, Object)} and {@link
 	 * BoskDriver#submitDeletion(Reference)}.
 	 */
-	public Bosk(String name, Type rootType, DefaultRootFunction<R> defaultRootFunction, BiFunction<BoskDriver<R>, Bosk<R>, BoskDriver<R>> driverFactory) {
+	public Bosk(String name, Type rootType, DefaultRootFunction<R> defaultRootFunction, BiFunction<Bosk<R>, BoskDriver<R>, BoskDriver<R>> driverFactory) {
 		this.name = name;
 		this.localDriver = new LocalDriver(defaultRootFunction);
 		this.rootType = rootType;
@@ -122,7 +122,7 @@ public class Bosk<R extends Entity> {
 		// We do this last because the driver factory is allowed to do such things
 		// as create References, so it needs the rest of the initialization to
 		// have completed already.
-		this.driver = driverFactory.apply(this.localDriver, this);
+		this.driver = driverFactory.apply(this, this.localDriver);
 		try {
 			this.currentRoot = requireNonNull(driver.initialRoot(rootType));
 		} catch (InvalidTypeException | IOException | InterruptedException e) {
@@ -137,7 +137,7 @@ public class Bosk<R extends Entity> {
 		RR apply(Bosk<RR> bosk) throws InvalidTypeException;
 	}
 
-	public Bosk(String name, Type rootType, R defaultRoot, BiFunction<BoskDriver<R>, Bosk<R>, BoskDriver<R>> driverFactory) {
+	public Bosk(String name, Type rootType, R defaultRoot, BiFunction<Bosk<R>, BoskDriver<R>, BoskDriver<R>> driverFactory) {
 		this(name, rootType, b->defaultRoot, driverFactory);
 	}
 
@@ -145,7 +145,7 @@ public class Bosk<R extends Entity> {
 	 * You can use <code>Bosk::simpleDriver</code> as the
 	 * <code>driverFactory</code> if you don't want any additional driver modules.
 	 */
-	public static <RR extends Entity> BoskDriver<RR> simpleDriver(BoskDriver<RR> downstream, @SuppressWarnings("unused") Bosk<RR> bosk) {
+	public static <RR extends Entity> BoskDriver<RR> simpleDriver(@SuppressWarnings("unused") Bosk<RR> bosk, BoskDriver<RR> downstream) {
 		return downstream;
 	}
 

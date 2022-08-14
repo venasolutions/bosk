@@ -19,7 +19,7 @@ import org.vena.bosk.exceptions.NotYetImplementedException;
 import static java.util.Arrays.asList;
 
 public abstract class AbstractBoskTest {
-	public interface DriverFactory<R extends Entity> extends BiFunction<BoskDriver<R>, Bosk<R>, BoskDriver<R>> {}
+	public interface DriverFactory<R extends Entity> extends BiFunction<Bosk<R>, BoskDriver<R>, BoskDriver<R>> {}
 
 	@Value
 	@EqualsAndHashCode(callSuper=false)

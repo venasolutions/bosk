@@ -56,7 +56,7 @@ class MongoDriverSpecialTest {
 	private final Deque<Runnable> tearDownActions = new ArrayDeque<>();
 	private static MongoService mongoService;
 
-	private BiFunction<BoskDriver<TestEntity>, Bosk<TestEntity>, BoskDriver<TestEntity>> driverFactory;
+	private BiFunction<Bosk<TestEntity>, BoskDriver<TestEntity>, BoskDriver<TestEntity>> driverFactory;
 
 	@BeforeAll
 	static void setupMongoConnection() {
@@ -116,13 +116,13 @@ class MongoDriverSpecialTest {
 		// have tight control over all the comings and goings from MongoDriver.
 		BlockingQueue<Reference<?>> replacementsSeen = new LinkedBlockingDeque<>();
 		Bosk<TestEntity> bosk = new Bosk<TestEntity>("Test bosk", TestEntity.class, this::initialRoot,
-			(d,b) -> driverFactory.apply(new BufferingDriver<TestEntity>(d){
+			(b,d) -> driverFactory.apply(b, new BufferingDriver<TestEntity>(d){
 				@Override
 				public <T> void submitReplacement(Reference<T> target, T newValue) {
 					super.submitReplacement(target, newValue);
 					replacementsSeen.add(target);
 				}
-			}, b));
+			}));
 
 		CatalogReference<TestEntity> catalogRef = bosk.rootReference().thenCatalog(TestEntity.class,
 			TestEntity.Fields.catalog);
@@ -382,8 +382,8 @@ class MongoDriverSpecialTest {
 		assertEquals(Optional.of(TestValues.blank()), after); // Now it's there
 	}
 
-	private <E extends Entity> BiFunction<BoskDriver<E>, Bosk<E>, BoskDriver<E>> createDriverFactory() {
-		return (downstream, bosk) -> {
+	private <E extends Entity> BiFunction<Bosk<E>, BoskDriver<E>, BoskDriver<E>> createDriverFactory() {
+		return (bosk, downstream) -> {
 			MongoDriver<E> driver = new MongoDriver<>(
 				bosk, mongoService.clientSettings(), driverSettings, new BsonPlugin(),
 				downstream
