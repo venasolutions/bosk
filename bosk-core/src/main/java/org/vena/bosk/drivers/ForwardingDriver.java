@@ -69,4 +69,11 @@ public class ForwardingDriver<R extends Entity> implements BoskDriver<R> {
 			d.flush();
 		}
 	}
+
+	@Override
+	public String toString() {
+		return "ForwardingDriver{" +
+			"downstream=" + downstream +
+			'}';
+	}
 }

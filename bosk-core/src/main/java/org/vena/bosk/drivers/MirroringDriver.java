@@ -61,4 +61,8 @@ public class MirroringDriver<R extends Entity> implements BoskDriver<R> {
 		}
 	}
 
+	@Override
+	public String toString() {
+		return "Mirroring to " + mirror;
+	}
 }

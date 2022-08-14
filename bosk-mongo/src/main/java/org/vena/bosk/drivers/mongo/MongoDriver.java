@@ -48,6 +48,7 @@ import static org.vena.bosk.drivers.mongo.Formatter.dottedFieldNameOf;
 import static org.vena.bosk.drivers.mongo.Formatter.enclosingReference;
 
 public final class MongoDriver<R extends Entity> implements BoskDriver<R> {
+	private final String description;
 	private final MongoDriverSettings settings;
 	private final Formatter formatter;
 	private final MongoReceiver<R> receiver;
@@ -60,6 +61,7 @@ public final class MongoDriver<R extends Entity> implements BoskDriver<R> {
 
 	public MongoDriver(Bosk<R> bosk, MongoClientSettings clientSettings, MongoDriverSettings driverSettings, BsonPlugin bsonPlugin, BoskDriver<R> downstream) {
 		validateMongoClientSettings(clientSettings);
+		this.description = MongoDriver.class.getSimpleName() + ": " + driverSettings;
 		this.settings = driverSettings;
 		this.mongoClient = MongoClients.create(clientSettings);
 		this.formatter = new Formatter(bosk, bsonPlugin);
@@ -345,6 +347,11 @@ public final class MongoDriver<R extends Entity> implements BoskDriver<R> {
 		} finally {
 			receiver.removeEchoListener(echoToken);
 		}
+	}
+
+	@Override
+	public String toString() {
+		return description;
 	}
 
 	@Value

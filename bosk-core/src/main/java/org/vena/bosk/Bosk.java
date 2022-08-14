@@ -435,6 +435,10 @@ public class Bosk<R extends Entity> {
 			} while (!hookExecutionQueue.isEmpty());
 		}
 
+		@Override
+		public String toString() {
+			return "LocalDriver for " + Bosk.this;
+		}
 	}
 
 	/**
