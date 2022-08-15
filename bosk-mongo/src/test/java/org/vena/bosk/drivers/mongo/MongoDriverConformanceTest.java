@@ -2,12 +2,10 @@ package org.vena.bosk.drivers.mongo;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
-import java.util.function.BiFunction;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
-import org.vena.bosk.Bosk;
-import org.vena.bosk.BoskDriver;
+import org.vena.bosk.DriverFactory;
 import org.vena.bosk.Entity;
 import org.vena.bosk.drivers.DriverConformanceTest;
 
@@ -40,7 +38,7 @@ class MongoDriverConformanceTest extends DriverConformanceTest {
 		mongoService.close();
 	}
 
-	private <E extends Entity> BiFunction<Bosk<E>, BoskDriver<E>, BoskDriver<E>> createDriverFactory() {
+	private <E extends Entity> DriverFactory<E> createDriverFactory() {
 		MongoDriverSettings driverSettings = MongoDriverSettings.builder()
 			.database(TEST_DB)
 			.collection(TEST_COLLECTION)

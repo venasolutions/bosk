@@ -1,11 +1,11 @@
 package org.vena.bosk.drivers;
 
 import java.io.IOException;
-import java.util.function.BiFunction;
 import javax.annotation.Nonnull;
 import org.vena.bosk.Bosk;
 import org.vena.bosk.BoskDriver;
 import org.vena.bosk.CatalogReference;
+import org.vena.bosk.DriverFactory;
 import org.vena.bosk.Identifier;
 import org.vena.bosk.Path;
 import org.vena.bosk.Reference;
@@ -23,7 +23,7 @@ public class AbstractDriverTest {
 	protected Bosk<TestEntity> bosk;
 	protected BoskDriver<TestEntity> driver;
 
-	protected void setupBosksAndReferences(BiFunction<Bosk<TestEntity>, BoskDriver<TestEntity>, BoskDriver<TestEntity>> driverFactory) {
+	protected void setupBosksAndReferences(DriverFactory<TestEntity> driverFactory) {
 		// This is the bosk whose behaviour we'll consider to be correct by definition
 		canonicalBosk = new Bosk<TestEntity>("Canonical bosk", TestEntity.class, AbstractDriverTest::initialRoot, Bosk::simpleDriver);
 

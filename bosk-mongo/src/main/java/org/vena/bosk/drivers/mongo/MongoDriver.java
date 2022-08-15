@@ -31,6 +31,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.vena.bosk.Bosk;
 import org.vena.bosk.BoskDriver;
+import org.vena.bosk.DriverFactory;
 import org.vena.bosk.Entity;
 import org.vena.bosk.Identifier;
 import org.vena.bosk.Reference;
@@ -72,7 +73,10 @@ public final class MongoDriver<R extends Entity> implements BoskDriver<R> {
 		this.echoPrefix = bosk.instanceID().toString();
 		this.documentID = new BsonString("boskDocument");
 		this.rootRef = bosk.rootReference();
+	}
 
+	public static <RR extends Entity> DriverFactory<RR> factory(MongoClientSettings clientSettings, MongoDriverSettings driverSettings, BsonPlugin bsonPlugin) {
+		return (b,d) -> new MongoDriver<>(b, clientSettings, driverSettings, bsonPlugin, d);
 	}
 
 	private void validateMongoClientSettings(MongoClientSettings clientSettings) {

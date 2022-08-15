@@ -1,11 +1,9 @@
 package org.vena.bosk.drivers;
 
-import java.util.function.BiFunction;
 import java.util.stream.Stream;
-import org.vena.bosk.Bosk;
-import org.vena.bosk.BoskDriver;
 import org.vena.bosk.Catalog;
 import org.vena.bosk.CatalogReference;
+import org.vena.bosk.DriverFactory;
 import org.vena.bosk.Identifier;
 import org.vena.bosk.ListValue;
 import org.vena.bosk.MapValue;
@@ -24,7 +22,7 @@ import static org.vena.bosk.util.Classes.mapValue;
 
 public abstract class DriverConformanceTest extends AbstractDriverTest {
 	// Subclass can initialize this as desired
-	protected BiFunction<Bosk<TestEntity>, BoskDriver<TestEntity>, BoskDriver<TestEntity>> driverFactory;
+	protected DriverFactory<TestEntity> driverFactory;
 
 	@ParametersByName
 	void testInitialState(Path enclosingCatalogPath) {

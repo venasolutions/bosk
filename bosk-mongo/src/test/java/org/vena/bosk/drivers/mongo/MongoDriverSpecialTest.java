@@ -7,7 +7,6 @@ import java.util.Deque;
 import java.util.Optional;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingDeque;
-import java.util.function.BiFunction;
 import lombok.Value;
 import lombok.experimental.Accessors;
 import org.junit.jupiter.api.AfterEach;
@@ -18,6 +17,7 @@ import org.vena.bosk.Bosk;
 import org.vena.bosk.BoskDriver;
 import org.vena.bosk.Catalog;
 import org.vena.bosk.CatalogReference;
+import org.vena.bosk.DriverFactory;
 import org.vena.bosk.Entity;
 import org.vena.bosk.Identifier;
 import org.vena.bosk.Listing;
@@ -56,7 +56,7 @@ class MongoDriverSpecialTest {
 	private final Deque<Runnable> tearDownActions = new ArrayDeque<>();
 	private static MongoService mongoService;
 
-	private BiFunction<Bosk<TestEntity>, BoskDriver<TestEntity>, BoskDriver<TestEntity>> driverFactory;
+	private DriverFactory<TestEntity> driverFactory;
 
 	@BeforeAll
 	static void setupMongoConnection() {
@@ -382,9 +382,9 @@ class MongoDriverSpecialTest {
 		assertEquals(Optional.of(TestValues.blank()), after); // Now it's there
 	}
 
-	private <E extends Entity> BiFunction<Bosk<E>, BoskDriver<E>, BoskDriver<E>> createDriverFactory() {
+	private <E extends Entity> DriverFactory<E> createDriverFactory() {
 		return (bosk, downstream) -> {
-			MongoDriver<E> driver = new MongoDriver<>(
+			MongoDriver<E> driver = new MongoDriver<E>(
 				bosk, mongoService.clientSettings(), driverSettings, new BsonPlugin(),
 				downstream
 			);

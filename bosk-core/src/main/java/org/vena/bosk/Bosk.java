@@ -12,7 +12,6 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.Semaphore;
 import java.util.function.BiConsumer;
-import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -108,7 +107,7 @@ public class Bosk<R extends Entity> {
 	 * BoskDriver#submitReplacement(Reference, Object)} and {@link
 	 * BoskDriver#submitDeletion(Reference)}.
 	 */
-	public Bosk(String name, Type rootType, DefaultRootFunction<R> defaultRootFunction, BiFunction<Bosk<R>, BoskDriver<R>, BoskDriver<R>> driverFactory) {
+	public Bosk(String name, Type rootType, DefaultRootFunction<R> defaultRootFunction, DriverFactory<R> driverFactory) {
 		this.name = name;
 		this.localDriver = new LocalDriver(defaultRootFunction);
 		this.rootType = rootType;
@@ -137,7 +136,7 @@ public class Bosk<R extends Entity> {
 		RR apply(Bosk<RR> bosk) throws InvalidTypeException;
 	}
 
-	public Bosk(String name, Type rootType, R defaultRoot, BiFunction<Bosk<R>, BoskDriver<R>, BoskDriver<R>> driverFactory) {
+	public Bosk(String name, Type rootType, R defaultRoot, DriverFactory<R> driverFactory) {
 		this(name, rootType, b->defaultRoot, driverFactory);
 	}
 
