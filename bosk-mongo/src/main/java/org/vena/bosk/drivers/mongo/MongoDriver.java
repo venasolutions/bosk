@@ -197,7 +197,7 @@ public final class MongoDriver<R extends Entity> implements BoskDriver<R> {
 			try {
 				session.startTransaction();
 
-				Document newState = null;
+				Document newState;
 				try (MongoCursor<Document> cursor = collection.find(documentFilter()).limit(1).cursor()) {
 					Document newDocument = cursor.next();
 					newState = newDocument.get(state.name(), Document.class);
