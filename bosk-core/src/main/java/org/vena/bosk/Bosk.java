@@ -106,6 +106,8 @@ public class Bosk<R extends Entity> {
 	 * one to which updates will be submitted by {@link
 	 * BoskDriver#submitReplacement(Reference, Object)} and {@link
 	 * BoskDriver#submitDeletion(Reference)}.
+	 *
+	 * @see DriverStack
 	 */
 	public Bosk(String name, Type rootType, DefaultRootFunction<R> defaultRootFunction, DriverFactory<R> driverFactory) {
 		this.name = name;
