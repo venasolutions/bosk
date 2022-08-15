@@ -294,13 +294,13 @@ public class Bosk<R extends Entity> {
 			try {
 				LOGGER.debug("Applying replacement at {}", target);
 				currentRoot = (R) requireNonNull(dereferencer.with(currentRoot, target, requireNonNull(newValue)));
+				return true;
 			} catch (AccessorThrewException e) {
 				throw new AccessorThrewException("Unable to submitReplacement(\"" + target + "\", " + newValue + ")", e);
 			} catch (NonexistentEntryException e) {
 				LOGGER.debug("Ignoring replacement of {}", target, e);
 				return false;
 			}
-			return true;
 		}
 
 		/**
@@ -316,13 +316,13 @@ public class Bosk<R extends Entity> {
 			try {
 				LOGGER.debug("Applying deletion at {}", target);
 				currentRoot = (R)requireNonNull(dereferencer.without(currentRoot, target));
+				return true;
 			} catch (AccessorThrewException e) {
 				throw new AccessorThrewException("Unable to submitDeletion(\"" + target + "\")", e);
 			} catch (NonexistentEntryException e) {
 				LOGGER.debug("Ignoring deletion of {}", target, e);
 				return false;
 			}
-			return true;
 		}
 
 		private Dereferencer dereferencerFor(Reference<?> ref) {
