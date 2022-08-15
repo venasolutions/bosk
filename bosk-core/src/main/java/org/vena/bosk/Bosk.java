@@ -121,7 +121,7 @@ public class Bosk<R extends Entity> {
 		// We do this last because the driver factory is allowed to do such things
 		// as create References, so it needs the rest of the initialization to
 		// have completed already.
-		this.driver = driverFactory.apply(this, this.localDriver);
+		this.driver = driverFactory.build(this, this.localDriver);
 		try {
 			this.currentRoot = requireNonNull(driver.initialRoot(rootType));
 		} catch (InvalidTypeException | IOException | InterruptedException e) {

@@ -116,7 +116,7 @@ class MongoDriverSpecialTest {
 		// have tight control over all the comings and goings from MongoDriver.
 		BlockingQueue<Reference<?>> replacementsSeen = new LinkedBlockingDeque<>();
 		Bosk<TestEntity> bosk = new Bosk<TestEntity>("Test bosk", TestEntity.class, this::initialRoot,
-			(b,d) -> driverFactory.apply(b, new BufferingDriver<TestEntity>(d){
+			(b,d) -> driverFactory.build(b, new BufferingDriver<TestEntity>(d){
 				@Override
 				public <T> void submitReplacement(Reference<T> target, T newValue) {
 					super.submitReplacement(target, newValue);

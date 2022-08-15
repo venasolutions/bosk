@@ -73,7 +73,7 @@ public abstract class AbstractRoundTripTest extends AbstractBoskTest {
 		private final UnaryOperator<GsonBuilder> customizer;
 
 		@Override
-		public BoskDriver<R> apply(Bosk<R> bosk, BoskDriver<R> driver) {
+		public BoskDriver<R> build(Bosk<R> bosk, BoskDriver<R> driver) {
 			return new PreprocessingDriver<R>(driver) {
 				final GsonBuilder builder = new GsonBuilder().registerTypeAdapterFactory(gp.adaptersFor(bosk));
 				final Gson gson = customizer.apply(builder).create();
@@ -103,7 +103,7 @@ public abstract class AbstractRoundTripTest extends AbstractBoskTest {
 	@RequiredArgsConstructor
 	private static class BsonRoundTripDriverFactory<R extends Entity> implements DriverFactory<R> {
 		@Override
-		public BoskDriver<R> apply(Bosk<R> bosk, BoskDriver<R> driver) {
+		public BoskDriver<R> build(Bosk<R> bosk, BoskDriver<R> driver) {
 			final BsonPlugin bp = new BsonPlugin();
 			return new PreprocessingDriver<R>(driver) {
 				final CodecRegistry codecRegistry = CodecRegistries.fromProviders(bp.codecProviderFor(bosk));

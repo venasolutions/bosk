@@ -30,7 +30,7 @@ public class AbstractDriverTest {
 		// This is the bosk we're testing
 		bosk = new Bosk<TestEntity>("Test bosk", TestEntity.class, AbstractDriverTest::initialRoot, (Bosk<TestEntity> b, BoskDriver<TestEntity> d) -> new ForwardingDriver<>(asList(
 			new MirroringDriver<>(canonicalBosk),
-			driverFactory.apply(b,d)
+			driverFactory.build(b,d)
 		)));
 		driver = bosk.driver();
 	}
