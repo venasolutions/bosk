@@ -5,17 +5,28 @@ import java.lang.reflect.Type;
 import lombok.RequiredArgsConstructor;
 import org.vena.bosk.Bosk;
 import org.vena.bosk.BoskDriver;
+import org.vena.bosk.DriverFactory;
 import org.vena.bosk.Entity;
 import org.vena.bosk.Identifier;
 import org.vena.bosk.Reference;
 import org.vena.bosk.exceptions.InvalidTypeException;
 
+import static java.util.Arrays.asList;
+import static lombok.AccessLevel.PRIVATE;
+
 /**
  * Sends events to another {@link Bosk} of the same type.
  */
-@RequiredArgsConstructor
+@RequiredArgsConstructor(access=PRIVATE)
 public class MirroringDriver<R extends Entity> implements BoskDriver<R> {
 	private final Bosk<R> mirror;
+
+	public static <RR extends Entity> DriverFactory<RR> targeting(Bosk<RR> mirror) {
+		return (bosk, downstream) -> new ForwardingDriver<>(asList(
+			new MirroringDriver<>(mirror),
+			downstream
+		));
+	}
 
 	@Override
 	public R initialRoot(Type rootType) throws InvalidTypeException {
