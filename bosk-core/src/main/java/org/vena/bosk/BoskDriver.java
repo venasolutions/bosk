@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.lang.reflect.Type;
 import org.vena.bosk.Bosk.ReadContext;
 import org.vena.bosk.drivers.ForwardingDriver;
+import org.vena.bosk.exceptions.FlushFailureException;
 import org.vena.bosk.exceptions.InvalidTypeException;
 
 /**
@@ -19,7 +20,9 @@ public interface BoskDriver<R extends Entity> {
 	 * <p>
 	 * Meant to be called only once during initialization by the Bosk;
 	 * the behaviour of subsequent calls depends on the implementation,
-	 * and may even throw an exception.
+	 * and may even throw an exception. As a convenience to implementations,
+	 * this method is allowed to throw a variety of checked exceptions
+	 * that are common to implementations.
 	 *
 	 * <p>
 	 * For a "stackable layer" driver, it is conventional to delegate to the
@@ -32,13 +35,15 @@ public interface BoskDriver<R extends Entity> {
 	 * @param rootType The full {@link Type} of the root object, including any
 	 * type parameters if it's parameterized, as a convenience to the initialization logic.
 	 * @throws InvalidTypeException as a convenience to support initialization logic
-	 * that creates {@link Reference References}, so implementations do not need to
-	 * catch that exception and wrap it or otherwise deal with it: the caller of this
-	 * method is expected to know how to deal with this exception.
+	 * that creates {@link Reference References} (which is very common) so that implementations
+	 * do not need to catch that exception and wrap it or otherwise deal with it:
+	 * the caller of this method is expected to know how to deal with that exception.
 	 * @throws UnsupportedOperationException if this driver is unable to provide
 	 * an initial root. Such a driver cannot be used on its own to initialize a Bosk,
 	 * but it can be used downstream of a {@link ForwardingDriver} provided there is
 	 * another downstream driver that can provide the initial root instead.
+	 *
+	 * @see org.vena.bosk.exceptions.InitializationFailureException
 	 */
 	R initialRoot(Type rootType) throws InvalidTypeException, IOException, InterruptedException;
 
@@ -143,6 +148,8 @@ public interface BoskDriver<R extends Entity> {
 	 * <strong>Evolution note</strong>: This method currently acts as a full barrier, while
 	 * ultimately we may want a more efficient release-acquire pair that allows writes
 	 * to be reliably visible to subsequent reads.
+	 *
+	 * @see FlushFailureException
 	 */
 	void flush() throws IOException, InterruptedException;
 

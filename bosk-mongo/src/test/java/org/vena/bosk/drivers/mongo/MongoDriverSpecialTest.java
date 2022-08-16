@@ -7,7 +7,6 @@ import java.util.Deque;
 import java.util.Optional;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingDeque;
-import java.util.function.BiFunction;
 import lombok.Value;
 import lombok.experimental.Accessors;
 import org.junit.jupiter.api.AfterEach;
@@ -18,6 +17,7 @@ import org.vena.bosk.Bosk;
 import org.vena.bosk.BoskDriver;
 import org.vena.bosk.Catalog;
 import org.vena.bosk.CatalogReference;
+import org.vena.bosk.DriverFactory;
 import org.vena.bosk.Entity;
 import org.vena.bosk.Identifier;
 import org.vena.bosk.Listing;
@@ -56,7 +56,7 @@ class MongoDriverSpecialTest {
 	private final Deque<Runnable> tearDownActions = new ArrayDeque<>();
 	private static MongoService mongoService;
 
-	private BiFunction<BoskDriver<TestEntity>, Bosk<TestEntity>, BoskDriver<TestEntity>> driverFactory;
+	private DriverFactory<TestEntity> driverFactory;
 
 	@BeforeAll
 	static void setupMongoConnection() {
@@ -116,13 +116,13 @@ class MongoDriverSpecialTest {
 		// have tight control over all the comings and goings from MongoDriver.
 		BlockingQueue<Reference<?>> replacementsSeen = new LinkedBlockingDeque<>();
 		Bosk<TestEntity> bosk = new Bosk<TestEntity>("Test bosk", TestEntity.class, this::initialRoot,
-			(d,b) -> driverFactory.apply(new BufferingDriver<TestEntity>(d){
+			(b,d) -> driverFactory.build(b, new BufferingDriver<TestEntity>(d){
 				@Override
 				public <T> void submitReplacement(Reference<T> target, T newValue) {
 					super.submitReplacement(target, newValue);
 					replacementsSeen.add(target);
 				}
-			}, b));
+			}));
 
 		CatalogReference<TestEntity> catalogRef = bosk.rootReference().thenCatalog(TestEntity.class,
 			TestEntity.Fields.catalog);
@@ -382,9 +382,9 @@ class MongoDriverSpecialTest {
 		assertEquals(Optional.of(TestValues.blank()), after); // Now it's there
 	}
 
-	private <E extends Entity> BiFunction<BoskDriver<E>, Bosk<E>, BoskDriver<E>> createDriverFactory() {
-		return (downstream, bosk) -> {
-			MongoDriver<E> driver = new MongoDriver<>(
+	private <E extends Entity> DriverFactory<E> createDriverFactory() {
+		return (bosk, downstream) -> {
+			MongoDriver<E> driver = new MongoDriver<E>(
 				bosk, mongoService.clientSettings(), driverSettings, new BsonPlugin(),
 				downstream
 			);

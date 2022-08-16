@@ -31,10 +31,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.vena.bosk.Bosk;
 import org.vena.bosk.BoskDriver;
+import org.vena.bosk.DriverFactory;
 import org.vena.bosk.Entity;
 import org.vena.bosk.Identifier;
 import org.vena.bosk.Reference;
-import org.vena.bosk.exceptions.FlushTimeoutException;
+import org.vena.bosk.exceptions.FlushFailureException;
 import org.vena.bosk.exceptions.InvalidTypeException;
 import org.vena.bosk.exceptions.NotYetImplementedException;
 
@@ -48,6 +49,7 @@ import static org.vena.bosk.drivers.mongo.Formatter.dottedFieldNameOf;
 import static org.vena.bosk.drivers.mongo.Formatter.enclosingReference;
 
 public final class MongoDriver<R extends Entity> implements BoskDriver<R> {
+	private final String description;
 	private final MongoDriverSettings settings;
 	private final Formatter formatter;
 	private final MongoReceiver<R> receiver;
@@ -60,6 +62,7 @@ public final class MongoDriver<R extends Entity> implements BoskDriver<R> {
 
 	public MongoDriver(Bosk<R> bosk, MongoClientSettings clientSettings, MongoDriverSettings driverSettings, BsonPlugin bsonPlugin, BoskDriver<R> downstream) {
 		validateMongoClientSettings(clientSettings);
+		this.description = MongoDriver.class.getSimpleName() + ": " + driverSettings;
 		this.settings = driverSettings;
 		this.mongoClient = MongoClients.create(clientSettings);
 		this.formatter = new Formatter(bosk, bsonPlugin);
@@ -70,7 +73,10 @@ public final class MongoDriver<R extends Entity> implements BoskDriver<R> {
 		this.echoPrefix = bosk.instanceID().toString();
 		this.documentID = new BsonString("boskDocument");
 		this.rootRef = bosk.rootReference();
+	}
 
+	public static <RR extends Entity> DriverFactory<RR> factory(MongoClientSettings clientSettings, MongoDriverSettings driverSettings, BsonPlugin bsonPlugin) {
+		return (b,d) -> new MongoDriver<>(b, clientSettings, driverSettings, bsonPlugin, d);
 	}
 
 	private void validateMongoClientSettings(MongoClientSettings clientSettings) {
@@ -191,7 +197,7 @@ public final class MongoDriver<R extends Entity> implements BoskDriver<R> {
 			try {
 				session.startTransaction();
 
-				Document newState = null;
+				Document newState;
 				try (MongoCursor<Document> cursor = collection.find(documentFilter()).limit(1).cursor()) {
 					Document newDocument = cursor.next();
 					newState = newDocument.get(state.name(), Document.class);
@@ -322,7 +328,7 @@ public final class MongoDriver<R extends Entity> implements BoskDriver<R> {
 	 *
 	 * @throws MongoException if something goes wrong with MongoDB
 	 */
-	private void flushToChangeStreamReceiver() throws IOException, InterruptedException {
+	private void flushToChangeStreamReceiver() throws InterruptedException, FlushFailureException {
 		String echoToken = uniqueEchoToken();
 		BlockingQueue<BsonDocument> listener = new ArrayBlockingQueue<>(1);
 		try {
@@ -337,7 +343,7 @@ public final class MongoDriver<R extends Entity> implements BoskDriver<R> {
 			LOGGER.debug("| Waiting");
 			BsonDocument resumeToken = listener.poll(settings.flushTimeoutMS(), MILLISECONDS);
 			if (resumeToken == null) {
-				throw new FlushTimeoutException("No flush response after " + settings.flushTimeoutMS() + "ms");
+				throw new FlushFailureException("No flush response after " + settings.flushTimeoutMS() + "ms");
 			} else {
 				MongoResumeTokenSequenceMark sequenceMark = new MongoResumeTokenSequenceMark(resumeToken.getString("_data").getValue());
 				LOGGER.debug("| SequenceMark: {}", sequenceMark);
@@ -345,6 +351,11 @@ public final class MongoDriver<R extends Entity> implements BoskDriver<R> {
 		} finally {
 			receiver.removeEchoListener(echoToken);
 		}
+	}
+
+	@Override
+	public String toString() {
+		return description;
 	}
 
 	@Value

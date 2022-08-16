@@ -1,11 +1,12 @@
 package org.vena.bosk.drivers;
 
 import java.io.IOException;
-import java.util.function.BiFunction;
 import javax.annotation.Nonnull;
 import org.vena.bosk.Bosk;
 import org.vena.bosk.BoskDriver;
 import org.vena.bosk.CatalogReference;
+import org.vena.bosk.DriverFactory;
+import org.vena.bosk.DriverStack;
 import org.vena.bosk.Identifier;
 import org.vena.bosk.Path;
 import org.vena.bosk.Reference;
@@ -13,7 +14,6 @@ import org.vena.bosk.drivers.state.TestEntity;
 import org.vena.bosk.exceptions.InvalidTypeException;
 
 import static java.lang.Thread.currentThread;
-import static java.util.Arrays.asList;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class AbstractDriverTest {
@@ -23,15 +23,15 @@ public class AbstractDriverTest {
 	protected Bosk<TestEntity> bosk;
 	protected BoskDriver<TestEntity> driver;
 
-	protected void setupBosksAndReferences(BiFunction<BoskDriver<TestEntity>, Bosk<TestEntity>, BoskDriver<TestEntity>> driverFactory) {
+	protected void setupBosksAndReferences(DriverFactory<TestEntity> driverFactory) {
 		// This is the bosk whose behaviour we'll consider to be correct by definition
 		canonicalBosk = new Bosk<TestEntity>("Canonical bosk", TestEntity.class, AbstractDriverTest::initialRoot, Bosk::simpleDriver);
 
 		// This is the bosk we're testing
-		bosk = new Bosk<TestEntity>("Test bosk", TestEntity.class, AbstractDriverTest::initialRoot, (d,b) -> new ForwardingDriver<>(asList(
-			new MirroringDriver<>(canonicalBosk),
-			driverFactory.apply(d, b)
-		)));
+		bosk = new Bosk<TestEntity>("Test bosk", TestEntity.class, AbstractDriverTest::initialRoot, DriverStack.of(
+			MirroringDriver.targeting(canonicalBosk),
+			driverFactory
+		));
 		driver = bosk.driver();
 	}
 

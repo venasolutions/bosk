@@ -5,7 +5,6 @@ import com.google.gson.GsonBuilder;
 import java.lang.reflect.Type;
 import java.util.Optional;
 import java.util.function.BiConsumer;
-import java.util.function.BiFunction;
 import lombok.EqualsAndHashCode;
 import lombok.Value;
 import lombok.With;
@@ -19,8 +18,6 @@ import org.vena.bosk.exceptions.NotYetImplementedException;
 import static java.util.Arrays.asList;
 
 public abstract class AbstractBoskTest {
-	public interface DriverFactory<R extends Entity> extends BiFunction<BoskDriver<R>, Bosk<R>, BoskDriver<R>> {}
-
 	@Value
 	@EqualsAndHashCode(callSuper=false)
 	@Accessors(fluent=true)

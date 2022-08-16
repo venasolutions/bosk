@@ -108,7 +108,7 @@ public final class ReferenceUtils {
 	@Accessors(fluent=true)
 	@RequiredArgsConstructor
 	static final class SideTableRef<K extends Entity,V> implements SideTableReference<K,V> {
-		protected final Reference<SideTable<K,V>> ref;
+		private final Reference<SideTable<K,V>> ref;
 		private final @Getter Class<K> keyClass;
 		private final @Getter Class<V> valueClass;
 

@@ -1,10 +1,8 @@
 package org.vena.bosk.drivers;
 
 import com.google.gson.GsonBuilder;
-import java.util.function.BiFunction;
 import java.util.stream.Stream;
-import org.vena.bosk.Bosk;
-import org.vena.bosk.BoskDriver;
+import org.vena.bosk.DriverFactory;
 import org.vena.bosk.Path;
 import org.vena.bosk.drivers.state.TestEntity;
 import org.vena.bosk.exceptions.InvalidTypeException;
@@ -16,11 +14,11 @@ import static org.vena.bosk.AbstractRoundTripTest.gsonRoundTripFactory;
 
 public class RoundTripDriverConformanceTest extends DriverConformanceTest {
 	@ParametersByName
-	RoundTripDriverConformanceTest(BiFunction<BoskDriver<TestEntity>, Bosk<TestEntity>, BoskDriver<TestEntity>> driverFactory) {
+	RoundTripDriverConformanceTest(DriverFactory<TestEntity> driverFactory) {
 		this.driverFactory = driverFactory;
 	}
 
-	static Stream<BiFunction<BoskDriver<TestEntity>, Bosk<TestEntity>, BoskDriver<TestEntity>>> driverFactory() {
+	static Stream<DriverFactory<TestEntity>> driverFactory() {
 		return Stream.of(
 			bsonRoundTripFactory(),
 			gsonRoundTripFactory(identity()),

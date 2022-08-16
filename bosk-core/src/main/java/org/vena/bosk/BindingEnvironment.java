@@ -98,7 +98,7 @@ public final class BindingEnvironment {
 		Builder() { }
 
 		Builder(Map<String, Identifier> existingBindings) {
-			existingBindings.forEach(bindings::put);
+			bindings.putAll(existingBindings);
 		}
 
 		/**
@@ -133,7 +133,7 @@ public final class BindingEnvironment {
 		 */
 		public BindingEnvironment build() {
 			Map<String, Identifier> map = new LinkedHashMap<>();
-			bindings.forEach(map::put);
+			map.putAll(bindings);
 			return new BindingEnvironment(unmodifiableMap(map));
 		}
 
