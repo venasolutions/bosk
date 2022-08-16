@@ -25,7 +25,7 @@ class DriverStackTest {
 			(b,d) -> new TestDriver<>("second", d)
 		);
 
-		TestDriver<TestEntity> firstDriver = (TestDriver<TestEntity>)stack.build(null, baseDriver);
+		TestDriver<TestEntity> firstDriver = (TestDriver<TestEntity>) stack.build(null, baseDriver);
 		TestDriver<TestEntity> secondDriver = (TestDriver<TestEntity>) firstDriver.downstream;
 		BoskDriver<TestEntity> thirdDriver = secondDriver.downstream;
 
