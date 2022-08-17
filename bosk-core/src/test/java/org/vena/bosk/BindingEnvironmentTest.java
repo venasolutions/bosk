@@ -163,5 +163,5 @@ class BindingEnvironmentTest extends AbstractBoskTest {
 	/**
 	 * A special Identifier that can't possibly be equal to any other Identifier.
 	 */
-	private static final Identifier NONEXISTENT = Identifier.from("Nonexistent-" + UUID.randomUUID().toString());
+	private static final Identifier NONEXISTENT = Identifier.from("Nonexistent-" + UUID.randomUUID());
 }

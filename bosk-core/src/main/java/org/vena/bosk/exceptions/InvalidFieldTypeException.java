@@ -3,7 +3,6 @@ package org.vena.bosk.exceptions;
 import lombok.Getter;
 import lombok.experimental.Accessors;
 
-@SuppressWarnings("serial")
 @Getter
 @Accessors(fluent = true)
 public class InvalidFieldTypeException extends InvalidTypeException {
