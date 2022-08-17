@@ -11,7 +11,7 @@ import static java.lang.annotation.ElementType.PARAMETER;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
 
 /**
- * On a {@link StateTreeNode} field, indicates that implicit references
+ * On a field of a {@link StateTreeNode}, indicates that implicit references
  * enclosed by that field should be constructed using the supplied path string as a prefix.
  *
  * <p>
