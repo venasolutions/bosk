@@ -58,7 +58,6 @@ class TypeValidationTest {
 			ExtraConstructor.class,
 			ExtraConstructorArgument.class,
 			FieldNameWithDollarSign.class,
-			FieldNameWithNonAsciiLetters.class,
 			GetterHasParameter.class,
 			GetterReturnsSubtype.class,
 			GetterReturnsSupertype.class,
@@ -420,6 +419,10 @@ class TypeValidationTest {
 		}
 	}
 
+	/*
+	 * According to JLS 3.1, Java identifiers comprise only ASCII characters.
+	 * https://docs.oracle.com/javase/specs/jls/se14/html/jls-3.html#jls-3.1
+	 *
 	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
 	public static final class FieldNameWithNonAsciiLetters implements Entity {
 		Identifier id;
@@ -429,6 +432,7 @@ class TypeValidationTest {
 			assertThat(e.getMessage(), containsString("FieldNameWithNonAsciiLetters.trèsCassé"));
 		}
 	}
+	 */
 
 	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true)
 	public static final class EnclosingNonReference implements Entity {
