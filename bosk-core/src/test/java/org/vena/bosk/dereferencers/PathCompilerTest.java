@@ -286,6 +286,7 @@ public class PathCompilerTest extends AbstractBoskTest {
 		Path p1 = Path.of(TestRoot.Fields.entities, "e1", TestEntity.Fields.children, "c1", TestChild.Fields.string);
 		Path p2 = Path.of(TestRoot.Fields.entities, "e2", TestEntity.Fields.children, "c2", TestChild.Fields.string);
 		Dereferencer d1 = pathCompiler.compiled(p1);
+		System.gc(); // Memoization uses WeakHashMap; give it a chance to make a mistake here!
 		Dereferencer d2 = pathCompiler.compiled(p2);
 		assertSame(d1, d2);
 	}
