@@ -101,7 +101,7 @@ public final class PathCompiler {
 		// and computeIfAbsent can't do that.
 		DereferencerBuilder result = memoizedBuilders.get(path);
 		if (result == null) {
-			result = computeBuilder(path);
+			result = getOrCreateBuilder(path);
 			DereferencerBuilder previous = memoizedBuilders.putIfAbsent(path, result);
 			if (previous != null) {
 				// Must not switch to a new DereferencerBuilder, even if it's equivalent.
@@ -116,7 +116,7 @@ public final class PathCompiler {
 	 * Note: also memoizes the resulting builder under the fully parameterized path
 	 * if different from the given path.
 	 */
-	private DereferencerBuilder computeBuilder(Path path) throws TunneledCheckedException {
+	private DereferencerBuilder getOrCreateBuilder(Path path) throws TunneledCheckedException {
 		if (path.isEmpty()) {
 			return ROOT_BUILDER;
 		} else try {
