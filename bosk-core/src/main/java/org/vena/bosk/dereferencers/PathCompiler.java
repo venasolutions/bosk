@@ -15,6 +15,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import lombok.RequiredArgsConstructor;
 import lombok.Value;
 import lombok.experimental.Accessors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.vena.bosk.Catalog;
 import org.vena.bosk.Entity;
 import org.vena.bosk.Identifier;
@@ -29,8 +31,10 @@ import org.vena.bosk.bytecode.LocalVariable;
 import org.vena.bosk.exceptions.InvalidTypeException;
 import org.vena.bosk.exceptions.TunneledCheckedException;
 
+import static java.util.Collections.synchronizedList;
 import static java.util.Collections.synchronizedMap;
 import static java.util.Locale.ROOT;
+import static java.util.stream.Collectors.joining;
 import static lombok.AccessLevel.PRIVATE;
 import static org.vena.bosk.Path.isParameterSegment;
 import static org.vena.bosk.ReferenceUtils.getterMethod;
@@ -54,6 +58,21 @@ public final class PathCompiler {
 	private final Type sourceType;
 	private final Map<Path, DereferencerBuilder> memoizedBuilders = synchronizedMap(new WeakHashMap<>());
 	private final Map<DereferencerBuilder, Dereferencer> memoizedDereferencers = synchronizedMap(new WeakHashMap<>());
+
+	/**
+	 * The weak hashmaps are a bit too weak. We can't use normal maps because there
+	 * could be an unlimited number of different Paths, so that would be a memory leak.
+	 * But if the builders for parameterized paths get collected, then they won't be
+	 * reused as they should be, and performance could suffer dramatically due to
+	 * unnecessary compilation and class loading overhead.
+	 *
+	 * <p>
+	 * As a compromise, we keep alive all fully parameterized paths here to make
+	 * sure their dereferencers don't get collected. In the absence of recursive
+	 * data structures, any one bosk has only a finite variety of possible fully
+	 * parameterized paths, so this list has a bounded size.
+	 */
+	private final List<Path> keepAliveFullyParameterizedPaths = pathList();
 
 	private static final Map<Type, PathCompiler> compilersByType = new ConcurrentHashMap<>();
 
@@ -126,7 +145,12 @@ public final class PathCompiler {
 			// the fully parameterized path, reuse that instead;
 			// else, file our candidate under that path.
 			Path fullyParameterizedPath = candidate.fullyParameterizedPath();
-			return memoizedBuilders.computeIfAbsent(fullyParameterizedPath, x->candidate);
+			DereferencerBuilder result = memoizedBuilders.computeIfAbsent(fullyParameterizedPath, x -> candidate);
+			if (result == candidate) {
+				// Keep this dereferencer from being collected, so it can be reused
+				keepAliveFullyParameterizedPaths.add(fullyParameterizedPath);
+			}
+			return result;
 		} catch (InvalidTypeException e) {
 			throw new TunneledCheckedException(e);
 		}
@@ -526,4 +550,20 @@ public final class PathCompiler {
 			throw new AssertionError(e);
 		}
 	}
+
+	private static List<Path> pathList() {
+		List<Path> result = synchronizedList(new ArrayList<>());
+		if (LOGGER.isTraceEnabled()) {
+			Runtime.getRuntime().addShutdownHook(new Thread(()->{
+				LOGGER.trace("keepAliveFullyParameterizedPaths:{}",
+					result.stream()
+						.map(Path::urlEncoded)
+						.sorted()
+						.collect(joining("\n\t", "\n\t", "")));
+			}));
+		}
+		return result;
+	}
+
+	private static final Logger LOGGER = LoggerFactory.getLogger(PathCompiler.class);
 }
