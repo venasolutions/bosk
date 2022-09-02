@@ -5,5 +5,5 @@ plugins {
 
 allprojects {
 	group = 'org.vena'
-	version = '0.0.32'
+	version = '0.0.33'
 }
