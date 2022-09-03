@@ -15,7 +15,7 @@ public class UtilityDriverConformanceTest extends DriverConformanceTest {
 
 	static Stream<DriverFactory<TestEntity>> driverFactory() {
 		return Stream.of(
-			(b,d)-> new BufferingDriver<>(d),
+			(b,d)-> BufferingDriver.writingTo(d),
 			(b,d)-> new ForwardingDriver<>(singletonList(d))
 		);
 	}
