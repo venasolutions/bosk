@@ -231,7 +231,7 @@ public final class BsonPlugin extends SerializationPlugin {
 
 			@Override
 			public void encode(BsonWriter writer, E value, EncoderContext encoderContext) {
-				writer.writeString(value.toString());
+				writer.writeString(value.name());
 			}
 
 			@Override
