@@ -1,5 +1,6 @@
 package org.vena.bosk.drivers;
 
+import java.time.temporal.ChronoUnit;
 import java.util.stream.Stream;
 import org.vena.bosk.Catalog;
 import org.vena.bosk.CatalogReference;
@@ -14,6 +15,7 @@ import org.vena.bosk.drivers.state.TestValues;
 import org.vena.bosk.exceptions.InvalidTypeException;
 import org.vena.bosk.junit.ParametersByName;
 
+import static java.time.temporal.ChronoUnit.MINUTES;
 import static java.util.Arrays.asList;
 import static java.util.stream.Collectors.toList;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -219,6 +221,19 @@ public abstract class DriverConformanceTest extends AbstractDriverTest {
 		assertThrows(NullPointerException.class, ()->driver.submitReplacement(stringRef, null));
 		assertCorrectBoskContents();
 		assertThrows(IllegalArgumentException.class, ()->driver.submitDeletion(stringRef));
+		assertCorrectBoskContents();
+	}
+
+	@ParametersByName
+	void testEnum() throws InvalidTypeException {
+		Reference<TestValues> ref = initializeBoskWithBlankValues(Path.just(TestEntity.Fields.catalog));
+		Reference<ChronoUnit> enumRef = ref.then(ChronoUnit.class, TestValues.Fields.chronoUnit);
+		driver.submitReplacement(enumRef, MINUTES);
+		assertCorrectBoskContents();
+
+		assertThrows(NullPointerException.class, ()->driver.submitReplacement(enumRef, null));
+		assertCorrectBoskContents();
+		assertThrows(IllegalArgumentException.class, ()->driver.submitDeletion(enumRef));
 		assertCorrectBoskContents();
 	}
 
