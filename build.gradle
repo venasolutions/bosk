@@ -4,6 +4,6 @@ plugins {
 }
 
 allprojects {
-	group = 'org.vena'
+	group = 'io.vena'
 	version = '0.0.33'
 }

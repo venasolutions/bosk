@@ -10,7 +10,7 @@
 	</root>
 
 	<!-- How to add more tracing during unit tests
-	<logger name="org.vena.bosk.dereferencers" level="DEBUG"/>
+	<logger name="io.vena.bosk.dereferencers" level="DEBUG"/>
 	 -->
 
 </configuration>
