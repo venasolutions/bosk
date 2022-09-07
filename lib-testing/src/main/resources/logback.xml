@@ -10,6 +10,6 @@
 	</root>
 
 	<!-- How to add more tracing during unit tests -->
-	<logger name="org.vena.bosk.MicroBenchmark" level="INFO"/>
+	<logger name="io.vena.bosk.MicroBenchmark" level="INFO"/>
 
 </configuration>

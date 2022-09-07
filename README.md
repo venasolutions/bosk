@@ -1,12 +1,28 @@
 # Bosk
-Control plane state management library
+Bosk is a state management library for developing distributed control-plane logic.
+It's a bit like server-side Redux for Java, but without the boilerplate code.
+(No selectors, no action objects, no reducers.)
+
+Bosk fosters a programming style that minimizes the surprises encountered
+when deploying multiple copies of an application as a replica set
+by encouraging reactive event-triggered closed-loop control logic
+based on a user-defined immutable state tree structure,
+and favouring idempotency and determinism.
+
+State is kept in memory, making reads extremely fast (on the order of 50ns).
+Replication is achieved by activating an optional MongoDB module, meaning the hard work of
+change propagation, ordering, durability, consistency, atomicity, and observability,
+as well as fault tolerance, and emergency manual state inspection and modification,
+is all delegated to MongoDB: a well-known, reliable, battle-hardened codebase.
+You don't need to trust Bosk to get all these details right:
+all we do is maintain the in-memory replica by following the MongoDB change stream.
 
 ## Usage
 
 The `bosk-core` library is enough to get started.
 You can create a `Bosk` object and start writing your application.
 
-Add in other packages as you need them,
+Then you can add in other packages as you need them,
 like `bosk-gson` for JSON serialization
 or `bosk-mongo` for persistence and replication.
 Use the same version number for all packages.
