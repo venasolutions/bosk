@@ -57,22 +57,20 @@ class CatalogTest {
 	}
 
 	static class ArrayArgumentProvider implements ArgumentsProvider {
-	@Override
-	public Stream<? extends Arguments> provideArguments(ExtensionContext context) {
-		BasicEntity a = new BasicEntity(Identifier.unique("m"));
-		BasicEntity b = new BasicEntity(Identifier.from("\n"));
-		BasicEntity bNot = new BasicEntity(Identifier.from("\n"));
-		BasicEntity c = new BasicEntity(Identifier.unique(";͉̙̖̳͙ ̧̺̰͕̭̲ͅd̢͈̣̦ró̜͙̬̬͚̺͔p̡̟ ̠ị̯͕n̮̦̞͝ṱ̩̥e҉͖̻r̜͕̠̝̙͢n͈ ͖̩̹̫̜̪́s͘h҉̺a̲h̹͈̞̜̯̹i̻͕̱̣̯̘̳͝n̞͚͚̟̬̣-̷̭̤̗̼-̘̼̣͎̗͙̗"));
-		ComplexEntity x = new ComplexEntity(Identifier.unique("1"), "");
-		BasicEntity xNot = new BasicEntity(Identifier.unique("1"));
-		ComplexEntity y = new ComplexEntity(Identifier.unique("\n"), "bla");
-		Identifier mId = Identifier.unique("m");
-		ComplexEntity z = new ComplexEntity(mId, "goodValue");
-		ComplexEntity zNot = new ComplexEntity(mId, "badValue");
+		@Override
+		public Stream<? extends Arguments> provideArguments(ExtensionContext context) {
+			BasicEntity a = new BasicEntity(Identifier.unique("m"));
+			BasicEntity b = new BasicEntity(Identifier.from("\n"));
+			BasicEntity bNot = new BasicEntity(Identifier.from("\n"));
+			BasicEntity c = new BasicEntity(Identifier.unique(";͉̙̖̳͙ ̧̺̰͕̭̲ͅd̢͈̣̦ró̜͙̬̬͚̺͔p̡̟ ̠ị̯͕n̮̦̞͝ṱ̩̥e҉͖̻r̜͕̠̝̙͢n͈ ͖̩̹̫̜̪́s͘h҉̺a̲h̹͈̞̜̯̹i̻͕̱̣̯̘̳͝n̞͚͚̟̬̣-̷̭̤̗̼-̘̼̣͎̗͙̗"));
+			ComplexEntity x = new ComplexEntity(Identifier.unique("1"), "");
+			BasicEntity xNot = new BasicEntity(Identifier.unique("1"));
+			ComplexEntity y = new ComplexEntity(Identifier.unique("\n"), "bla");
+			Identifier mId = Identifier.unique("m");
+			ComplexEntity z = new ComplexEntity(mId, "goodValue");
+			ComplexEntity zNot = new ComplexEntity(mId, "badValue");
 
-
-
-		return Stream.of(
+			return Stream.of(
 				Arguments.of(basicEntities(z, zNot, a, b, bNot, c, y,  x, xNot), true),
 				Arguments.of(basicEntities(new ComplexEntity(Identifier.unique("1"), "")), false),
 				Arguments.of(basicEntities(new ComplexEntity(Identifier.unique("1"), "not empty str")), false),
@@ -81,10 +79,10 @@ class CatalogTest {
 				Arguments.of(basicEntities(new BasicEntity(Identifier.unique(";"))), false),
 				Arguments.of(basicEntities(), false));
 
-	}
+		}
 
-	private Object basicEntities(BasicEntity... members) {
-		return  members;
+		private Object basicEntities(BasicEntity... members) {
+			return  members;
 		}
 	}
 
@@ -118,16 +116,16 @@ class CatalogTest {
 		}
 
 		assertEquals(
-				asList(contents),
-				Catalog.of(contents).stream().collect(toList())
+			asList(contents),
+			Catalog.of(contents).stream().collect(toList())
 		);
 		assertEquals(
-				asList(contents),
-				Catalog.of(asList(contents)).stream().collect(toList())
+			asList(contents),
+			Catalog.of(asList(contents)).stream().collect(toList())
 		);
 		assertEquals(
-				asList(contents),
-				Catalog.of(Stream.of(contents)).stream().collect(toList())
+			asList(contents),
+			Catalog.of(Stream.of(contents)).stream().collect(toList())
 		);
 	}
 
@@ -159,7 +157,7 @@ class CatalogTest {
 	void testUnmodifiableIDs(BasicEntity[] contents) {
 		Catalog<BasicEntity> catalog = fromContents(contents);
 		assertThrows(UnsupportedOperationException.class, () ->
-				catalog.ids().add(Identifier.unique("badID"))
+			catalog.ids().add(Identifier.unique("badID"))
 		);
 	}
 
@@ -176,8 +174,8 @@ class CatalogTest {
 		}
 
 		assertEquals(
-				linkedHashSet.stream().map(Entity::id).collect(toList()),
-				catalog.idStream().collect(toList())
+			linkedHashSet.stream().map(Entity::id).collect(toList()),
+			catalog.idStream().collect(toList())
 		);
 	}
 
@@ -272,17 +270,17 @@ class CatalogTest {
 		assertEquals(asMap.keySet(), catalog.idStream().collect(toSet()));
 		assertEquals(new HashSet<>(asMap.values()), catalog.stream().collect(toSet()));
 		assertEquals(
-				catalog.stream().collect(toMap(BasicEntity::id, Function.identity())), // could use a more complicated fixed point combinator, but identity works fine
-				asMap
+			catalog.stream().collect(toMap(BasicEntity::id, Function.identity())), // could use a more complicated fixed point combinator, but identity works fine
+			asMap
 		);
 	}
 
 	@Test
 	void TestWithoutAndCheckOrder() {
 		BasicEntity[] contents = new BasicEntity[]{
-				new BasicEntity(Identifier.from("a")),
-				new BasicEntity(Identifier.from("b")),
-				new BasicEntity(Identifier.from("c")),
+			new BasicEntity(Identifier.from("a")),
+			new BasicEntity(Identifier.from("b")),
+			new BasicEntity(Identifier.from("c")),
 		};
 
 		Catalog<BasicEntity> catalog = fromContents(contents);
