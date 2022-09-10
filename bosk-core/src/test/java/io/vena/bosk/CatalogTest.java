@@ -2,7 +2,6 @@ package io.vena.bosk;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
@@ -17,11 +16,10 @@ import lombok.Value;
 import lombok.experimental.Accessors;
 import lombok.experimental.NonFinal;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.ArgumentsProvider;
 import org.junit.jupiter.params.provider.ArgumentsSource;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import static java.util.Arrays.asList;
 import static java.util.Collections.singletonList;
@@ -34,7 +32,6 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-
 
 class CatalogTest {
 	static final BasicEntity a = new BasicEntity(Identifier.unique("m"));
@@ -49,23 +46,19 @@ class CatalogTest {
 	static final ComplexEntity zNot = new ComplexEntity(mId, "badValue");
 	static final BasicEntity wrongEntity = new BasicEntity(Identifier.from("wrongEntity"));
 
-	static class ArrayArgumentProvider implements ArgumentsProvider {
-		@Override
-		public Stream<? extends Arguments> provideArguments(ExtensionContext context) {
+	public static Stream<Arguments> allCases() {
+		return Stream.of(
+			entities(z, zNot, a, b, bNot, c, y,  x, xNot),
+			entities(new ComplexEntity(Identifier.unique("1"), "")),
+			entities(new ComplexEntity(Identifier.unique("1"), "not empty str")),
+			entities(new BasicEntity(Identifier.unique("1"))),
+			entities(new BasicEntity(Identifier.unique("\n"))),
+			entities(new BasicEntity(Identifier.unique(";"))),
+			entities());
+	}
 
-			return Stream.of(
-				Arguments.of(basicEntities(z, zNot, a, b, bNot, c, y,  x, xNot)),
-				Arguments.of(basicEntities(new ComplexEntity(Identifier.unique("1"), ""))),
-				Arguments.of(basicEntities(new ComplexEntity(Identifier.unique("1"), "not empty str"))),
-				Arguments.of(basicEntities(new BasicEntity(Identifier.unique("1")))),
-				Arguments.of(basicEntities(new BasicEntity(Identifier.unique("\n")))),
-				Arguments.of(basicEntities(new BasicEntity(Identifier.unique(";")))),
-				Arguments.of(basicEntities(), false));
-		}
-
-		private Object basicEntities(BasicEntity... members) {
-			return  members;
-		}
+	private static Arguments entities(BasicEntity... members) {
+		return Arguments.of((Object)members);
 	}
 
 	Catalog<BasicEntity> fromContents(BasicEntity[] contents) {
@@ -86,7 +79,7 @@ class CatalogTest {
 	}
 
 	@ParameterizedTest
-	@ArgumentsSource(ArrayArgumentProvider.class)
+	@MethodSource("allCases")
 	void testOf(BasicEntity[] contents) {
 		List<BasicEntity> contentsList = asList(contents);
 
@@ -113,21 +106,21 @@ class CatalogTest {
 	}
 
 	@ParameterizedTest
-	@ArgumentsSource(ArrayArgumentProvider.class)
+	@MethodSource("allCases")
 	void testSize(BasicEntity[] contents) {
 		LinkedHashSet<BasicEntity> linkedHashSet = linkedHashSetFromContents(contents);
 		assertEquals(linkedHashSet.size(), fromContents(contents).size());
 	}
 
 	@ParameterizedTest
-	@ArgumentsSource(ArrayArgumentProvider.class)
+	@MethodSource("allCases")
 	void testIsEmpty(BasicEntity[] contents) {
 		LinkedHashSet<BasicEntity> linkedHashSet = linkedHashSetFromContents(contents);
 		assertEquals(linkedHashSet.isEmpty(), fromContents(contents).isEmpty());
 	}
 
 	@ParameterizedTest
-	@ArgumentsSource(ArrayArgumentProvider.class)
+	@MethodSource("allCases")
 	void testIDs(BasicEntity[] contents) {
 		Catalog<BasicEntity> catalog = fromContents(contents);
 		List<Identifier> IDs = catalog.ids();
@@ -136,7 +129,7 @@ class CatalogTest {
 	}
 
 	@ParameterizedTest
-	@ArgumentsSource(ArrayArgumentProvider.class)
+	@MethodSource("allCases")
 	void testUnmodifiableIDs(BasicEntity[] contents) {
 		Catalog<BasicEntity> catalog = fromContents(contents);
 		assertThrows(UnsupportedOperationException.class, () ->
@@ -145,7 +138,7 @@ class CatalogTest {
 	}
 
 	@ParameterizedTest
-	@ArgumentsSource(ArrayArgumentProvider.class)
+	@MethodSource("allCases")
 	void testIDStream(BasicEntity[] contents) {
 		Catalog<BasicEntity> catalog = fromContents(contents);
 		LinkedHashSet<BasicEntity> linkedHashSet = new LinkedHashSet<>();
@@ -163,7 +156,7 @@ class CatalogTest {
 	}
 
 	@ParameterizedTest
-	@ArgumentsSource(ArrayArgumentProvider.class)
+	@MethodSource("allCases")
 	void testGet(BasicEntity[] contents) {
 		LinkedHashSet<BasicEntity> linkedHashSet = linkedHashSetFromContents(contents);
 		Catalog<BasicEntity> actual = fromContents(contents);
@@ -176,7 +169,7 @@ class CatalogTest {
 	}
 
 	@ParameterizedTest
-	@ArgumentsSource(ArrayArgumentProvider.class)
+	@MethodSource("allCases")
 	void testIterator(BasicEntity[] contents) {
 		assertThrows(NoSuchElementException.class, () -> fromContents(new BasicEntity[0]).iterator().next());
 		Iterator<BasicEntity> goodIterator = linkedHashSetFromContents(contents).iterator();
@@ -190,7 +183,7 @@ class CatalogTest {
 	}
 
 	@ParameterizedTest
-	@ArgumentsSource(ArrayArgumentProvider.class)
+	@MethodSource("allCases")
 	void testSpliterator(BasicEntity[] contents) {
 		Iterator<BasicEntity> expected = linkedHashSetFromContents(contents).iterator();
 		Spliterator<BasicEntity> actual = fromContents(contents).spliterator();
@@ -199,7 +192,7 @@ class CatalogTest {
 	}
 
 	@ParameterizedTest
-	@ArgumentsSource(ArrayArgumentProvider.class)
+	@MethodSource("allCases")
 	void testWith(BasicEntity[] contents) {
 		Catalog<BasicEntity> catalog = fromContents(contents);
 		BasicEntity entityA = new BasicEntity(Identifier.from("a"));
@@ -218,7 +211,7 @@ class CatalogTest {
 	}
 
 	@ParameterizedTest
-	@ArgumentsSource(ArrayArgumentProvider.class)
+	@MethodSource("allCases")
 	void testWithAll(BasicEntity[] contents) {
 		Catalog<BasicEntity> catalog = fromContents(contents);
 
@@ -236,7 +229,7 @@ class CatalogTest {
 	}
 
 	@ParameterizedTest
-	@ArgumentsSource(ArrayArgumentProvider.class)
+	@MethodSource("allCases")
 	void testAsCollection(BasicEntity[] contents) {
 		Catalog<BasicEntity> catalog = fromContents(contents);
 		Collection<BasicEntity> actual = catalog.asCollection();
@@ -245,7 +238,7 @@ class CatalogTest {
 	}
 
 	@ParameterizedTest
-	@ArgumentsSource(ArrayArgumentProvider.class)
+	@MethodSource("allCases")
 	void testAsMap(BasicEntity[] contents) {
 		Catalog<BasicEntity> catalog = fromContents(contents);
 		Map<Identifier,BasicEntity> asMap = catalog.asMap();
