@@ -24,6 +24,7 @@ import org.junit.jupiter.params.provider.ArgumentsProvider;
 import org.junit.jupiter.params.provider.ArgumentsSource;
 
 import static java.util.Arrays.asList;
+import static java.util.Collections.singletonList;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
@@ -296,17 +297,17 @@ class CatalogTest {
 
 	@Test
 	void testAddAllCollection() {
-		assertThrows(UnsupportedOperationException.class, () -> basicEntityCatalog("a").addAll(asList(wrongEntity)));
+		assertThrows(UnsupportedOperationException.class, () -> basicEntityCatalog("a").addAll(singletonList(wrongEntity)));
 	}
 
 	@Test
 	void testRemoveAll() {
-		assertThrows(UnsupportedOperationException.class, () -> basicEntityCatalog("a").removeAll(asList(wrongEntity)));
+		assertThrows(UnsupportedOperationException.class, () -> basicEntityCatalog("a").removeAll(singletonList(wrongEntity)));
 	}
 
 	@Test
 	void testRetainAll() {
-		assertThrows(UnsupportedOperationException.class, () -> basicEntityCatalog("a").retainAll(asList(wrongEntity)));
+		assertThrows(UnsupportedOperationException.class, () -> basicEntityCatalog("a").retainAll(singletonList(wrongEntity)));
 	}
 
 	@Value
