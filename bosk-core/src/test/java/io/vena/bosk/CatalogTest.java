@@ -37,26 +37,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class CatalogTest {
 
-	@Value
-	@NonFinal
-	@Accessors(fluent = true)
-	private static class BasicEntity implements Entity {
-		Identifier id;
-	}
-
-	@Value
-	@Accessors(fluent = true)
-	@EqualsAndHashCode(callSuper = true)
-	private static class ComplexEntity extends BasicEntity {
-		@EqualsAndHashCode.Include
-		String value;
-
-		ComplexEntity(Identifier id, String value) {
-			super(id);
-			this.value = value;
-		}
-	}
-
 	static class ArrayArgumentProvider implements ArgumentsProvider {
 		@Override
 		public Stream<? extends Arguments> provideArguments(ExtensionContext context) {
@@ -328,6 +308,26 @@ class CatalogTest {
 	@Test
 	void testRetainAll() {
 		assertThrows(UnsupportedOperationException.class, () -> basicEntityCatalog("a").retainAll(asList(wrongEntity)));
+	}
+
+	@Value
+	@NonFinal
+	@Accessors(fluent = true)
+	private static class BasicEntity implements Entity {
+		Identifier id;
+	}
+
+	@Value
+	@Accessors(fluent = true)
+	@EqualsAndHashCode(callSuper = true)
+	private static class ComplexEntity extends BasicEntity {
+		@EqualsAndHashCode.Include
+		String value;
+
+		ComplexEntity(Identifier id, String value) {
+			super(id);
+			this.value = value;
+		}
 	}
 
 }
