@@ -36,20 +36,21 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 
 class CatalogTest {
+	static final BasicEntity a = new BasicEntity(Identifier.unique("m"));
+	static final BasicEntity b = new BasicEntity(Identifier.from("\n"));
+	static final BasicEntity bNot = new BasicEntity(Identifier.from("\n"));
+	static final BasicEntity c = new BasicEntity(Identifier.unique(";͉̙̖̳͙ ̧̺̰͕̭̲ͅd̢͈̣̦ró̜͙̬̬͚̺͔p̡̟ ̠ị̯͕n̮̦̞͝ṱ̩̥e҉͖̻r̜͕̠̝̙͢n͈ ͖̩̹̫̜̪́s͘h҉̺a̲h̹͈̞̜̯̹i̻͕̱̣̯̘̳͝n̞͚͚̟̬̣-̷̭̤̗̼-̘̼̣͎̗͙̗"));
+	static final ComplexEntity x = new ComplexEntity(Identifier.unique("1"), "");
+	static final BasicEntity xNot = new BasicEntity(Identifier.unique("1"));
+	static final ComplexEntity y = new ComplexEntity(Identifier.unique("\n"), "bla");
+	static final Identifier mId = Identifier.unique("m");
+	static final ComplexEntity z = new ComplexEntity(mId, "goodValue");
+	static final ComplexEntity zNot = new ComplexEntity(mId, "badValue");
+	static final BasicEntity wrongEntity = new BasicEntity(Identifier.from("wrongEntity"));
 
 	static class ArrayArgumentProvider implements ArgumentsProvider {
 		@Override
 		public Stream<? extends Arguments> provideArguments(ExtensionContext context) {
-			BasicEntity a = new BasicEntity(Identifier.unique("m"));
-			BasicEntity b = new BasicEntity(Identifier.from("\n"));
-			BasicEntity bNot = new BasicEntity(Identifier.from("\n"));
-			BasicEntity c = new BasicEntity(Identifier.unique(";͉̙̖̳͙ ̧̺̰͕̭̲ͅd̢͈̣̦ró̜͙̬̬͚̺͔p̡̟ ̠ị̯͕n̮̦̞͝ṱ̩̥e҉͖̻r̜͕̠̝̙͢n͈ ͖̩̹̫̜̪́s͘h҉̺a̲h̹͈̞̜̯̹i̻͕̱̣̯̘̳͝n̞͚͚̟̬̣-̷̭̤̗̼-̘̼̣͎̗͙̗"));
-			ComplexEntity x = new ComplexEntity(Identifier.unique("1"), "");
-			BasicEntity xNot = new BasicEntity(Identifier.unique("1"));
-			ComplexEntity y = new ComplexEntity(Identifier.unique("\n"), "bla");
-			Identifier mId = Identifier.unique("m");
-			ComplexEntity z = new ComplexEntity(mId, "goodValue");
-			ComplexEntity zNot = new ComplexEntity(mId, "badValue");
 
 			return Stream.of(
 				Arguments.of(basicEntities(z, zNot, a, b, bNot, c, y,  x, xNot)),
@@ -65,8 +66,6 @@ class CatalogTest {
 			return  members;
 		}
 	}
-
-	final BasicEntity wrongEntity = new BasicEntity(Identifier.from("wrongEntity"));
 
 	Catalog<BasicEntity> fromContents(BasicEntity[] contents) {
 		Catalog<BasicEntity> result = Catalog.of();
