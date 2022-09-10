@@ -87,17 +87,9 @@ class CatalogTest {
 	}
 
 	@ParameterizedTest
-	@MethodSource("allCases")
-	void testOf(BasicEntity[] contents) {
+	@MethodSource("distinctCases")
+	void testOfDistinct(BasicEntity[] contents) {
 		List<BasicEntity> contentsList = asList(contents);
-
-		if (Stream.of(contents).distinct().count() < contentsList.size()) {
-			// There are dupes.  `of` will throw
-			assertThrows(IllegalArgumentException.class, () -> Catalog.of(contents));
-			assertThrows(IllegalArgumentException.class, () -> Catalog.of(contentsList));
-			assertThrows(IllegalArgumentException.class, () -> Catalog.of(Stream.of(contents)));
-			return;
-		}
 
 		assertEquals(
 			contentsList,
@@ -111,6 +103,16 @@ class CatalogTest {
 			contentsList,
 			Catalog.of(Stream.of(contents)).stream().collect(toList())
 		);
+	}
+
+	@ParameterizedTest
+	@MethodSource("dupCases")
+	void testOfWithDupes(BasicEntity[] contents) {
+		List<BasicEntity> contentsList = asList(contents);
+
+		assertThrows(IllegalArgumentException.class, () -> Catalog.of(contents));
+		assertThrows(IllegalArgumentException.class, () -> Catalog.of(contentsList));
+		assertThrows(IllegalArgumentException.class, () -> Catalog.of(Stream.of(contents)));
 	}
 
 	@ParameterizedTest
