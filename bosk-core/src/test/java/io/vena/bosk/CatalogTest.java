@@ -2,14 +2,13 @@ package io.vena.bosk;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Spliterator;
-import java.util.function.Function;
 import java.util.stream.Stream;
 import lombok.EqualsAndHashCode;
 import lombok.Value;
@@ -18,14 +17,11 @@ import lombok.experimental.NonFinal;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.ArgumentsSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import static java.util.Arrays.asList;
 import static java.util.Collections.singletonList;
 import static java.util.stream.Collectors.toList;
-import static java.util.stream.Collectors.toMap;
-import static java.util.stream.Collectors.toSet;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -182,14 +178,14 @@ class CatalogTest {
 	@MethodSource("allCases")
 	void iterator_matchesLinkedHashSet(BasicEntity[] contents) {
 		assertThrows(NoSuchElementException.class, () -> fromContents(new BasicEntity[0]).iterator().next());
-		Iterator<BasicEntity> goodIterator = linkedHashSetFromContents(contents).iterator();
-		Iterator<BasicEntity> catalogIterator = fromContents(contents).iterator();
+		Iterator<BasicEntity> expected = linkedHashSetFromContents(contents).iterator();
+		Iterator<BasicEntity> actual = fromContents(contents).iterator();
 
-		while (goodIterator.hasNext()) { //assert equality of iterators
-			assertTrue(catalogIterator.hasNext());
-			assertEquals(goodIterator.next(), catalogIterator.next());
+		while (expected.hasNext()) { //assert equality of iterators
+			assertTrue(actual.hasNext());
+			assertEquals(expected.next(), actual.next());
 		}
-		assertFalse(catalogIterator.hasNext());
+		assertFalse(actual.hasNext());
 	}
 
 	@ParameterizedTest
@@ -243,22 +239,31 @@ class CatalogTest {
 	void asCollection_matchesLinkedHashSet(BasicEntity[] contents) {
 		Catalog<BasicEntity> catalog = fromContents(contents);
 		Collection<BasicEntity> actual = catalog.asCollection();
-		LinkedHashSet<BasicEntity> linkedHashSet = linkedHashSetFromContents(contents);
-		assertEquals(asList(actual.toArray()), asList(linkedHashSet.toArray()));
+		Collection<BasicEntity> expected = linkedHashSetFromContents(contents);
+		assertEquals(new ArrayList<>(expected), new ArrayList<>(actual));
 	}
 
 	@ParameterizedTest
 	@MethodSource("allCases")
 	void asMap_preservesOrder(BasicEntity[] contents) {
 		Catalog<BasicEntity> catalog = fromContents(contents);
-		Map<Identifier,BasicEntity> asMap = catalog.asMap();
+		Map<Identifier, BasicEntity> actual = catalog.asMap();
+		Map<Identifier, BasicEntity> expected = new LinkedHashMap<>();
+		for (BasicEntity x: contents) {
+			// With dup IDs, use "put" so later dupes win
+			expected.put(x.id, x);
+		}
+		assertEquals(expected, actual);
 
-		assertEquals(asMap.keySet(), catalog.idStream().collect(toSet()));
-		assertEquals(new HashSet<>(asMap.values()), catalog.stream().collect(toSet()));
-		assertEquals(
-			catalog.stream().collect(toMap(BasicEntity::id, Function.identity())), // could use a more complicated fixed point combinator, but identity works fine
-			asMap
-		);
+		// Now force things into lists to check the order
+
+		List<Identifier> actualKeys = new ArrayList<>(actual.keySet());
+		List<Identifier> expectedKeys = Stream.of(contents).map(Entity::id).distinct().collect(toList());
+		assertEquals(expectedKeys, actualKeys);
+
+		List<BasicEntity> actualValues = new ArrayList<>(actual.values());
+		List<BasicEntity> expectedValues = new ArrayList<>(expected.values());
+		assertEquals(expectedValues, actualValues);
 	}
 
 	@Test
