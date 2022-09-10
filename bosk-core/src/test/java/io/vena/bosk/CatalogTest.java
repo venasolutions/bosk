@@ -88,7 +88,7 @@ class CatalogTest {
 
 	@ParameterizedTest
 	@MethodSource("distinctCases")
-	void testOfDistinct(BasicEntity[] contents) {
+	void ofDistinct_matchesList(BasicEntity[] contents) {
 		List<BasicEntity> contentsList = asList(contents);
 
 		assertEquals(
@@ -107,7 +107,7 @@ class CatalogTest {
 
 	@ParameterizedTest
 	@MethodSource("dupCases")
-	void testOfWithDupes(BasicEntity[] contents) {
+	void ofDupes_throws(BasicEntity[] contents) {
 		List<BasicEntity> contentsList = asList(contents);
 
 		assertThrows(IllegalArgumentException.class, () -> Catalog.of(contents));
@@ -117,21 +117,21 @@ class CatalogTest {
 
 	@ParameterizedTest
 	@MethodSource("allCases")
-	void testSize(BasicEntity[] contents) {
+	void size_matchesLinkedHashSet(BasicEntity[] contents) {
 		LinkedHashSet<BasicEntity> linkedHashSet = linkedHashSetFromContents(contents);
 		assertEquals(linkedHashSet.size(), fromContents(contents).size());
 	}
 
 	@ParameterizedTest
 	@MethodSource("allCases")
-	void testIsEmpty(BasicEntity[] contents) {
+	void isEmpty_matchesLinkedHashSet(BasicEntity[] contents) {
 		LinkedHashSet<BasicEntity> linkedHashSet = linkedHashSetFromContents(contents);
 		assertEquals(linkedHashSet.isEmpty(), fromContents(contents).isEmpty());
 	}
 
 	@ParameterizedTest
 	@MethodSource("allCases")
-	void testIDs(BasicEntity[] contents) {
+	void ids_matchesLinkedHashSet(BasicEntity[] contents) {
 		Catalog<BasicEntity> catalog = fromContents(contents);
 		List<Identifier> IDs = catalog.ids();
 		List<Identifier> expected = linkedHashSetFromContents(contents).stream().map(Entity::id).collect(toList());
@@ -140,7 +140,7 @@ class CatalogTest {
 
 	@ParameterizedTest
 	@MethodSource("allCases")
-	void testUnmodifiableIDs(BasicEntity[] contents) {
+	void ids_notModifiable(BasicEntity[] contents) {
 		Catalog<BasicEntity> catalog = fromContents(contents);
 		assertThrows(UnsupportedOperationException.class, () ->
 			catalog.ids().add(Identifier.unique("badID"))
@@ -149,7 +149,7 @@ class CatalogTest {
 
 	@ParameterizedTest
 	@MethodSource("allCases")
-	void testIDStream(BasicEntity[] contents) {
+	void idStream_matchesLinkedHashSet(BasicEntity[] contents) {
 		Catalog<BasicEntity> catalog = fromContents(contents);
 		LinkedHashSet<BasicEntity> linkedHashSet = new LinkedHashSet<>();
 
@@ -167,7 +167,7 @@ class CatalogTest {
 
 	@ParameterizedTest
 	@MethodSource("allCases")
-	void testGet(BasicEntity[] contents) {
+	void get_matchesLinkedHashSet(BasicEntity[] contents) {
 		LinkedHashSet<BasicEntity> linkedHashSet = linkedHashSetFromContents(contents);
 		Catalog<BasicEntity> actual = fromContents(contents);
 
@@ -180,7 +180,7 @@ class CatalogTest {
 
 	@ParameterizedTest
 	@MethodSource("allCases")
-	void testIterator(BasicEntity[] contents) {
+	void iterator_matchesLinkedHashSet(BasicEntity[] contents) {
 		assertThrows(NoSuchElementException.class, () -> fromContents(new BasicEntity[0]).iterator().next());
 		Iterator<BasicEntity> goodIterator = linkedHashSetFromContents(contents).iterator();
 		Iterator<BasicEntity> catalogIterator = fromContents(contents).iterator();
@@ -194,7 +194,7 @@ class CatalogTest {
 
 	@ParameterizedTest
 	@MethodSource("allCases")
-	void testSpliterator(BasicEntity[] contents) {
+	void spliterator_matchesLinkedHashSet(BasicEntity[] contents) {
 		Iterator<BasicEntity> expected = linkedHashSetFromContents(contents).iterator();
 		Spliterator<BasicEntity> actual = fromContents(contents).spliterator();
 		actual.forEachRemaining(e -> assertSame(expected.next(), e));
@@ -203,7 +203,7 @@ class CatalogTest {
 
 	@ParameterizedTest
 	@MethodSource("allCases")
-	void testWith(BasicEntity[] contents) {
+	void with(BasicEntity[] contents) {
 		Catalog<BasicEntity> catalog = fromContents(contents);
 		BasicEntity entityA = new BasicEntity(Identifier.from("a"));
 		BasicEntity entityB = new BasicEntity(Identifier.from("b"));
@@ -222,7 +222,7 @@ class CatalogTest {
 
 	@ParameterizedTest
 	@MethodSource("allCases")
-	void testWithAll(BasicEntity[] contents) {
+	void withAll(BasicEntity[] contents) {
 		Catalog<BasicEntity> catalog = fromContents(contents);
 
 		BasicEntity entityA = new BasicEntity(Identifier.from("a"));
@@ -240,7 +240,7 @@ class CatalogTest {
 
 	@ParameterizedTest
 	@MethodSource("allCases")
-	void testAsCollection(BasicEntity[] contents) {
+	void asCollection_matchesLinkedHashSet(BasicEntity[] contents) {
 		Catalog<BasicEntity> catalog = fromContents(contents);
 		Collection<BasicEntity> actual = catalog.asCollection();
 		LinkedHashSet<BasicEntity> linkedHashSet = linkedHashSetFromContents(contents);
@@ -249,7 +249,7 @@ class CatalogTest {
 
 	@ParameterizedTest
 	@MethodSource("allCases")
-	void testAsMap(BasicEntity[] contents) {
+	void asMap_preservesOrder(BasicEntity[] contents) {
 		Catalog<BasicEntity> catalog = fromContents(contents);
 		Map<Identifier,BasicEntity> asMap = catalog.asMap();
 
@@ -262,7 +262,7 @@ class CatalogTest {
 	}
 
 	@Test
-	void TestWithoutAndCheckOrder() {
+	void without_preservesOrder() {
 		BasicEntity[] contents = new BasicEntity[]{
 			new BasicEntity(Identifier.from("a")),
 			new BasicEntity(Identifier.from("b")),
@@ -289,27 +289,27 @@ class CatalogTest {
 	}
 
 	@Test
-	void testAdd() {
+	void add_throws() {
 		assertThrows(UnsupportedOperationException.class, () -> basicEntityCatalog("a").add(wrongEntity));
 	}
 
 	@Test
-	void testRemove() {
+	void remove_throws() {
 		assertThrows(UnsupportedOperationException.class, () -> basicEntityCatalog("a").remove(wrongEntity));
 	}
 
 	@Test
-	void testAddAllCollection() {
+	void addAllCollection_throws() {
 		assertThrows(UnsupportedOperationException.class, () -> basicEntityCatalog("a").addAll(singletonList(wrongEntity)));
 	}
 
 	@Test
-	void testRemoveAll() {
+	void removeAll_throws() {
 		assertThrows(UnsupportedOperationException.class, () -> basicEntityCatalog("a").removeAll(singletonList(wrongEntity)));
 	}
 
 	@Test
-	void testRetainAll() {
+	void retainAll_throws() {
 		assertThrows(UnsupportedOperationException.class, () -> basicEntityCatalog("a").retainAll(singletonList(wrongEntity)));
 	}
 
