@@ -289,33 +289,29 @@ class CatalogTest {
 		assertEquals(withoutM, withoutMById);
 	}
 
-	Collection<BasicEntity> basicEntityCatalog(String entityName) {
-		return Catalog.of(new BasicEntity(Identifier.from(entityName))).asCollection();
-	}
-
 	@Test
 	void add_throws() {
-		assertThrows(UnsupportedOperationException.class, () -> basicEntityCatalog("a").add(wrongEntity));
+		assertThrows(UnsupportedOperationException.class, () -> Catalog.empty().asCollection().add(wrongEntity));
 	}
 
 	@Test
 	void remove_throws() {
-		assertThrows(UnsupportedOperationException.class, () -> basicEntityCatalog("a").remove(wrongEntity));
+		assertThrows(UnsupportedOperationException.class, () -> Catalog.empty().asCollection().remove(wrongEntity));
 	}
 
 	@Test
 	void addAllCollection_throws() {
-		assertThrows(UnsupportedOperationException.class, () -> basicEntityCatalog("a").addAll(singletonList(wrongEntity)));
+		assertThrows(UnsupportedOperationException.class, () -> Catalog.empty().asCollection().addAll(singletonList(wrongEntity)));
 	}
 
 	@Test
 	void removeAll_throws() {
-		assertThrows(UnsupportedOperationException.class, () -> basicEntityCatalog("a").removeAll(singletonList(wrongEntity)));
+		assertThrows(UnsupportedOperationException.class, () -> Catalog.empty().asCollection().removeAll(singletonList(wrongEntity)));
 	}
 
 	@Test
 	void retainAll_throws() {
-		assertThrows(UnsupportedOperationException.class, () -> basicEntityCatalog("a").retainAll(singletonList(wrongEntity)));
+		assertThrows(UnsupportedOperationException.class, () -> Catalog.empty().asCollection().retainAll(singletonList(wrongEntity)));
 	}
 
 	@Value
