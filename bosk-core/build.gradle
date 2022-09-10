@@ -17,8 +17,8 @@ dependencies {
 pitest {
 	junit5PluginVersion = '0.15'
 	jvmArgs = ['-ea'] // Our unit tests check for assert statements
-	targetClasses = ['io.vena.bosk.Path*']  //by default "${project.group}.*"
-	targetTests   = ['io.vena.bosk.PathTest*']
+	targetClasses = ['io.vena.bosk.Catalog']  //by default "${project.group}.*"
+	targetTests   = ['io.vena.bosk.CatalogTest']
 	threads = 4
 	outputFormats = ['XML', 'HTML']
 	timestampedReports = false
