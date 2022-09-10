@@ -293,7 +293,7 @@ class CatalogTest {
 	void asCollection_mutationThrows() {
 		assertThrows(UnsupportedOperationException.class, () -> Catalog.empty().asCollection().add(wrongEntity));
 		assertThrows(UnsupportedOperationException.class, () -> Catalog.empty().asCollection().remove(wrongEntity));
-		assertThrows(UnsupportedOperationException.class, () -> Catalog.empty().asCollection().addAll(asList(wrongEntity)));
+		assertThrows(UnsupportedOperationException.class, () -> Catalog.empty().asCollection().addAll(asList(a, b)));
 		assertThrows(UnsupportedOperationException.class, () -> Catalog.empty().asCollection().removeAll(singletonList(wrongEntity)));
 		assertThrows(UnsupportedOperationException.class, () -> Catalog.empty().asCollection().retainAll(singletonList(wrongEntity)));
 	}
