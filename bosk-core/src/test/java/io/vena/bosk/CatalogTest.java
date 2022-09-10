@@ -46,15 +46,23 @@ class CatalogTest {
 	static final ComplexEntity zNot = new ComplexEntity(mId, "badValue");
 	static final BasicEntity wrongEntity = new BasicEntity(Identifier.from("wrongEntity"));
 
-	public static Stream<Arguments> allCases() {
+	public static Stream<Arguments> distinctCases() {
 		return Stream.of(
-			entities(z, zNot, a, b, bNot, c, y,  x, xNot),
 			entities(new ComplexEntity(Identifier.unique("1"), "")),
 			entities(new ComplexEntity(Identifier.unique("1"), "not empty str")),
 			entities(new BasicEntity(Identifier.unique("1"))),
 			entities(new BasicEntity(Identifier.unique("\n"))),
 			entities(new BasicEntity(Identifier.unique(";"))),
 			entities());
+	}
+
+	public static Stream<Arguments> dupCases() {
+		return Stream.of(
+			entities(z, zNot, a, b, bNot, c, y,  x, xNot));
+	}
+
+	public static Stream<Arguments> allCases() {
+		return Stream.concat(distinctCases(), dupCases());
 	}
 
 	private static Arguments entities(BasicEntity... members) {
