@@ -2,6 +2,7 @@ package io.vena.bosk;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
@@ -71,14 +72,13 @@ class CatalogTest {
 			ComplexEntity zNot = new ComplexEntity(mId, "badValue");
 
 			return Stream.of(
-				Arguments.of(basicEntities(z, zNot, a, b, bNot, c, y,  x, xNot), true),
-				Arguments.of(basicEntities(new ComplexEntity(Identifier.unique("1"), "")), false),
-				Arguments.of(basicEntities(new ComplexEntity(Identifier.unique("1"), "not empty str")), false),
-				Arguments.of(basicEntities(new BasicEntity(Identifier.unique("1"))),false),
-				Arguments.of(basicEntities(new BasicEntity(Identifier.unique("\n"))),false),
-				Arguments.of(basicEntities(new BasicEntity(Identifier.unique(";"))), false),
+				Arguments.of(basicEntities(z, zNot, a, b, bNot, c, y,  x, xNot)),
+				Arguments.of(basicEntities(new ComplexEntity(Identifier.unique("1"), ""))),
+				Arguments.of(basicEntities(new ComplexEntity(Identifier.unique("1"), "not empty str"))),
+				Arguments.of(basicEntities(new BasicEntity(Identifier.unique("1")))),
+				Arguments.of(basicEntities(new BasicEntity(Identifier.unique("\n")))),
+				Arguments.of(basicEntities(new BasicEntity(Identifier.unique(";")))),
 				Arguments.of(basicEntities(), false));
-
 		}
 
 		private Object basicEntities(BasicEntity... members) {
@@ -107,24 +107,27 @@ class CatalogTest {
 
 	@ParameterizedTest
 	@ArgumentsSource(ArrayArgumentProvider.class)
-	void testOf(BasicEntity[] contents, boolean contentHasDupe) {
-		if(contentHasDupe) {
+	void testOf(BasicEntity[] contents) {
+		List<BasicEntity> contentsList = asList(contents);
+
+		if (Stream.of(contents).distinct().count() < contentsList.size()) {
+			// There are dupes.  `of` will throw
 			assertThrows(IllegalArgumentException.class, () -> Catalog.of(contents));
-			assertThrows(IllegalArgumentException.class, () -> Catalog.of(asList(contents)));
+			assertThrows(IllegalArgumentException.class, () -> Catalog.of(contentsList));
 			assertThrows(IllegalArgumentException.class, () -> Catalog.of(Stream.of(contents)));
 			return;
 		}
 
 		assertEquals(
-			asList(contents),
+			contentsList,
 			Catalog.of(contents).stream().collect(toList())
 		);
 		assertEquals(
-			asList(contents),
-			Catalog.of(asList(contents)).stream().collect(toList())
+			contentsList,
+			Catalog.of(contentsList).stream().collect(toList())
 		);
 		assertEquals(
-			asList(contents),
+			contentsList,
 			Catalog.of(Stream.of(contents)).stream().collect(toList())
 		);
 	}
