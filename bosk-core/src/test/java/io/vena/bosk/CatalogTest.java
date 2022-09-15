@@ -1,5 +1,6 @@
 package io.vena.bosk;
 
+import io.vena.bosk.junit.PerformanceTest;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
@@ -9,6 +10,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Spliterator;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import lombok.EqualsAndHashCode;
 import lombok.Value;
@@ -19,6 +21,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import static io.vena.bosk.MicroBenchmark.callingMethodInfo;
 import static java.util.Arrays.asList;
 import static java.util.Collections.emptySet;
 import static java.util.Collections.singletonList;
@@ -338,6 +341,24 @@ class CatalogTest {
 		assertThrows(UnsupportedOperationException.class, () -> Catalog.empty().asCollection().removeAll(singletonList(wrongEntity)));
 		assertThrows(UnsupportedOperationException.class, () -> Catalog.empty().asCollection().retainAll(singletonList(wrongEntity)));
 	}
+
+	@PerformanceTest
+	void performanceTest_with() {
+		int initialSize = 100_000;
+		Catalog<BasicEntity> catalog = Catalog.of(IntStream.rangeClosed(1, initialSize).mapToObj(i ->
+			new BasicEntity(Identifier.from("Entity_" + i))));
+		BasicEntity newEntity = new BasicEntity(Identifier.from("New entity"));
+		new MicroBenchmark(callingMethodInfo()) {
+			@Override
+			protected void doIterations(long count) {
+				for (long i = 0; i < count; i++) {
+					escape = catalog.with(newEntity);
+				}
+			}
+		}.computeRate();
+	}
+
+	public static Object escape;
 
 	@Value
 	@NonFinal
