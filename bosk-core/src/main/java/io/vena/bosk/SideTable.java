@@ -116,7 +116,12 @@ public final class SideTable<K extends Entity, V> implements EnumerableByIdentif
 
 	public static <KK extends Entity,VV> SideTable<KK,VV> fromFunction(Reference<Catalog<KK>> domain, Stream<Identifier> keyIDs, Function<Identifier, VV> function) {
 		LinkedHashMap<Identifier,VV> map = new LinkedHashMap<>();
-		keyIDs.forEachOrdered(id -> map.put(id, function.apply(id)));
+		keyIDs.forEachOrdered(id -> {
+			VV existing = map.put(id, function.apply(id));
+			if (existing != null) {
+				throw new IllegalArgumentException("Multiple entries with id \"" + id + "\"");
+			}
+		});
 		return new SideTable<>(CatalogReference.from(domain), unmodifiableMap(map));
 	}
 
