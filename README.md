@@ -27,6 +27,18 @@ like `bosk-gson` for JSON serialization
 or `bosk-mongo` for persistence and replication.
 Use the same version number for all packages.
 
+### Compiler flags
+
+Ensure `javac` is supplied the `-parameters` flag.
+
+For the classes you use to describe your Bosk state, the "system of record" for your objects' structure is their constructors. For example, you might define a class with a constructor like this:
+
+```
+public Member(Identifier id, String name, String alias) {...}
+```
+
+Based on this, Bosk now knows the names and types of all the "properties" of your object. For this to work smoothly, the parameter names must be present in the compiled bytecode.
+
 ## Development
 
 ### Code Structure
