@@ -12,7 +12,6 @@ import io.vena.bosk.exceptions.NotYetImplementedException;
 import io.vena.bosk.exceptions.ReferenceBindingException;
 import io.vena.bosk.util.Classes;
 import java.io.IOException;
-import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Deque;
@@ -41,40 +40,34 @@ import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 
 /**
- * A mutable container for an immutable object tree with cross-tree {@link
- * Reference}s, providing snapshot-at-start semantics via {@link ReadContext}, and
- * managing updates via {@link BoskDriver}.
+ * A mutable container for an immutable object tree with cross-tree {@link Reference}s,
+ * providing snapshot-at-start semantics via {@link ReadContext},
+ * managing updates via {@link BoskDriver},
+ * and notifying listeners of changes via {@link #registerHook}.
  *
  * <p>
  * The intent is that there would be one of these injected into your
- * application using something like Guice or Spring beans, and that you
- * manage your application's state this way using something like Martin
- * Fowler's Memory Image pattern, implementing a {@link
- * BoskDriver} that keeps the memory image up-to-date.
+ * application using something like Guice or Spring beans,
+ * managing state in a way that abstracts the differences between
+ * a standalone server and a replica set.
+ * Typically, you make a subclass that supplies the {@link R} parameter
+ * and provides a variety of handy pre-built {@link Reference}s.
+ *
+ * <p>
+ * Reads are performed by calling {@link Reference#value()} in the context of
+ * a {@link ReadContext}, which provides an immutable snapshot of the bosk
+ * state to the thread.
+ * This object acts as a factory for {@link Reference} objects that
+ * traverse the object trees by walking their fields (actually getter methods)
+ * according to their {@link Reference#path}.
  *
  * <p>
  * Updates are performed by submitting an update via {@link
  * BoskDriver#submitReplacement(Reference, Object)} and similar,
- * rather than by modifying the in-memory state directly.  The driver
- * will apply the changes immediately or at a later time.  A special
- * "loopback" driver can be used for local development, applying
- * the changes in memory; or another driver could go through MongoDB
- * or similar to manage the document across multiple servers.
- *
- * <p>
- * Reads are performed by calling {@link Reference#value()} in the context of
- * a {@link ReadContext}.
- *
- * <p>
- * This class acts as a factory for {@link Reference} objects which can be used inside a
- * {@link ReadContext} to traverse the object trees by walking their fields
- * (actually getter methods) via a {@link Path}.
- *
- * <p>
- * This class makes heavy use of {@link Type}.  The
- * expectation is that these will be instances of {@link ParameterizedType}
- * unless the type in question is a non-generic class, in which case these will
- * be instances of {@link Class}.
+ * rather than by modifying the in-memory state directly.
+ * The driver will apply the changes either immediately or at a later time.
+ * Regardless, updates will not be visible in any {@link ReadContext}
+ * created before the update occurred.
  *
  * @author pdoyle
  *
@@ -96,16 +89,14 @@ public class Bosk<R extends Entity> {
 
 	/**
 	 * @param name Any string that identifies this object.
-	 * @param rootType The @{link Type} of the root object.
+	 * @param rootType The @{link Type} of the root node of the state tree, whose {@link Reference#path path} is <code>"/"</code>.
 	 * @param defaultRootFunction The root object to use if the driver chooses not to supply one,
 	 *    and instead delegates {@link BoskDriver#initialRoot} all the way to the local driver.
 	 *    Note that this function may or may not be called, so don't use it as a means to initialize
 	 *    other state.
 	 * @param driverFactory Will be applied to this Bosk's local driver during
 	 * the Bosk's constructor, and the resulting {@link BoskDriver} will be the
-	 * one to which updates will be submitted by {@link
-	 * BoskDriver#submitReplacement(Reference, Object)} and {@link
-	 * BoskDriver#submitDeletion(Reference)}.
+	 * one returned by {@link #driver()}.
 	 *
 	 * @see DriverStack
 	 */
@@ -144,7 +135,7 @@ public class Bosk<R extends Entity> {
 
 	/**
 	 * You can use <code>Bosk::simpleDriver</code> as the
-	 * <code>driverFactory</code> if you don't want any additional driver modules.
+	 * <code>driverFactory</code> if you don't want any additional driver functionality.
 	 */
 	public static <RR extends Entity> BoskDriver<RR> simpleDriver(@SuppressWarnings("unused") Bosk<RR> bosk, BoskDriver<RR> downstream) {
 		return downstream;
@@ -157,19 +148,23 @@ public class Bosk<R extends Entity> {
 	 * Acts as the gatekeeper for state changes. This object is what provides thread safety.
 	 *
 	 * <p>
-	 * Provides three guarantees:
+	 * When it comes to hooks, this provides three guarantees:
 	 *
 	 * <ol><li>
 	 * All updates submitted to this driver are applied to the Bosk state in order.
 	 * </li><li>
-	 * Updates are acknowledged synchronously: errors that make an update inapplicable
-	 * are detected at submission time (eg. containing object doesn't exist).
+	 * Hooks are run sequentially: no hook begins until the previous one finishes.
 	 * </li><li>
-	 * Hooks are run serially: no hook begins until the previous one finishes.
+	 * Hooks are run in breadth-first fashion.
 	 * </li></ol>
 	 *
 	 * Satisfying all of these simultaneously is tricky, especially because we can't just put
-	 * "synchronized" on the submit methods because that could cause deadlock.
+	 * "synchronized" on the submit methods because that could cause deadlock. We also don't
+	 * want to require a background thread for hook processing, partly on principle: if our
+	 * execution model is so complex that it requires a background thread just to make updates
+	 * to objects in memory, it feels like we've taken a step in the wrong direction.
+	 *
+	 * @see #drainQueueIfAllowed() for algorithm details
 	 *
 	 * @author pdoyle
 	 */
@@ -182,7 +177,7 @@ public class Bosk<R extends Entity> {
 
 		@Override
 		public R initialRoot(Type rootType) throws InvalidTypeException {
-			R initialRoot = computeInitialRoot();
+			R initialRoot = initialRootFunction.apply(Bosk.this);
 			rawClass(rootType).cast(initialRoot);
 			return initialRoot;
 		}
@@ -271,10 +266,6 @@ public class Bosk<R extends Entity> {
 			drainQueueIfAllowed();
 		}
 
-		private R computeInitialRoot() throws InvalidTypeException {
-			return initialRootFunction.apply(Bosk.this);
-		}
-
 		/**
 		 * Run the given hook on every existing object that matches its scope.
 		 */
@@ -349,14 +340,10 @@ public class Bosk<R extends Entity> {
 				hookExecutionQueue.addLast(() -> {
 					try (@SuppressWarnings("unused") ReadContext executionContext = new ReadContext(rootForHook)) {
 						LOGGER.debug("Hook: RUN {}", changedRef);
-						runHook(reg, changedRef);
+						reg.hook.onChanged(changedRef);
 					}
 				});
 			});
-		}
-
-		private <S> void runHook(HookRegistration<S> reg, Reference<S> changedRef) {
-			reg.hook.onChanged(changedRef);
 		}
 
 		/**
@@ -444,10 +431,28 @@ public class Bosk<R extends Entity> {
 
 	/**
 	 * Causes the given {@link BoskHook} to be called when the given scope
-	 * object is updated. Hooks are called in the order they were registered.
+	 * object is updated.
 	 *
 	 * <p>
-	 * Before returning, runs the hook on the current state.
+	 * The <code>scope</code> reference can be parameterized.
+	 * Upon any change to any matching node, or any parent or child of a matching node,
+	 * the <code>action</code> will be called with a {@link ReadContext} that captures
+	 * the state immediately after the update was applied.
+	 * The <code>action</code> will receive an argument that is the <code>scope</code> reference
+	 * with all its parameters (if any) bound.
+	 *
+	 * <p>
+	 * For a given update, hooks are called in the order they were registered.
+	 * Updates performed by the <code>action</code> could themselves trigger hooks.
+	 * Such "hook cascades" are performed in breadth-first order, and are queued
+	 * as necessary to achieve this; hooks are <em>not</em> called recursively.
+	 * Hooks may be called on any thread, including one of the threads that
+	 * submitted one of the updates, but they will be called in sequence, such
+	 * that each <em>happens-before</em> the next.
+	 *
+	 * <p>
+	 * Before returning, runs the hook on the current bosk state.
+	 *
 	 */
 	public <T> void registerHook(String name, @NonNull Reference<T> scope, @NonNull BoskHook<T> action) {
 		HookRegistration<T> reg = new HookRegistration<>(name, requireNonNull(scope), requireNonNull(action));
@@ -474,6 +479,7 @@ public class Bosk<R extends Entity> {
 			Reference<S> effectiveScope;
 			int relativeDepth = target.path().length() - scope.path().length();
 			if (relativeDepth >= 0) {
+				// target may be the scope object or a descendant
 				Path candidate = target.path().truncatedBy(relativeDepth);
 				if (scope.path().matches(candidate)) {
 					effectiveScope = scope.boundBy(candidate);
@@ -481,6 +487,7 @@ public class Bosk<R extends Entity> {
 					return;
 				}
 			} else {
+				// target may be an ancestor of the scope object
 				Path enclosingScope = scope.path().truncatedBy(-relativeDepth);
 				if (enclosingScope.matches(target.path())) {
 					effectiveScope = scope.boundBy(target.path());
@@ -495,6 +502,8 @@ public class Bosk<R extends Entity> {
 	/**
 	 * Recursive helper routine that calls the given action for all objects matching <code>effectiveScope</code> that
 	 * are different between <code>priorRoot</code> and <code>newRoot</code>.
+	 * Each level of recursion fills in one parameter in <code>effectiveScope</code>;
+	 * for the base case, this calls <code>action</code> unless the prior and current values are the same object.
 	 *
 	 * @param effectiveScope The hook scope with zero or more of its parameters filled in
 	 * @param priorRoot The root before the change that triggered the hook; or null during initialization when running
@@ -506,6 +515,8 @@ public class Bosk<R extends Entity> {
 	 */
 	private <S> void triggerCascade(Reference<S> effectiveScope, @Nullable R priorRoot, R newRoot, Consumer<Reference<S>> action) {
 		if (effectiveScope.path().numParameters() == 0) {
+			// effectiveScope points at a single node that may have changed
+			//
 			S priorValue = refValueIfExists(effectiveScope, priorRoot);
 			S currentValue = refValueIfExists(effectiveScope, newRoot);
 			if (priorValue == currentValue) { // Note object identity comparison
@@ -526,8 +537,10 @@ public class Bosk<R extends Entity> {
 				EnumerableByIdentifier<?> priorContainer = refValueIfExists(containerRef, priorRoot);
 				EnumerableByIdentifier<?> newContainer = refValueIfExists(containerRef, newRoot);
 
-				// Process deleted items first. This might allow the hook to free some resources
-				// that could be used by subsequent hooks.
+				// TODO: If priorContainer == newContainer, can we stop immediately?
+
+				// Process any deleted items first. This can allow the hook to free some memory
+				// that can be used by subsequent hooks.
 				// We do them in reverse order just because that's likely to be the preferred
 				// order for cleanup activities.
 				//
@@ -908,7 +921,7 @@ try (ReadContext originalThReadContext = bosk.new ReadContext()) {
 
 	/**
 	 * An {@link Optional#empty()}, or missing {@link Catalog} or
-	 * {@link SideTable} entry, was encountered by a Locator when walking along
+	 * {@link SideTable} entry, was encountered when walking along
 	 * object fields, indicating that the desired item is absent.
 	 *
 	 * <p>
