@@ -5,7 +5,6 @@ import io.vena.bosk.ReferenceUtils.ListingRef;
 import io.vena.bosk.ReferenceUtils.SideTableRef;
 import io.vena.bosk.dereferencers.Dereferencer;
 import io.vena.bosk.dereferencers.PathCompiler;
-import io.vena.bosk.exceptions.AccessorThrewException;
 import io.vena.bosk.exceptions.InvalidTypeException;
 import io.vena.bosk.exceptions.NoReadContextException;
 import io.vena.bosk.exceptions.NotYetImplementedException;
@@ -286,8 +285,6 @@ public class Bosk<R extends Entity> {
 				LOGGER.debug("Applying replacement at {}", target);
 				currentRoot = (R) requireNonNull(dereferencer.with(currentRoot, target, requireNonNull(newValue)));
 				return true;
-			} catch (AccessorThrewException e) {
-				throw new AccessorThrewException("Unable to submitReplacement(\"" + target + "\", " + newValue + ")", e);
 			} catch (NonexistentEntryException e) {
 				LOGGER.debug("Ignoring replacement of {}", target, e);
 				return false;
@@ -308,8 +305,6 @@ public class Bosk<R extends Entity> {
 				LOGGER.debug("Applying deletion at {}", target);
 				currentRoot = (R)requireNonNull(dereferencer.without(currentRoot, target));
 				return true;
-			} catch (AccessorThrewException e) {
-				throw new AccessorThrewException("Unable to submitDeletion(\"" + target + "\")", e);
 			} catch (NonexistentEntryException e) {
 				LOGGER.debug("Ignoring deletion of {}", target, e);
 				return false;
