@@ -1,10 +1,8 @@
 package io.vena.bosk;
 
-import io.vena.bosk.Bosk.ReadContext;
 import io.vena.bosk.exceptions.InvalidTypeException;
 import io.vena.bosk.exceptions.NonexistentReferenceException;
 import io.vena.bosk.util.Classes;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -25,6 +23,7 @@ import lombok.experimental.Accessors;
 import lombok.experimental.Delegate;
 import lombok.experimental.FieldDefaults;
 import lombok.experimental.FieldNameConstants;
+import lombok.val;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -48,16 +47,13 @@ import static org.junit.jupiter.api.Assertions.fail;
  * <p>
  * Note that {@link BoskDriver} does not, in general, preserve the actual Java
  * objects supplied; it can replace them with equivalent objects, having all the
- * same fields with equivalent values.  So the tests in here are not useful
- * tests of {@link BoskDriver} in general.  We should probably modify these
- * tests so that they use assertEquals instead of assertSame; then they should
- * pass for any driver, and we could use {@link AbstractRoundTripTest} and
- * similar to apply these tests to all kinds of drivers.
+ * same fields with equivalent values. So the tests in here are not useful
+ * tests of {@link BoskDriver} in general.
  *
  * @author Patrick Doyle
  *
  */
-class BoskTest {
+class BoskLocalReferenceTest {
 	Bosk<Root> bosk;
 	Root root;
 	CatalogReference<TestEntity> entitiesRef;
@@ -159,7 +155,7 @@ class BoskTest {
 				// Check references to the Listing contents
 				Listing<TestEntity> listing;
 				Map<Identifier, TestEntity> entries;
-				try (ReadContext context = bosk.readContext()) {
+				try (val __ = bosk.readContext()) {
 					listing = listingRef.value();
 					entries = listing.valueMap();
 				}
@@ -202,7 +198,7 @@ class BoskTest {
 				} catch (AssertionError e) {
 					throw new AssertionError("Failed checkRefence on id " + id + ", sideTableRef " + sideTableRef);
 				}
-				try (ReadContext context = bosk.readContext()) {
+				try (val __ = bosk.readContext()) {
 					for (Entry<Identifier, String> entry: sideTable.idEntrySet()) {
 						Identifier key = entry.getKey();
 						Reference<String> entryRef = sideTableRef.then(key);
@@ -298,7 +294,7 @@ class BoskTest {
 		assertEquals(expectedPath.urlEncoded(), ref.pathString());
 
 		assertThrows(IllegalStateException.class, ref::value, "Can't read before ReadContext");
-		try (ReadContext context = bosk.readContext()) {
+		try (val __ = bosk.readContext()) {
 			T actualValue = ref.valueIfExists();
 			assertSame(expectedValue, actualValue);
 
@@ -330,7 +326,7 @@ class BoskTest {
 		assertEquals(expectedPath.then(TestEntity.Fields.listing), ref.then(Listing.class, TestEntity.Fields.listing).path());
 		assertEquals(expectedPath.then(TestEntity.Fields.sideTable), ref.then(SideTable.class, TestEntity.Fields.sideTable).path());
 
-		try (ReadContext context = bosk.readContext()) {
+		try (val __ = bosk.readContext()) {
 			if (expectedValue == null) {
 				assertEquals(null, ref.then(Catalog.class, TestEntity.Fields.catalog).valueIfExists());
 				assertEquals(null, ref.then(Listing.class, TestEntity.Fields.listing).valueIfExists());
@@ -347,20 +343,20 @@ class BoskTest {
 		Root originalRoot;
 		T firstValue;
 		assertThrows(IllegalStateException.class, ref::value, "Can't read from Bosk before ReadContext");
-		try (ReadContext context = bosk.readContext()) {
+		try (val __ = bosk.readContext()) {
 			originalRoot = bosk.rootReference().value();
 			firstValue = ref.value();
 		}
 		assertThrows(IllegalStateException.class, ref::value, "Can't read from Bosk between ReadContexts");
 
 		T secondValue = updater.apply(firstValue);
-		try (ReadContext context = bosk.readContext()) {
+		try (val __ = bosk.readContext()) {
 			assertSame(firstValue, ref.value(), "New ReadContext sees same value as before");
 			bosk.driver().submitReplacement(ref, secondValue);
 			assertSame(firstValue, ref.value(), "Bosk updates not visible during the same ReadContext");
 		}
 
-		try (ReadContext context = bosk.readContext()) {
+		try (val context = bosk.readContext()) {
 			assertSame(secondValue, ref.value(), "New value is visible in next ReadContext");
 			bosk.driver().submitReplacement(ref, firstValue);
 			assertSame(secondValue, ref.value(), "Bosk updates still not visible during the same ReadContext");
@@ -375,13 +371,13 @@ class BoskTest {
 					fail("Unexpected exception: ", e);
 				}
 				assertNotNull(caught, "New thread should not have any scope by default, so an exception should be thrown");
-				try (ReadContext unrelatedContext = bosk.readContext()) {
+				try (val unrelatedContext = bosk.readContext()) {
 					assertSame(firstValue, ref.value(), "Separate thread should see the latest state");
 				}
-				try (ReadContext inheritedContext = context.adopt()) {
+				try (val inheritedContext = context.adopt()) {
 					assertSame(secondValue, ref.value(), "Inherited scope should see the same state");
 
-					try (ReadContext reinheritedContext = inheritedContext.adopt()) {
+					try (val reinheritedContext = inheritedContext.adopt()) {
 						// Harmless to re-assert a scope you're already in
 						assertSame(secondValue, ref.value(), "Inner scope should see the same state");
 					}
@@ -390,7 +386,7 @@ class BoskTest {
 			future.get();
 		}
 
-		try (ReadContext context = bosk.readContext()) {
+		try (val __ = bosk.readContext()) {
 			assertSame(firstValue, ref.value(), "Referenced item is restored to its original state");
 		}
 
@@ -402,13 +398,13 @@ class BoskTest {
 
 	private <T> void checkDeletion(Reference<T> ref, T expectedValue) {
 		Root originalRoot;
-		try (ReadContext context = bosk.readContext()) {
+		try (val __ = bosk.readContext()) {
 			originalRoot = bosk.rootReference().value();
 			assertSame(expectedValue, ref.valueIfExists(), "Value is present before deletion");
 			bosk.driver().submitDeletion(ref);
 			assertSame(expectedValue, ref.valueIfExists(), "Bosk deletions not visible during the same ReadContext");
 		}
-		try (ReadContext context = bosk.readContext()) {
+		try (val __ = bosk.readContext()) {
 			assertThrows(NonexistentReferenceException.class, ref::value);
 			if (expectedValue != null) {
 				bosk.driver().submitReplacement(ref, expectedValue);
@@ -422,7 +418,7 @@ class BoskTest {
 	private static final UnaryOperator<TestEntity> ENTITY_UPDATER = e -> e.withVersion(1 + e.version());
 
 	private Reference<TestEntity> refUpdater(Reference<TestEntity> ref) {
-		List<String> pathSegments = new ArrayList<>(ref.path().segmentStream().collect(toList()));
+		List<String> pathSegments = ref.path().segmentStream().collect(toList());
 		pathSegments.set(1, "REPLACED_ID"); // second segment is the entity ID
 		try {
 			return bosk.reference(ref.targetClass(), Path.of(pathSegments));
