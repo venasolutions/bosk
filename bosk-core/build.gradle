@@ -2,7 +2,7 @@
 plugins {
 	id 'bosk.development'
 	id 'bosk.maven-publish'
-	id 'info.solidsoft.pitest' version '1.6.0'
+	id 'info.solidsoft.pitest' version '1.7.4'
 	id 'com.github.spotbugs' version '5.0.9'
 	id 'com.diffplug.gradle.spotless' version '3.25.0'
 }
@@ -17,9 +17,11 @@ dependencies {
 pitest {
 	junit5PluginVersion = '0.15'
 	jvmArgs = ['-ea'] // Our unit tests check for assert statements
-	targetClasses = ['io.vena.bosk.SideTable']  //by default "${project.group}.*"
-	targetTests   = ['io.vena.bosk.SideTableTest']
+	targetClasses = ['io.vena.bosk.Bosk*']  //by default "${project.group}.*"
+	targetTests   = ['io.vena.bosk.*']
+	//targetTests   = ['io.vena.bosk.OldBoskTest', 'io.vena.bosk.BoskTest', 'io.vena.bosk.BoskConstructorTest', 'io.vena.bosk.HooksTest', 'io.vena.bosk.ReferenceTest']
 	threads = 4
 	outputFormats = ['XML', 'HTML']
 	timestampedReports = false
+	//verbose = true
 }
