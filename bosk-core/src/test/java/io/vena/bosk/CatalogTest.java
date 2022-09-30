@@ -1,31 +1,31 @@
 package io.vena.bosk;
 
+import io.vena.bosk.junit.PerformanceTest;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Spliterator;
-import java.util.function.Function;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import lombok.EqualsAndHashCode;
 import lombok.Value;
 import lombok.experimental.Accessors;
 import lombok.experimental.NonFinal;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.ArgumentsProvider;
-import org.junit.jupiter.params.provider.ArgumentsSource;
+import org.junit.jupiter.params.provider.MethodSource;
 
+import static io.vena.bosk.MicroBenchmark.callingMethodInfo;
 import static java.util.Arrays.asList;
+import static java.util.Collections.emptySet;
+import static java.util.Collections.singletonList;
 import static java.util.stream.Collectors.toList;
-import static java.util.stream.Collectors.toMap;
-import static java.util.stream.Collectors.toSet;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -33,62 +33,41 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-
 class CatalogTest {
+	static final BasicEntity a = new BasicEntity(Identifier.unique("m"));
+	static final BasicEntity b = new BasicEntity(Identifier.from("\n"));
+	static final BasicEntity bNot = new BasicEntity(Identifier.from("\n"));
+	static final BasicEntity c = new BasicEntity(Identifier.unique(";͉̙̖̳͙ ̧̺̰͕̭̲ͅd̢͈̣̦ró̜͙̬̬͚̺͔p̡̟ ̠ị̯͕n̮̦̞͝ṱ̩̥e҉͖̻r̜͕̠̝̙͢n͈ ͖̩̹̫̜̪́s͘h҉̺a̲h̹͈̞̜̯̹i̻͕̱̣̯̘̳͝n̞͚͚̟̬̣-̷̭̤̗̼-̘̼̣͎̗͙̗"));
+	static final ComplexEntity x = new ComplexEntity(Identifier.unique("1"), "");
+	static final BasicEntity xNot = new BasicEntity(Identifier.unique("1"));
+	static final ComplexEntity y = new ComplexEntity(Identifier.unique("\n"), "bla");
+	static final Identifier mId = Identifier.unique("m");
+	static final ComplexEntity z = new ComplexEntity(mId, "goodValue");
+	static final ComplexEntity zNot = new ComplexEntity(mId, "badValue");
+	static final BasicEntity wrongEntity = new BasicEntity(Identifier.from("wrongEntity"));
 
-	@Value
-	@NonFinal
-	@Accessors(fluent = true)
-	private static class BasicEntity implements Entity {
-		Identifier id;
-	}
-
-	@Value
-	@Accessors(fluent = true)
-	@EqualsAndHashCode(callSuper = true)
-	private static class ComplexEntity extends BasicEntity {
-		@EqualsAndHashCode.Include
-		String value;
-
-		ComplexEntity(Identifier id, String value) {
-			super(id);
-			this.value = value;
-		}
-	}
-
-	static class ArrayArgumentProvider implements ArgumentsProvider {
-	@Override
-	public Stream<? extends Arguments> provideArguments(ExtensionContext context) {
-		BasicEntity a = new BasicEntity(Identifier.unique("m"));
-		BasicEntity b = new BasicEntity(Identifier.from("\n"));
-		BasicEntity bNot = new BasicEntity(Identifier.from("\n"));
-		BasicEntity c = new BasicEntity(Identifier.unique(";͉̙̖̳͙ ̧̺̰͕̭̲ͅd̢͈̣̦ró̜͙̬̬͚̺͔p̡̟ ̠ị̯͕n̮̦̞͝ṱ̩̥e҉͖̻r̜͕̠̝̙͢n͈ ͖̩̹̫̜̪́s͘h҉̺a̲h̹͈̞̜̯̹i̻͕̱̣̯̘̳͝n̞͚͚̟̬̣-̷̭̤̗̼-̘̼̣͎̗͙̗"));
-		ComplexEntity x = new ComplexEntity(Identifier.unique("1"), "");
-		BasicEntity xNot = new BasicEntity(Identifier.unique("1"));
-		ComplexEntity y = new ComplexEntity(Identifier.unique("\n"), "bla");
-		Identifier mId = Identifier.unique("m");
-		ComplexEntity z = new ComplexEntity(mId, "goodValue");
-		ComplexEntity zNot = new ComplexEntity(mId, "badValue");
-
-
-
+	public static Stream<Arguments> distinctCases() {
 		return Stream.of(
-				Arguments.of(basicEntities(z, zNot, a, b, bNot, c, y,  x, xNot), true),
-				Arguments.of(basicEntities(new ComplexEntity(Identifier.unique("1"), "")), false),
-				Arguments.of(basicEntities(new ComplexEntity(Identifier.unique("1"), "not empty str")), false),
-				Arguments.of(basicEntities(new BasicEntity(Identifier.unique("1"))),false),
-				Arguments.of(basicEntities(new BasicEntity(Identifier.unique("\n"))),false),
-				Arguments.of(basicEntities(new BasicEntity(Identifier.unique(";"))), false),
-				Arguments.of(basicEntities(), false));
-
+			entities(new ComplexEntity(Identifier.unique("1"), "")),
+			entities(new ComplexEntity(Identifier.unique("1"), "not empty str")),
+			entities(new BasicEntity(Identifier.unique("1"))),
+			entities(new BasicEntity(Identifier.unique("\n"))),
+			entities(new BasicEntity(Identifier.unique(";"))),
+			entities());
 	}
 
-	private Object basicEntities(BasicEntity... members) {
-		return  members;
-		}
+	public static Stream<Arguments> dupCases() {
+		return Stream.of(
+			entities(z, zNot, a, b, bNot, c, y,  x, xNot));
 	}
 
-	final BasicEntity wrongEntity = new BasicEntity(Identifier.from("wrongEntity"));
+	public static Stream<Arguments> allCases() {
+		return Stream.concat(distinctCases(), dupCases());
+	}
+
+	private static Arguments entities(BasicEntity... members) {
+		return Arguments.of((Object)members);
+	}
 
 	Catalog<BasicEntity> fromContents(BasicEntity[] contents) {
 		Catalog<BasicEntity> result = Catalog.of();
@@ -108,46 +87,51 @@ class CatalogTest {
 	}
 
 	@ParameterizedTest
-	@ArgumentsSource(ArrayArgumentProvider.class)
-	void testOf(BasicEntity[] contents, boolean contentHasDupe) {
-		if(contentHasDupe) {
-			assertThrows(IllegalArgumentException.class, () -> Catalog.of(contents));
-			assertThrows(IllegalArgumentException.class, () -> Catalog.of(asList(contents)));
-			assertThrows(IllegalArgumentException.class, () -> Catalog.of(Stream.of(contents)));
-			return;
-		}
+	@MethodSource("distinctCases")
+	void ofDistinct_matchesList(BasicEntity[] contents) {
+		List<BasicEntity> contentsList = asList(contents);
 
 		assertEquals(
-				asList(contents),
-				Catalog.of(contents).stream().collect(toList())
+			contentsList,
+			Catalog.of(contents).stream().collect(toList())
 		);
 		assertEquals(
-				asList(contents),
-				Catalog.of(asList(contents)).stream().collect(toList())
+			contentsList,
+			Catalog.of(contentsList).stream().collect(toList())
 		);
 		assertEquals(
-				asList(contents),
-				Catalog.of(Stream.of(contents)).stream().collect(toList())
+			contentsList,
+			Catalog.of(Stream.of(contents)).stream().collect(toList())
 		);
 	}
 
 	@ParameterizedTest
-	@ArgumentsSource(ArrayArgumentProvider.class)
-	void testSize(BasicEntity[] contents) {
+	@MethodSource("dupCases")
+	void ofDupes_throws(BasicEntity[] contents) {
+		List<BasicEntity> contentsList = asList(contents);
+
+		assertThrows(IllegalArgumentException.class, () -> Catalog.of(contents));
+		assertThrows(IllegalArgumentException.class, () -> Catalog.of(contentsList));
+		assertThrows(IllegalArgumentException.class, () -> Catalog.of(Stream.of(contents)));
+	}
+
+	@ParameterizedTest
+	@MethodSource("allCases")
+	void size_matchesLinkedHashSet(BasicEntity[] contents) {
 		LinkedHashSet<BasicEntity> linkedHashSet = linkedHashSetFromContents(contents);
 		assertEquals(linkedHashSet.size(), fromContents(contents).size());
 	}
 
 	@ParameterizedTest
-	@ArgumentsSource(ArrayArgumentProvider.class)
-	void testIsEmpty(BasicEntity[] contents) {
+	@MethodSource("allCases")
+	void isEmpty_matchesLinkedHashSet(BasicEntity[] contents) {
 		LinkedHashSet<BasicEntity> linkedHashSet = linkedHashSetFromContents(contents);
 		assertEquals(linkedHashSet.isEmpty(), fromContents(contents).isEmpty());
 	}
 
 	@ParameterizedTest
-	@ArgumentsSource(ArrayArgumentProvider.class)
-	void testIDs(BasicEntity[] contents) {
+	@MethodSource("allCases")
+	void ids_matchesLinkedHashSet(BasicEntity[] contents) {
 		Catalog<BasicEntity> catalog = fromContents(contents);
 		List<Identifier> IDs = catalog.ids();
 		List<Identifier> expected = linkedHashSetFromContents(contents).stream().map(Entity::id).collect(toList());
@@ -155,17 +139,17 @@ class CatalogTest {
 	}
 
 	@ParameterizedTest
-	@ArgumentsSource(ArrayArgumentProvider.class)
-	void testUnmodifiableIDs(BasicEntity[] contents) {
+	@MethodSource("allCases")
+	void ids_notModifiable(BasicEntity[] contents) {
 		Catalog<BasicEntity> catalog = fromContents(contents);
 		assertThrows(UnsupportedOperationException.class, () ->
-				catalog.ids().add(Identifier.unique("badID"))
+			catalog.ids().add(Identifier.unique("badID"))
 		);
 	}
 
 	@ParameterizedTest
-	@ArgumentsSource(ArrayArgumentProvider.class)
-	void testIDStream(BasicEntity[] contents) {
+	@MethodSource("allCases")
+	void idStream_matchesLinkedHashSet(BasicEntity[] contents) {
 		Catalog<BasicEntity> catalog = fromContents(contents);
 		LinkedHashSet<BasicEntity> linkedHashSet = new LinkedHashSet<>();
 
@@ -176,14 +160,14 @@ class CatalogTest {
 		}
 
 		assertEquals(
-				linkedHashSet.stream().map(Entity::id).collect(toList()),
-				catalog.idStream().collect(toList())
+			linkedHashSet.stream().map(Entity::id).collect(toList()),
+			catalog.idStream().collect(toList())
 		);
 	}
 
 	@ParameterizedTest
-	@ArgumentsSource(ArrayArgumentProvider.class)
-	void testGet(BasicEntity[] contents) {
+	@MethodSource("allCases")
+	void get_matchesLinkedHashSet(BasicEntity[] contents) {
 		LinkedHashSet<BasicEntity> linkedHashSet = linkedHashSetFromContents(contents);
 		Catalog<BasicEntity> actual = fromContents(contents);
 
@@ -195,22 +179,49 @@ class CatalogTest {
 	}
 
 	@ParameterizedTest
-	@ArgumentsSource(ArrayArgumentProvider.class)
-	void testIterator(BasicEntity[] contents) {
-		assertThrows(NoSuchElementException.class, () -> fromContents(new BasicEntity[0]).iterator().next());
-		Iterator<BasicEntity> goodIterator = linkedHashSetFromContents(contents).iterator();
-		Iterator<BasicEntity> catalogIterator = fromContents(contents).iterator();
+	@MethodSource("distinctCases")
+	void containsAll_matchesLinkedHashSet(BasicEntity[] contents) {
+		Catalog<BasicEntity> catalog = Catalog.of(contents);
 
-		while (goodIterator.hasNext()) { //assert equality of iterators
-			assertTrue(catalogIterator.hasNext());
-			assertEquals(goodIterator.next(), catalogIterator.next());
+		assertTrue(catalog.containsAll(emptySet()));
+		assertFalse(catalog.containsAll(singletonList(wrongEntity)));
+
+		for (int i = 0; i < contents.length && i <= 8; i++) {
+			List<BasicEntity> entities = asList(contents).subList(i / 2, i);
+			assertTrue(catalog.containsAll(entities));
+			assertTrue(catalog.containsAllIDs(entities.stream().map(Entity::id)));
 		}
-		assertFalse(catalogIterator.hasNext());
+
+		if (contents.length >= 1) {
+			assertFalse(catalog.containsAll(asList(contents[0], wrongEntity)));
+			assertFalse(catalog.containsAll(asList(wrongEntity, contents[0])));
+			assertFalse(catalog.containsAll(asList(contents[0], wrongEntity, contents[0])));
+
+			Identifier rightID = contents[0].id();
+			Identifier wrongID = wrongEntity.id();
+			assertFalse(catalog.containsAllIDs(Stream.of(rightID, wrongID)));
+			assertFalse(catalog.containsAllIDs(Stream.of(wrongID, rightID)));
+			assertFalse(catalog.containsAllIDs(Stream.of(rightID, wrongID, rightID)));
+		}
 	}
 
 	@ParameterizedTest
-	@ArgumentsSource(ArrayArgumentProvider.class)
-	void testSpliterator(BasicEntity[] contents) {
+	@MethodSource("allCases")
+	void iterator_matchesLinkedHashSet(BasicEntity[] contents) {
+		assertThrows(NoSuchElementException.class, () -> fromContents(new BasicEntity[0]).iterator().next());
+		Iterator<BasicEntity> expected = linkedHashSetFromContents(contents).iterator();
+		Iterator<BasicEntity> actual = fromContents(contents).iterator();
+
+		while (expected.hasNext()) { //assert equality of iterators
+			assertTrue(actual.hasNext());
+			assertEquals(expected.next(), actual.next());
+		}
+		assertFalse(actual.hasNext());
+	}
+
+	@ParameterizedTest
+	@MethodSource("allCases")
+	void spliterator_matchesLinkedHashSet(BasicEntity[] contents) {
 		Iterator<BasicEntity> expected = linkedHashSetFromContents(contents).iterator();
 		Spliterator<BasicEntity> actual = fromContents(contents).spliterator();
 		actual.forEachRemaining(e -> assertSame(expected.next(), e));
@@ -218,8 +229,8 @@ class CatalogTest {
 	}
 
 	@ParameterizedTest
-	@ArgumentsSource(ArrayArgumentProvider.class)
-	void testWith(BasicEntity[] contents) {
+	@MethodSource("allCases")
+	void with(BasicEntity[] contents) {
 		Catalog<BasicEntity> catalog = fromContents(contents);
 		BasicEntity entityA = new BasicEntity(Identifier.from("a"));
 		BasicEntity entityB = new BasicEntity(Identifier.from("b"));
@@ -237,8 +248,8 @@ class CatalogTest {
 	}
 
 	@ParameterizedTest
-	@ArgumentsSource(ArrayArgumentProvider.class)
-	void testWithAll(BasicEntity[] contents) {
+	@MethodSource("allCases")
+	void withAll(BasicEntity[] contents) {
 		Catalog<BasicEntity> catalog = fromContents(contents);
 
 		BasicEntity entityA = new BasicEntity(Identifier.from("a"));
@@ -255,34 +266,43 @@ class CatalogTest {
 	}
 
 	@ParameterizedTest
-	@ArgumentsSource(ArrayArgumentProvider.class)
-	void testAsCollection(BasicEntity[] contents) {
+	@MethodSource("allCases")
+	void asCollection_matchesLinkedHashSet(BasicEntity[] contents) {
 		Catalog<BasicEntity> catalog = fromContents(contents);
 		Collection<BasicEntity> actual = catalog.asCollection();
-		LinkedHashSet<BasicEntity> linkedHashSet = linkedHashSetFromContents(contents);
-		assertEquals(asList(actual.toArray()), asList(linkedHashSet.toArray()));
+		Collection<BasicEntity> expected = linkedHashSetFromContents(contents);
+		assertEquals(new ArrayList<>(expected), new ArrayList<>(actual));
 	}
 
 	@ParameterizedTest
-	@ArgumentsSource(ArrayArgumentProvider.class)
-	void testAsMap(BasicEntity[] contents) {
+	@MethodSource("allCases")
+	void asMap_preservesOrder(BasicEntity[] contents) {
 		Catalog<BasicEntity> catalog = fromContents(contents);
-		Map<Identifier,BasicEntity> asMap = catalog.asMap();
+		Map<Identifier, BasicEntity> actual = catalog.asMap();
+		Map<Identifier, BasicEntity> expected = new LinkedHashMap<>();
+		for (BasicEntity x: contents) {
+			// With dup IDs, use "put" so later dupes win
+			expected.put(x.id, x);
+		}
+		assertEquals(expected, actual);
 
-		assertEquals(asMap.keySet(), catalog.idStream().collect(toSet()));
-		assertEquals(new HashSet<>(asMap.values()), catalog.stream().collect(toSet()));
-		assertEquals(
-				catalog.stream().collect(toMap(BasicEntity::id, Function.identity())), // could use a more complicated fixed point combinator, but identity works fine
-				asMap
-		);
+		// Now force things into lists to check the order
+
+		List<Identifier> actualKeys = new ArrayList<>(actual.keySet());
+		List<Identifier> expectedKeys = Stream.of(contents).map(Entity::id).distinct().collect(toList());
+		assertEquals(expectedKeys, actualKeys);
+
+		List<BasicEntity> actualValues = new ArrayList<>(actual.values());
+		List<BasicEntity> expectedValues = new ArrayList<>(expected.values());
+		assertEquals(expectedValues, actualValues);
 	}
 
 	@Test
-	void TestWithoutAndCheckOrder() {
+	void without_preservesOrder() {
 		BasicEntity[] contents = new BasicEntity[]{
-				new BasicEntity(Identifier.from("a")),
-				new BasicEntity(Identifier.from("b")),
-				new BasicEntity(Identifier.from("c")),
+			new BasicEntity(Identifier.from("a")),
+			new BasicEntity(Identifier.from("b")),
+			new BasicEntity(Identifier.from("c")),
 		};
 
 		Catalog<BasicEntity> catalog = fromContents(contents);
@@ -300,33 +320,64 @@ class CatalogTest {
 		assertEquals(withoutM, withoutMById);
 	}
 
-	Collection<BasicEntity> basicEntityCatalog(String entityName) {
-		return Catalog.of(new BasicEntity(Identifier.from(entityName))).asCollection();
+	@ParameterizedTest
+	@MethodSource("distinctCases")
+	void toString_matchesLinkedHashMap(BasicEntity[] contents) {
+		// Too strict? How much do we care about toString?
+		LinkedHashMap<Identifier, BasicEntity> map = new LinkedHashMap<>();
+		for (BasicEntity e: contents) {
+			map.put(e.id(), e);
+		}
+		String expected = map.toString();
+		String actual = Catalog.of(contents).toString();
+		assertEquals(expected, actual);
 	}
 
 	@Test
-	void testAdd() {
-		assertThrows(UnsupportedOperationException.class, () -> basicEntityCatalog("a").add(wrongEntity));
+	void asCollection_mutationThrows() {
+		assertThrows(UnsupportedOperationException.class, () -> Catalog.empty().asCollection().add(wrongEntity));
+		assertThrows(UnsupportedOperationException.class, () -> Catalog.empty().asCollection().remove(wrongEntity));
+		assertThrows(UnsupportedOperationException.class, () -> Catalog.empty().asCollection().addAll(asList(a, b)));
+		assertThrows(UnsupportedOperationException.class, () -> Catalog.empty().asCollection().removeAll(singletonList(wrongEntity)));
+		assertThrows(UnsupportedOperationException.class, () -> Catalog.empty().asCollection().retainAll(singletonList(wrongEntity)));
 	}
 
-	@Test
-	void testRemove() {
-		assertThrows(UnsupportedOperationException.class, () -> basicEntityCatalog("a").remove(wrongEntity));
+	@PerformanceTest
+	void performanceTest_with() {
+		int initialSize = 100_000;
+		Catalog<BasicEntity> catalog = Catalog.of(IntStream.rangeClosed(1, initialSize).mapToObj(i ->
+			new BasicEntity(Identifier.from("Entity_" + i))));
+		BasicEntity newEntity = new BasicEntity(Identifier.from("New entity"));
+		new MicroBenchmark(callingMethodInfo()) {
+			@Override
+			protected void doIterations(long count) {
+				for (long i = 0; i < count; i++) {
+					escape = catalog.with(newEntity);
+				}
+			}
+		}.computeRate();
 	}
 
-	@Test
-	void testAddAllCollection() {
-		assertThrows(UnsupportedOperationException.class, () -> basicEntityCatalog("a").addAll(asList(wrongEntity)));
+	public static Object escape;
+
+	@Value
+	@NonFinal
+	@Accessors(fluent = true)
+	private static class BasicEntity implements Entity {
+		Identifier id;
 	}
 
-	@Test
-	void testRemoveAll() {
-		assertThrows(UnsupportedOperationException.class, () -> basicEntityCatalog("a").removeAll(asList(wrongEntity)));
-	}
+	@Value
+	@Accessors(fluent = true)
+	@EqualsAndHashCode(callSuper = true)
+	private static class ComplexEntity extends BasicEntity {
+		@EqualsAndHashCode.Include
+		String value;
 
-	@Test
-	void testRetainAll() {
-		assertThrows(UnsupportedOperationException.class, () -> basicEntityCatalog("a").retainAll(asList(wrongEntity)));
+		ComplexEntity(Identifier id, String value) {
+			super(id);
+			this.value = value;
+		}
 	}
 
 }

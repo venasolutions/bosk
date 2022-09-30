@@ -54,9 +54,19 @@ public final class SideTable<K extends Entity, V> implements EnumerableByIdentif
 			e.getValue()));
 	}
 
+	/**
+	 * Note that this requires a read context, and for nonexistent keys,
+	 * this will pass null as the key value.
+	 *
+	 * @see #forEachID
+	 */
 	public void forEach(BiConsumer<? super K, ? super V> action) {
 		AddressableByIdentifier<K> domainValue = domain.value();
 		valuesById.forEach((id, value) -> action.accept(domainValue.get(id), value));
+	}
+
+	public void forEachID(BiConsumer<Identifier, ? super V> action) {
+		valuesById.forEach(action);
 	}
 
 	public SideTable<K,V> with(Identifier id, V value) {
@@ -116,7 +126,12 @@ public final class SideTable<K extends Entity, V> implements EnumerableByIdentif
 
 	public static <KK extends Entity,VV> SideTable<KK,VV> fromFunction(Reference<Catalog<KK>> domain, Stream<Identifier> keyIDs, Function<Identifier, VV> function) {
 		LinkedHashMap<Identifier,VV> map = new LinkedHashMap<>();
-		keyIDs.forEachOrdered(id -> map.put(id, function.apply(id)));
+		keyIDs.forEachOrdered(id -> {
+			VV existing = map.put(id, function.apply(id));
+			if (existing != null) {
+				throw new IllegalArgumentException("Multiple entries with id \"" + id + "\"");
+			}
+		});
 		return new SideTable<>(CatalogReference.from(domain), unmodifiableMap(map));
 	}
 

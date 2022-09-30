@@ -15,7 +15,6 @@ import io.vena.bosk.exceptions.ParameterUnboundException;
 import io.vena.bosk.exceptions.UnexpectedPathException;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -114,9 +113,9 @@ class GsonPluginTest extends AbstractBoskTest {
 	void testToJson_listing(List<String> strings, List<Identifier> ids) {
 		Listing<TestEntity> listing = Listing.of(entitiesRef, ids);
 
-		Map<String, Object> expected = new HashMap<>();
-		expected.put("domain", entitiesRef.pathString());
+		Map<String, Object> expected = new LinkedHashMap<>();
 		expected.put("ids", strings);
+		expected.put("domain", entitiesRef.pathString());
 
 		assertGsonWorks(expected, listing, new TypeToken<Listing<TestEntity>>(){}.getType(), Path.just("doesn't matter"));
 	}
@@ -147,8 +146,8 @@ class GsonPluginTest extends AbstractBoskTest {
 		valuesByString.forEach((key, value) -> expectedList.add(singletonMap(key, value)));
 
 		Map<String, Object> expected = new LinkedHashMap<>();
-		expected.put("domain", entitiesRef.pathString());
 		expected.put("valuesById", expectedList);
+		expected.put("domain", entitiesRef.pathString());
 
 		assertGsonWorks(
 			expected,
