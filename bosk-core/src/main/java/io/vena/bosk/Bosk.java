@@ -119,9 +119,9 @@ public class Bosk<R extends Entity> {
 		} catch (InvalidTypeException | IOException | InterruptedException e) {
 			throw new IllegalArgumentException("Error computing initial root: " + e.getMessage(), e);
 		}
-		if (!rawClass(rootType).isInstance(this.currentRoot)) {
-			throw new IllegalArgumentException("Initial root must be an instance of " + rawClass(rootType).getSimpleName());
-		}
+
+		// Type check
+		rawClass(rootType).cast(this.currentRoot);
 	}
 
 	public interface DefaultRootFunction<RR extends Entity> {
@@ -176,7 +176,7 @@ public class Bosk<R extends Entity> {
 
 		@Override
 		public R initialRoot(Type rootType) throws InvalidTypeException {
-			R initialRoot = initialRootFunction.apply(Bosk.this);
+			R initialRoot = requireNonNull(initialRootFunction.apply(Bosk.this));
 			rawClass(rootType).cast(initialRoot);
 			return initialRoot;
 		}
