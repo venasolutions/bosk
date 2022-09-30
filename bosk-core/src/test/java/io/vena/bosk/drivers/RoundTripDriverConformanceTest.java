@@ -26,9 +26,4 @@ public class RoundTripDriverConformanceTest extends DriverConformanceTest {
 			gsonRoundTripFactory(GsonBuilder::excludeFieldsWithoutExposeAnnotation)
 		);
 	}
-
-	@ParametersByName(singleInvocationIndex = 11)
-	void oneOffTest(Path enclosingCatalogPath) throws InvalidTypeException {
-		testDeleteNonexistent(enclosingCatalogPath);
-	}
 }
