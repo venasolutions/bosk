@@ -240,7 +240,7 @@ public class Bosk<R extends Entity> {
 			synchronized (this) {
 				boolean preconditionsSatisfied;
 				try (@SuppressWarnings("unused") ReadContext executionContext = new ReadContext(currentRoot)) {
-					preconditionsSatisfied = Objects.equals(precondition.value(), requiredValue);
+					preconditionsSatisfied = Objects.equals(precondition.valueIfExists(), requiredValue);
 				}
 				if (preconditionsSatisfied) {
 					R priorRoot = currentRoot;
