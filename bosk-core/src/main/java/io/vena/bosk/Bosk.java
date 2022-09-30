@@ -780,11 +780,7 @@ try (ReadContext originalThReadContext = bosk.new ReadContext()) {
 
 		@Override
 		public final int hashCode() {
-			final int prime = 31;
-			int result = 1;
-			result = prime * result + rootType().hashCode();
-			result = prime * result + path.hashCode();
-			return result;
+			return Objects.hash(rootType(), path);
 		}
 
 		@Override
@@ -806,11 +802,8 @@ try (ReadContext originalThReadContext = bosk.new ReadContext()) {
 
 			@SuppressWarnings({"rawtypes", "unchecked"})
 			ReferenceImpl other = (ReferenceImpl) obj;
-			if (this.rootType() == other.rootType()) {
-				return Objects.equals(path, other.path);
-			} else {
-				return false;
-			}
+			return Objects.equals(this.rootType(), other.rootType())
+				&& Objects.equals(path, other.path);
 		}
 
 		private Type rootType() {
