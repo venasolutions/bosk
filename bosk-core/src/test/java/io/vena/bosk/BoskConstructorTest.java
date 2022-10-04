@@ -98,18 +98,6 @@ public class BoskConstructorTest {
 	}
 
 	@Test
-	void nullRoot_throws() {
-		assertThrows(NullPointerException.class, ()->
-			new Bosk<SimpleTypes> (
-				"Null root",
-				SimpleTypes.class,
-				bosk -> null,
-				Bosk::simpleDriver
-			)
-		);
-	}
-
-	@Test
 	void driverInitialRoot_matches() {
 		SimpleTypes root = newEntity();
 		Bosk<Entity> bosk = new Bosk<Entity>(

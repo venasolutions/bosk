@@ -98,6 +98,8 @@ public class BoskUpdateTest extends AbstractBoskTest {
 	void initializeExisting_nothingChanged() throws IOException, InterruptedException {
 		TestChild newValue = new TestChild(CHILD_1_ID, "string", OK, Catalog.empty());
 		Reference<TestChild> ref = anyChild.boundTo(PARENT_ID, CHILD_1_ID);
+
+		// Child 1 already exists, so submitInitialization should have no effect
 		bosk.driver().submitInitialization(ref, newValue);
 		assertValueEquals(originalRoot, bosk.rootReference());
 		assertValueEquals(originalChild1, ref);
@@ -142,7 +144,7 @@ public class BoskUpdateTest extends AbstractBoskTest {
 	}
 
 	@Test
-	void conditionalReplaceIDMismatchesNonNull_valueChanged() throws IOException, InterruptedException {
+	void conditionalReplaceIDMismatchesNonNull_nothingChanged() throws IOException, InterruptedException {
 		String newValue = originalParent.string() + " - modified";
 		Reference<String> ref = anyEntityString.boundTo(originalParent.id());
 		Reference<Identifier> idRef = anyEntityID.boundTo(Identifier.from("nonexistent"));
