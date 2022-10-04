@@ -12,7 +12,6 @@ import org.junit.jupiter.api.BeforeEach;
 @UsesMongoService
 class MongoDriverConformanceTest extends DriverConformanceTest {
 	public static final String TEST_DB = MongoDriverConformanceTest.class.getSimpleName() + "_DB";
-	public static final String TEST_COLLECTION = "testCollection";
 
 	private final Deque<Runnable> tearDownActions = new ArrayDeque<>();
 	private static MongoService mongoService;
@@ -41,7 +40,6 @@ class MongoDriverConformanceTest extends DriverConformanceTest {
 	private <E extends Entity> DriverFactory<E> createDriverFactory() {
 		MongoDriverSettings driverSettings = MongoDriverSettings.builder()
 			.database(TEST_DB)
-			.collection(TEST_COLLECTION)
 			.build();
 		return (bosk, downstream) -> {
 			MongoDriver<E> driver = new MongoDriver<>(

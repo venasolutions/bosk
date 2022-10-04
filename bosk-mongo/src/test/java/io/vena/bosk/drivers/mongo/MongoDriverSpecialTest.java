@@ -43,10 +43,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  */
 class MongoDriverSpecialTest {
 	private static final String TEST_DB = MongoDriverSpecialTest.class.getSimpleName() + "_DB";
-	private static final String TEST_COLLECTION = "testCollection";
 	private static final MongoDriverSettings driverSettings = MongoDriverSettings.builder()
 		.database(TEST_DB)
-		.collection(TEST_COLLECTION)
 		.build();
 
 	private static final Identifier entity123 = Identifier.from("123");
