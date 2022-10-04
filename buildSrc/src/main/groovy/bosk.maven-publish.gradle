@@ -70,10 +70,15 @@ publishing {
 	}
 	repositories {
 		maven {
-			name = "VenaArtifactory"
+			name = "VenaArtifactoryDeprecated"
 			credentials( PasswordCredentials )
 			allowInsecureProtocol = true
 			url = "http://artifactory.devops.vena.vpn:8081/artifactory/libs-${publicationType}-local/"
+		}
+		maven {
+			name = "VenaArtifactory"
+			credentials( PasswordCredentials )
+			url = "https://venasolutions.jfrog.io/artifactory/vena-libs-${publicationType}-local/"
 		}
 	}
 }
