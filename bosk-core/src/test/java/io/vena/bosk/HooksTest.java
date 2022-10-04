@@ -1,23 +1,28 @@
 package io.vena.bosk;
 
-import io.vena.bosk.Bosk.ReadContext;
 import io.vena.bosk.HookRecorder.Event;
 import io.vena.bosk.exceptions.InvalidTypeException;
 import java.util.List;
+import lombok.val;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 import static io.vena.bosk.HookRecorder.Event.Kind.CHANGED;
 import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
+import static java.util.Collections.singletonList;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class HooksTest extends AbstractBoskTest {
 	Bosk<TestRoot> bosk;
+	Reference<Identifier> rootIDRef;
 	Reference<TestEntity> parentRef;
 	Reference<TestChild> child1Ref, child2Ref, child3Ref, anyChildRef;
 	CatalogReference<TestChild> childrenRef;
 	Reference<String> parentStringRef, child1StringRef, child2StringRef, child3StringRef;
+	TestRoot originalRoot;
 	TestEntity originalParent;
 	TestChild originalChild1, originalChild2, originalChild3;
 	HookRecorder recorder;
@@ -25,17 +30,20 @@ public class HooksTest extends AbstractBoskTest {
 	@BeforeEach
 	void setupBosk() throws InvalidTypeException {
 		bosk = setUpBosk(Bosk::simpleDriver);
+		rootIDRef = bosk.rootReference().then(Identifier.class, "id");
 		parentRef = bosk.rootReference().then(TestEntity.class, TestRoot.Fields.entities, "parent");
 		childrenRef = parentRef.thenCatalog(TestChild.class, TestEntity.Fields.children);
 		child1Ref = childrenRef.then(Identifier.from("child1"));
 		child2Ref = childrenRef.then(Identifier.from("child2"));
 		child3Ref = childrenRef.then(Identifier.from("child3"));
-		anyChildRef = childrenRef.then(TestChild.class, "-child-");
+		anyChildRef = bosk.reference(TestChild.class, Path.of(
+			TestRoot.Fields.entities, "-entity-", TestEntity.Fields.children, "-child-"));
 		parentStringRef = parentRef.then(String.class, TestEntity.Fields.string);
 		child1StringRef = child1Ref.then(String.class, TestEntity.Fields.string);
 		child2StringRef = child2Ref.then(String.class, TestEntity.Fields.string);
 		child3StringRef = child3Ref.then(String.class, TestEntity.Fields.string);
-		try (ReadContext context = bosk.readContext()) {
+		try (val __ = bosk.readContext()) {
+			originalRoot = bosk.rootReference().value();
 			originalParent = parentRef.value();
 			originalChild1 = child1Ref.value();
 			originalChild2 = child2Ref.value();
@@ -44,9 +52,10 @@ public class HooksTest extends AbstractBoskTest {
 		recorder = new HookRecorder();
 	}
 
-	@Test
-	void testNothingBeforeRegistration() throws InvalidTypeException {
-		bosk.driver().submitReplacement(child2StringRef, "Too early");
+	@ParameterizedTest
+	@EnumSource(Variant.class)
+	void testNothingBeforeRegistration(Variant variant) {
+		variant.submit.replacement(bosk, child2StringRef, "Too early");
 		assertEquals(emptyList(), recorder.events(), "Hook shouldn't see updates unless they are registered");
 	}
 
@@ -56,143 +65,162 @@ public class HooksTest extends AbstractBoskTest {
 	//
 
 	@Test
-	void testBasic_NoIrrelevantHooks() throws InvalidTypeException {
+	void testBasic_hooksRunWhenRegistered() {
+		bosk.registerHook("child2", child2Ref, recorder.hookNamed("child2"));
+		assertEquals(
+			singletonList(
+				new Event("child2", CHANGED, child2Ref, originalChild2)),
+			recorder.events(),
+			"Hook should fire when it's registered");
+	}
+
+	@ParameterizedTest
+	@EnumSource(Variant.class)
+	void testBasic_noIrrelevantHooks(Variant variant) {
 		bosk.registerHook("child2", child2Ref, recorder.hookNamed("child2"));
 		recorder.restart();
-		bosk.driver().submitReplacement(child1StringRef, "Child 1 only");
+		variant.submit.replacement(bosk, child1StringRef, "Child 1 only");
 		assertEquals(emptyList(), recorder.events(), "Hook shouldn't see updates for objects that neither enclose nor are enclosed by them");
 	}
 
-	@Test
-	void testBasic_objectReplacement() throws InvalidTypeException {
+	@ParameterizedTest
+	@EnumSource(Variant.class)
+	void testBasic_objectReplacement(Variant variant) {
 		registerInterleavedHooks();
 
 		TestChild newChild = originalChild2.withString(originalChild2.string() + " v2");
-		bosk.driver().submitReplacement(child2Ref, newChild);
+		variant.submit.replacement(bosk, child2Ref, newChild);
 
 		TestEntity newParent = originalParent.withChildren(originalParent.children().with(newChild));
 		checkInterleavedHooks("Hooks for object and parent should fire when object is replaced", newParent, newChild);
 	}
 
-	@Test
-	void testBasic_fieldReplacement() throws InvalidTypeException {
+	@ParameterizedTest
+	@EnumSource(Variant.class)
+	void testBasic_fieldReplacement(Variant variant) {
 		registerInterleavedHooks();
 
 		String stringV3 = originalChild2.string() + " v3";
-		bosk.driver().submitReplacement(child2StringRef, stringV3);
+		variant.submit.replacement(bosk, child2StringRef, stringV3);
 
 		TestChild newChild = originalChild2.withString(stringV3);
 		TestEntity newParent = originalParent.withChildren(originalParent.children().with(newChild));
 		checkInterleavedHooks("Hooks for object and parent should fire when field changes", newParent, newChild);
 	}
 
-	@Test
-	void testBasic_parentReplacementSameChildren() throws InvalidTypeException {
+	@ParameterizedTest
+	@EnumSource(Variant.class)
+	void testBasic_parentReplacementSameChildren(Variant variant) {
 		registerInterleavedHooks();
 
 		TestEntity newParent = originalParent.withString(originalParent.string() + " v2");
-		bosk.driver().submitReplacement(parentRef, newParent);
+		variant.submit.replacement(bosk, parentRef, newParent);
 
 		assertEquals(
-				asList(
-						new Event("parent B", CHANGED, parentRef, newParent),
-						new Event("parent D", CHANGED, parentRef, newParent)),
-				recorder.events(),
-				"Hook for parent (only) should fire when parent changes");
+			asList(
+				new Event("parent B", CHANGED, parentRef, newParent),
+				new Event("parent D", CHANGED, parentRef, newParent)),
+			recorder.events(),
+			"Hook for parent (only) should fire when parent changes");
 	}
 
-	@Test
-	void testBasic_parentReplacementReplacedChild() throws InvalidTypeException {
+	@ParameterizedTest
+	@EnumSource(Variant.class)
+	void testBasic_parentReplacementReplacedChild(Variant variant) {
 		registerInterleavedHooks();
 
 		String replacement = "replacement";
 		TestChild newChild2 = originalChild2.withString(replacement);
 		TestEntity newParent = originalParent.withChild(newChild2);
-		bosk.driver().submitReplacement(parentRef, newParent);
+		variant.submit.replacement(bosk, parentRef, newParent);
 
 		assertEquals(
-				asList(
-						new Event("child2 A", CHANGED, child2Ref, newChild2),
-						new Event("parent B", CHANGED, parentRef, newParent),
-						new Event("child2 C", CHANGED, child2Ref, newChild2),
-						new Event("parent D", CHANGED, parentRef, newParent),
-						new Event("Any child", CHANGED, child2Ref, newChild2)),
-				recorder.events(),
-				"Hook for object and parent should fire when parent gets new child");
+			asList(
+				new Event("child2 A", CHANGED, child2Ref, newChild2),
+				new Event("parent B", CHANGED, parentRef, newParent),
+				new Event("child2 C", CHANGED, child2Ref, newChild2),
+				new Event("parent D", CHANGED, parentRef, newParent),
+				new Event("Any child", CHANGED, child2Ref, newChild2)),
+			recorder.events(),
+			"Hook for object and parent should fire when parent gets new child");
 	}
 
-	@Test
-	void testBasic_parentReplacementChildDisappearedAndModified() throws InvalidTypeException {
+	@ParameterizedTest
+	@EnumSource(Variant.class)
+	void testBasic_parentReplacementChildDisappearedAndModified(Variant variant) {
 		registerInterleavedHooks();
 
 		TestChild newChild1 = originalChild1.withString("replacement1");
 		TestChild newChild3 = originalChild3.withString("replacement3");
 		TestEntity newParent = originalParent.withChildren(Catalog.of(newChild3, newChild1));
-		bosk.driver().submitReplacement(parentRef, newParent);
+		variant.submit.replacement(bosk, parentRef, newParent);
 
 		assertEquals(
-				asList(
-						new Event("child2 A", CHANGED, child2Ref, null),
-						new Event("parent B", CHANGED, parentRef, newParent),
-						new Event("child2 C", CHANGED, child2Ref, null),
-						new Event("parent D", CHANGED, parentRef, newParent),
+			asList(
+				new Event("child2 A", CHANGED, child2Ref, null),
+				new Event("parent B", CHANGED, parentRef, newParent),
+				new Event("child2 C", CHANGED, child2Ref, null),
+				new Event("parent D", CHANGED, parentRef, newParent),
 
-						// For a given hook, absent objects are processed first, in reverse order of their
-						// appearance in the prior state
-						new Event("Any child", CHANGED, child2Ref, null),
+				// For a given hook, absent objects are processed first, in reverse order of their
+				// appearance in the prior state
+				new Event("Any child", CHANGED, child2Ref, null),
 
-						// Updated objects are processed next, in order of their appearance in the new state
-						new Event("Any child", CHANGED, child3Ref, newChild3),
-						new Event("Any child", CHANGED, child1Ref, newChild1)),
-				recorder.events(),
-				"Hook for objects and parent should fire when parent gets new child catalog");
+				// Updated objects are processed next, in order of their appearance in the new state
+				new Event("Any child", CHANGED, child3Ref, newChild3),
+				new Event("Any child", CHANGED, child1Ref, newChild1)),
+			recorder.events(),
+			"Hook for objects and parent should fire when parent gets new child catalog");
 	}
 
-	@Test
-	void testBasic_parentCreation() throws InvalidTypeException {
-		bosk.driver().submitDeletion(parentRef);
+	@ParameterizedTest
+	@EnumSource(Variant.class)
+	void testBasic_parentCreation(Variant variant) {
+		variant.submit.deletion(bosk, parentRef);
 		registerInterleavedHooks();
-		bosk.driver().submitReplacement(parentRef, originalParent); // Time travel!
+		variant.submit.replacement(bosk, parentRef, originalParent); // Time travel!
 
 		assertEquals(
-				asList(
-						new Event("child2 A", CHANGED, child2Ref, originalChild2),
-						new Event("parent B", CHANGED, parentRef, originalParent),
-						new Event("child2 C", CHANGED, child2Ref, originalChild2),
-						new Event("parent D", CHANGED, parentRef, originalParent),
+			asList(
+				new Event("child2 A", CHANGED, child2Ref, originalChild2),
+				new Event("parent B", CHANGED, parentRef, originalParent),
+				new Event("child2 C", CHANGED, child2Ref, originalChild2),
+				new Event("parent D", CHANGED, parentRef, originalParent),
 
-						new Event("Any child", CHANGED, child1Ref, originalChild1),
-						new Event("Any child", CHANGED, child2Ref, originalChild2),
-						new Event("Any child", CHANGED, child3Ref, originalChild3)),
-				recorder.events(),
-				"Hook for objects and parent should fire when parent gets created");
+				new Event("Any child", CHANGED, child1Ref, originalChild1),
+				new Event("Any child", CHANGED, child2Ref, originalChild2),
+				new Event("Any child", CHANGED, child3Ref, originalChild3)),
+			recorder.events(),
+			"Hook for objects and parent should fire when parent gets created");
 	}
 
-	@Test
-	void testBasic_parentDeletion() throws InvalidTypeException {
+	@ParameterizedTest
+	@EnumSource(Variant.class)
+	void testBasic_parentDeletion(Variant variant) {
 		registerInterleavedHooks();
-		bosk.driver().submitDeletion(parentRef);
+		variant.submit.deletion(bosk, parentRef);
 
 		assertEquals(
-				asList(
-						new Event("child2 A", CHANGED, child2Ref, null),
-						new Event("parent B", CHANGED, parentRef, null),
-						new Event("child2 C", CHANGED, child2Ref, null),
-						new Event("parent D", CHANGED, parentRef, null),
+			asList(
+				new Event("child2 A", CHANGED, child2Ref, null),
+				new Event("parent B", CHANGED, parentRef, null),
+				new Event("child2 C", CHANGED, child2Ref, null),
+				new Event("parent D", CHANGED, parentRef, null),
 
-						// For a given hook, catalog entries are processed in reverse order
-						new Event("Any child", CHANGED, child3Ref, null),
-						new Event("Any child", CHANGED, child2Ref, null),
-						new Event("Any child", CHANGED, child1Ref, null)),
-				recorder.events(),
-				"Hook for objects and parent should fire when parent gets deleted");
+				// For a given hook, catalog entries are processed in reverse order
+				new Event("Any child", CHANGED, child3Ref, null),
+				new Event("Any child", CHANGED, child2Ref, null),
+				new Event("Any child", CHANGED, child1Ref, null)),
+			recorder.events(),
+			"Hook for objects and parent should fire when parent gets deleted");
 	}
 
-	@Test
-	void testBasic_objectDeletion() throws InvalidTypeException {
+	@ParameterizedTest
+	@EnumSource(Variant.class)
+	void testBasic_objectDeletion(Variant variant) {
 		registerInterleavedHooks();
 
-		bosk.driver().submitDeletion(child2Ref);
+		variant.submit.deletion(bosk, child2Ref);
 		TestEntity newParent = originalParent.withChildren(originalParent.children().without(originalChild2));
 		assertEquals(
 			asList(
@@ -203,6 +231,70 @@ public class HooksTest extends AbstractBoskTest {
 				new Event("Any child", CHANGED, child2Ref, null)),
 			recorder.events(),
 			"Hooks for parent and child should fire when an object is deleted");
+	}
+
+	@ParameterizedTest
+	@EnumSource(Variant.class)
+	void testBasic_nonexistentObjectDeletion(Variant variant) {
+		registerInterleavedHooks();
+
+		variant.submit.deletion(bosk, anyChildRef.boundTo(Identifier.from("nonexistent"), Identifier.from("child1")));
+		assertEquals(
+			emptyList(),
+			recorder.events(),
+			"No hooks called when deleting a nonexistent object");
+	}
+
+	@Test
+	void testBasic_initialization() {
+		registerInterleavedHooks();
+
+		Identifier child4ID = Identifier.from("child4");
+		TestChild newValue = originalChild1
+			.withId(child4ID);
+		Reference<TestChild> child4Ref = anyChildRef.boundTo(Identifier.from("parent"), child4ID);
+
+		bosk.driver().submitInitialization(child4Ref, newValue);
+		TestEntity newParent = originalParent.withChildren(originalParent.children().with(newValue));
+		assertEquals(
+			asList(
+				new Event("parent B", CHANGED, parentRef, newParent),
+				new Event("parent D", CHANGED, parentRef, newParent),
+				new Event("Any child", CHANGED, child4Ref, newValue)),
+			recorder.events(),
+			"Hooks for parent and child should fire when a child is initialized");
+	}
+
+	@Test
+	void testBasic_reinitialization() {
+		registerInterleavedHooks();
+
+		TestChild newValue = originalChild1
+			.withString("replacement");
+
+		bosk.driver().submitInitialization(child1Ref, newValue);
+
+		assertEquals(
+			emptyList(),
+			recorder.events(),
+			"No hooks when initializing an object that already exists");
+	}
+
+	@Test
+	void testBasic_initializationInNonexistentParent() {
+		registerInterleavedHooks();
+
+		Identifier child4ID = Identifier.from("child4");
+		TestChild newValue = originalChild1
+			.withId(child4ID);
+		Reference<TestChild> child4Ref = anyChildRef.boundTo(Identifier.from("nonexistent"), child4ID);
+
+		bosk.driver().submitInitialization(child4Ref, newValue);
+
+		assertEquals(
+			emptyList(),
+			recorder.events(),
+			"No hooks when initializing an object inside a nonexistent parent");
 	}
 
 	/**
@@ -267,9 +359,9 @@ public class HooksTest extends AbstractBoskTest {
 			new Event("C3", CHANGED, child3StringRef, "replacement+P+C1+C2")
 		);
 		TestEntity expectedParent = originalParent.withString("replacement").withChildren(Catalog.of(
-				originalChild1.withString("replacement+P"),
-				originalChild2.withString("replacement+P+C1"),
-				originalChild3.withString("replacement+P+C1+C2")
+			originalChild1.withString("replacement+P"),
+			originalChild2.withString("replacement+P+C1"),
+			originalChild3.withString("replacement+P+C1+C2")
 		));
 
 		recorder.restart();
@@ -280,7 +372,7 @@ public class HooksTest extends AbstractBoskTest {
 			recorder.events(),
 			"All hooks for an update should be called before any hooks for subsequent updates");
 
-		try (ReadContext context = bosk.readContext()) {
+		try (val __ = bosk.readContext()) {
 			assertEquals(expectedParent, parentRef.value());
 		}
 	}
@@ -292,20 +384,74 @@ public class HooksTest extends AbstractBoskTest {
 		recorder.restart();
 		String expectedString = "expected string";
 
-		try (ReadContext bogusContext = bosk.readContext()) {
+		try (val __ = bosk.readContext()) {
 			bosk.driver().submitReplacement(child2StringRef, expectedString);
 			// If the hook were to run accidentally in this ReadContext, it would
 			// see originalChild2.string() instead of expectedString.
 		}
 
 		assertEquals(
-				asList(new Event("stringCopier", CHANGED, child2Ref, originalChild2.withString(expectedString))),
-				recorder.events(),
-				"Hooks run in the right ReadContext regardless of active read scope at submission or execution time");
+			singletonList(new Event("stringCopier", CHANGED, child2Ref, originalChild2.withString(expectedString))),
+			recorder.events(),
+			"Hooks run in the right ReadContext regardless of active read scope at submission or execution time");
 
 
-		try (ReadContext context = bosk.readContext()) {
+		try (val __ = bosk.readContext()) {
 			assertEquals(expectedString, child2StringRef.value(), "Correct value got copied");
+		}
+	}
+
+	interface Submit {
+		<T> void replacement(Bosk<?> bosk, Reference<T> target, T newValue);
+		<T> void deletion(Bosk<?> bosk, Reference<T> target);
+	}
+
+	/**
+	 * Every conditional operation has the same effect as the corresponding
+	 * unconditional operation if the precondition is satisfied.
+	 * Thus, every test is run using both.
+	 */
+	enum Variant {
+		UNCONDITIONAL(new Submit() {
+			@Override
+			public <T> void replacement(Bosk<?> bosk, Reference<T> target, T newValue) {
+				bosk.driver().submitReplacement(target, newValue);
+			}
+
+			@Override
+			public <T> void deletion(Bosk<?> bosk, Reference<T> target) {
+				bosk.driver().submitDeletion(target);
+			}
+		}),
+		CONDITIONAL(new Submit() {
+			@Override
+			public <T> void replacement(Bosk<?> bosk, Reference<T> target, T newValue) {
+				bosk.driver().submitConditionalReplacement(target, newValue, rootIDReference(bosk), rootID());
+			}
+
+			@Override
+			public <T> void deletion(Bosk<?> bosk, Reference<T> target) {
+				bosk.driver().submitConditionalDeletion(target, rootIDReference(bosk), rootID());
+			}
+
+			private Reference<Identifier> rootIDReference(Bosk<?> bosk) {
+				try {
+					return bosk.rootReference().then(Identifier.class, "id");
+				} catch (InvalidTypeException e) {
+					throw new AssertionError(e);
+				}
+			}
+
+			private Identifier rootID() {
+				return Identifier.from("root");
+			}
+		});
+
+
+		private final Submit submit;
+
+		Variant(Submit submit) {
+			this.submit = submit;
 		}
 	}
 }
