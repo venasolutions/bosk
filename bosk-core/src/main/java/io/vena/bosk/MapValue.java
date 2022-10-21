@@ -1,17 +1,18 @@
 package io.vena.bosk;
 
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import lombok.AccessLevel;
 import lombok.EqualsAndHashCode;
 import lombok.RequiredArgsConstructor;
-import lombok.experimental.Delegate;
+import org.pcollections.OrderedPMap;
 
 import static java.util.Collections.emptyMap;
-import static java.util.Collections.singletonMap;
-import static java.util.Collections.unmodifiableMap;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -35,22 +36,21 @@ import static java.util.Objects.requireNonNull;
 @RequiredArgsConstructor(access= AccessLevel.PRIVATE)
 @EqualsAndHashCode
 public final class MapValue<V> implements Map<String, V> {
-	@Delegate private final Map<String, V> contents;
+	private final OrderedPMap<String, V> contents;
 
 	@SuppressWarnings("unchecked")
 	public static <VV> MapValue<VV> empty() {
 		return EMPTY;
 	}
 
-	@SuppressWarnings("RedundantUnmodifiable") // Not redundant! singletonMap doesn't throw UnsupportedOperationException as much
 	public static <VV> MapValue<VV> singleton(String key, VV value) {
-		return new MapValue<>(unmodifiableMap(singletonMap(key, value)));
+		return new MapValue<>(OrderedPMap.singleton(key, value));
 	}
 
 	public static <VV> MapValue<VV> fromFunction(Iterable<String> keys, Function<String, VV> valueFunction) {
 		LinkedHashMap<String,VV> map = new LinkedHashMap<>();
 		keys.forEach(key -> addToMap(map, key, valueFunction.apply(key)));
-		return new MapValue<>(unmodifiableMap(map));
+		return new MapValue<>(OrderedPMap.from(map));
 	}
 
 	public static <VV> MapValue<VV> fromOrderedMap(Map<String, VV> entries) {
@@ -60,7 +60,7 @@ public final class MapValue<V> implements Map<String, V> {
 	private static <VV> MapValue<VV> fromEntries(Iterator<Entry<String, VV>> entrySet) {
 		LinkedHashMap<String,VV> map = new LinkedHashMap<>();
 		entrySet.forEachRemaining(entry -> addToMap(map, entry.getKey(), entry.getValue()));
-		return new MapValue<>(unmodifiableMap(map));
+		return new MapValue<>(OrderedPMap.from(map));
 	}
 
 	private static <VV> void addToMap(LinkedHashMap<String, VV> map, String key, VV newValue) {
@@ -74,17 +74,13 @@ public final class MapValue<V> implements Map<String, V> {
 		if (get(name) == value) {
 			return this;
 		} else {
-			LinkedHashMap<String, V> map = new LinkedHashMap<>(contents);
-			map.put(name, value);
-			return new MapValue<>(unmodifiableMap(map));
+			return new MapValue<>(contents.plus(name, value));
 		}
 	}
 
 	public MapValue<V> without(String name) {
 		if (containsKey(name)) {
-			LinkedHashMap<String, V> map = new LinkedHashMap<>(contents);
-			map.remove(name);
-			return new MapValue<>(unmodifiableMap(map));
+			return new MapValue<>(contents.minus(name));
 		} else {
 			return this;
 		}
@@ -102,4 +98,33 @@ public final class MapValue<V> implements Map<String, V> {
 	 */
 	@SuppressWarnings("rawtypes")
 	private static final MapValue EMPTY = fromOrderedMap(emptyMap());
+
+	///////////////////////
+	//
+	//  Delegated
+	//
+
+	@Override public int size() { return contents.size(); }
+	@Override public boolean isEmpty() { return contents.isEmpty(); }
+	@Override public boolean containsKey(Object key) { return contents.containsKey(key); }
+	@Override public boolean containsValue(Object value) { return contents.containsValue(value); }
+	@Override public V get(Object key) { return contents.get(key); }
+	@Override public Set<String> keySet() { return contents.keySet(); }
+	@Override public Collection<V> values() { return contents.values(); }
+	@Override public Set<Entry<String, V>> entrySet() { return contents.entrySet(); }
+
+	@Override public V put(String key, V value) { throw new UnsupportedOperationException(); }
+	@Override public V remove(Object key) { throw new UnsupportedOperationException(); }
+	@Override public void putAll(Map<? extends String, ? extends V> m) { throw new UnsupportedOperationException(); }
+	@Override public void clear() { throw new UnsupportedOperationException(); }
+
+	@Override public void replaceAll(BiFunction<? super String, ? super V, ? extends V> function) { throw new UnsupportedOperationException(); }
+	@Override public V putIfAbsent(String key, V value) { throw new UnsupportedOperationException(); }
+	@Override public boolean remove(Object key, Object value) { throw new UnsupportedOperationException(); }
+	@Override public boolean replace(String key, V oldValue, V newValue) { throw new UnsupportedOperationException(); }
+	@Override public V replace(String key, V value) { throw new UnsupportedOperationException(); }
+	@Override public V computeIfAbsent(String key, Function<? super String, ? extends V> mappingFunction) { throw new UnsupportedOperationException(); }
+	@Override public V computeIfPresent(String key, BiFunction<? super String, ? super V, ? extends V> remappingFunction) { throw new UnsupportedOperationException(); }
+	@Override public V compute(String key, BiFunction<? super String, ? super V, ? extends V> remappingFunction) { throw new UnsupportedOperationException(); }
+	@Override public V merge(String key, V value, BiFunction<? super V, ? super V, ? extends V> remappingFunction) { throw new UnsupportedOperationException(); }
 }

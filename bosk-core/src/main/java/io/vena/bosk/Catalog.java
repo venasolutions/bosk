@@ -10,9 +10,9 @@ import java.util.Spliterator;
 import java.util.stream.Stream;
 import lombok.EqualsAndHashCode;
 import lombok.RequiredArgsConstructor;
+import org.pcollections.OrderedPMap;
 
 import static java.util.Arrays.asList;
-import static java.util.Collections.emptyMap;
 import static java.util.Collections.unmodifiableCollection;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableMap;
@@ -39,7 +39,7 @@ import static lombok.AccessLevel.PROTECTED;
 @RequiredArgsConstructor(access=PROTECTED)
 @EqualsAndHashCode
 public class Catalog<E extends Entity> implements Iterable<E>, EnumerableByIdentifier<E> {
-	private final Map<Identifier, E> contents;
+	private final OrderedPMap<Identifier, E> contents;
 
 	public int size() { return contents.size(); }
 
@@ -117,7 +117,7 @@ public class Catalog<E extends Entity> implements Iterable<E>, EnumerableByIdent
 	}
 
 	public static <TT extends Entity> Catalog<TT> empty() {
-		return new Catalog<>(emptyMap());
+		return new Catalog<>(OrderedPMap.empty());
 	}
 
 	@SafeVarargs
@@ -138,31 +138,25 @@ public class Catalog<E extends Entity> implements Iterable<E>, EnumerableByIdent
 				throw new IllegalArgumentException("Multiple entities with id " + old.id());
 			}
 		}
-		return new Catalog<>(unmodifiableMap(newValues));
+		return new Catalog<>(OrderedPMap.from(newValues));
 	}
 
 	public Catalog<E> with(E entity) {
-		Map<Identifier, E> newValues = new LinkedHashMap<>(this.contents);
-		newValues.put(requireNonNull(entity.id()), entity);
-		return new Catalog<>(unmodifiableMap(newValues));
+		return new Catalog<>(contents.plus(entity.id(), entity));
 	}
 
 	public Catalog<E> withAll(Stream<E> entities) {
-		Map<Identifier, E> newValues = new LinkedHashMap<>(this.contents);
-		entities.forEachOrdered(entity -> newValues.put(requireNonNull(entity.id()), entity));
-		return new Catalog<>(unmodifiableMap(newValues));
+		Map<Identifier, E> newValues = new LinkedHashMap<>();
+		entities.forEachOrdered(e -> newValues.put(e.id(), e));
+		return new Catalog<>(contents.plusAll(newValues));
 	}
 
 	public Catalog<E> without(E entity) {
-		Map<Identifier, E> newValues = new LinkedHashMap<>(this.contents);
-		newValues.remove(requireNonNull(entity.id()));
-		return new Catalog<>(unmodifiableMap(newValues));
+		return this.without(entity.id());
 	}
 
 	public Catalog<E> without(Identifier id) {
-		Map<Identifier, E> newValues = new LinkedHashMap<>(this.contents);
-		newValues.remove(requireNonNull(id));
-		return new Catalog<>(unmodifiableMap(newValues));
+		return new Catalog<>(contents.minus(id));
 	}
 
 	@Override

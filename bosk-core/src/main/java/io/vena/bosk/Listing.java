@@ -7,10 +7,8 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.Spliterator;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
@@ -19,8 +17,8 @@ import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.Accessors;
+import org.pcollections.OrderedPSet;
 
-import static java.util.Collections.emptySet;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Collections.unmodifiableSet;
@@ -41,7 +39,7 @@ import static java.util.stream.StreamSupport.stream;
 public final class Listing<E extends Entity> {
 	@Getter
 	private final CatalogReference<E> domain;
-	private final Set<Identifier> ids;
+	private final OrderedPSet<Identifier> ids;
 
 	public int size() { return ids.size(); }
 	public boolean isEmpty() { return ids.isEmpty(); }
@@ -68,33 +66,15 @@ public final class Listing<E extends Entity> {
 	}
 
 	public Listing<E> withID(Identifier id) {
-		if (ids.contains(id)) {
-			return this;
-		} else {
-			Set<Identifier> newIDs = new LinkedHashSet<>(ids);
-			newIDs.add(id);
-			return new Listing<>(domain, unmodifiableSet(newIDs));
-		}
+		return new Listing<>(domain, ids.plus(id));
 	}
 
 	public Listing<E> withoutID(Identifier id) {
-		if (ids.contains(id)) {
-			Set<Identifier> newValues = new LinkedHashSet<>(ids);
-			newValues.remove(id);
-			return new Listing<>(domain, unmodifiableSet(newValues));
-		} else {
-			return this;
-		}
+		return new Listing<>(domain, ids.minus(id));
 	}
 
-	/**
-	 * Much more efficient than repeated calls to {@link #withID}.
-	 */
 	public Listing<E> withAllIDs(Stream<Identifier> idsToAdd) {
-		Set<Identifier> newIDs = new LinkedHashSet<>(this.ids);
-		idsToAdd.forEachOrdered(newIDs::add);
-		// TODO: If nothing was added, return this
-		return new Listing<>(domain, unmodifiableSet(newIDs));
+		return new Listing<>(domain, ids.plusAll(idsToAdd.collect(toList())));
 	}
 
 	//
@@ -193,7 +173,7 @@ public final class Listing<E extends Entity> {
 	//
 
 	public static <TT extends Entity> Listing<TT> empty(Reference<Catalog<TT>> domain) {
-		return new Listing<>(CatalogReference.from(domain), emptySet());
+		return new Listing<>(CatalogReference.from(domain), OrderedPSet.empty());
 	}
 
 	public static <TT extends Entity> Listing<TT> of(Reference<Catalog<TT>> domain, Identifier...ids) {
@@ -201,7 +181,7 @@ public final class Listing<E extends Entity> {
 	}
 
 	public static <TT extends Entity> Listing<TT> of(Reference<Catalog<TT>> domain, Collection<Identifier> ids) {
-		return new Listing<>(CatalogReference.from(domain), new LinkedHashSet<>(ids));
+		return new Listing<>(CatalogReference.from(domain), OrderedPSet.from(ids));
 	}
 
 	public static <TT extends Entity> Listing<TT> of(Reference<Catalog<TT>> domain, Stream<Identifier> ids) {
@@ -221,9 +201,9 @@ public final class Listing<E extends Entity> {
 	 * <code>this</code>.
 	 */
 	public Listing<E> filteredBy(Listing<E> other) {
-		Set<Identifier> newIDs = new LinkedHashSet<>(ids);
-		newIDs.retainAll(other.ids);
-		return new Listing<>(domain, unmodifiableSet(newIDs));
+		// As of 4.0.0, pcollections does indeed always return an OrderedPSet here, but it's declared
+		// to return just a PSet, so we need a downcast. https://github.com/hrldcpr/pcollections/pull/107
+		return new Listing<>(domain, (OrderedPSet<Identifier>) ids.intersect(other.ids));
 	}
 
 	//
