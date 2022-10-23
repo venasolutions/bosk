@@ -27,8 +27,8 @@ import static java.util.Collections.unmodifiableSet;
 import static java.util.stream.Collectors.toList;
 
 /**
- * An ordered collection of references to entities housed in a {@link Catalog}, which
- * is accessible from {@link #domain()}.
+ * An immutable ordered collection of references to {@link Entity entities}
+ * housed in a particular {@link #domain()} {@link Catalog}.
  *
  * @author pdoyle
  *
@@ -38,6 +38,9 @@ import static java.util.stream.Collectors.toList;
 @EqualsAndHashCode(callSuper = false)
 @RequiredArgsConstructor(access=AccessLevel.PACKAGE)
 public final class Listing<E extends Entity> extends AbstractCollection<Reference<E>> {
+	/**
+	 * The {@link Catalog} in which all the {@link #ids()} reside.
+	 */
 	@Getter
 	private final CatalogReference<E> domain;
 	private final OrderedPSet<Identifier> ids;
