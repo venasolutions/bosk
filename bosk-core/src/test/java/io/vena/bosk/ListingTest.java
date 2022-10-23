@@ -119,7 +119,7 @@ class ListingTest {
 
 	@ParameterizedTest
 	@ArgumentsSource(ListingArgumentProvider.class)
-	void testIterator(Listing<TestEntity> listing, List<TestEntity> children, Bosk<TestEntity> bosk) {
+	void testValueIterator(Listing<TestEntity> listing, List<TestEntity> children, Bosk<TestEntity> bosk) {
 		Iterator<TestEntity> expected = children.iterator();
 		Iterator<TestEntity> actual;
 		try (val context = bosk.readContext()) {
@@ -129,6 +129,21 @@ class ListingTest {
 		assertEquals(expected.hasNext(), actual.hasNext());
 		while (expected.hasNext()) {
 			assertSame(expected.next(), actual.next());
+			assertEquals(expected.hasNext(), actual.hasNext());
+		}
+	}
+
+	@ParameterizedTest
+	@ArgumentsSource(ListingArgumentProvider.class)
+	void testIterator(Listing<TestEntity> listing, List<TestEntity> children, Bosk<TestEntity> bosk) {
+		Iterator<Reference<TestEntity>> expected = children.stream()
+			.map(TestEntity::id)
+			.map(listing.domain()::then)
+			.iterator();
+		Iterator<Reference<TestEntity>> actual = listing.iterator();
+		assertEquals(expected.hasNext(), actual.hasNext());
+		while (expected.hasNext()) {
+			assertEquals(expected.next(), actual.next());
 			assertEquals(expected.hasNext(), actual.hasNext());
 		}
 	}

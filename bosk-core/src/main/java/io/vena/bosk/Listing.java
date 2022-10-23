@@ -2,6 +2,7 @@ package io.vena.bosk;
 
 import io.vena.bosk.Bosk.ReadContext;
 import io.vena.bosk.exceptions.NonexistentReferenceException;
+import java.util.AbstractCollection;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -12,6 +13,7 @@ import java.util.Map;
 import java.util.Spliterator;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 import lombok.AccessLevel;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
@@ -23,7 +25,6 @@ import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Collections.unmodifiableSet;
 import static java.util.stream.Collectors.toList;
-import static java.util.stream.StreamSupport.stream;
 
 /**
  * An ordered collection of references to entities housed in a {@link Catalog}, which
@@ -34,19 +35,37 @@ import static java.util.stream.StreamSupport.stream;
  * @param <E>
  */
 @Accessors(fluent=true)
-@EqualsAndHashCode
+@EqualsAndHashCode(callSuper = false)
 @RequiredArgsConstructor(access=AccessLevel.PACKAGE)
-public final class Listing<E extends Entity> {
+public final class Listing<E extends Entity> extends AbstractCollection<Reference<E>> {
 	@Getter
 	private final CatalogReference<E> domain;
 	private final OrderedPSet<Identifier> ids;
 
-	public int size() { return ids.size(); }
-	public boolean isEmpty() { return ids.isEmpty(); }
-
 	@Override
 	public String toString() {
 		return domain + "/" + ids;
+	}
+
+	//
+	// Overridden methods from AbstractCollection, for performance
+	//
+
+	@Override
+	public int size() {
+		return ids.size();
+	}
+
+	@Override
+	public boolean isEmpty() {
+		return ids.isEmpty();
+	}
+
+	@Override
+	public boolean contains(Object o) {
+		// Per AbstractCollection.contains javadocs, we are permitted to
+		// throw ClassCastException if `o` is an object of an unexpected type.
+		return ids.contains(((Entity)o).id());
 	}
 
 	//
@@ -93,6 +112,22 @@ public final class Listing<E extends Entity> {
 
 	public Listing<E> withoutEntity(E entity) {
 		return withoutID(entity.id());
+	}
+
+	@Override
+	public Iterator<Reference<E>> iterator() {
+		Iterator<Identifier> idIter = ids.iterator();
+		return new Iterator<Reference<E>>() {
+			@Override
+			public boolean hasNext() {
+				return idIter.hasNext();
+			}
+
+			@Override
+			public Reference<E> next() {
+				return domain.then(idIter.next());
+			}
+		};
 	}
 
 	//
@@ -145,13 +180,13 @@ public final class Listing<E extends Entity> {
 
 			@Override
 			public String toString() {
-				return stream(spliterator(), false).collect(toList()).toString();
+				return StreamSupport.stream(spliterator(), false).collect(toList()).toString();
 			}
 		};
 	}
 
 	public Stream<E> valueStream() {
-		return stream(valueSpliterator(), false);
+		return StreamSupport.stream(valueSpliterator(), false);
 	}
 
 	public List<E> valueList() {
