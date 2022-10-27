@@ -18,11 +18,10 @@ import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.Accessors;
+import org.pcollections.OrderedPMap;
+import org.pcollections.OrderedPSet;
 
-import static java.util.Collections.emptyMap;
-import static java.util.Collections.singletonMap;
 import static java.util.Collections.unmodifiableList;
-import static java.util.Collections.unmodifiableMap;
 
 @Accessors(fluent = true)
 @EqualsAndHashCode
@@ -30,7 +29,7 @@ import static java.util.Collections.unmodifiableMap;
 public final class SideTable<K extends Entity, V> implements EnumerableByIdentifier<V> {
 	@Getter
 	private final CatalogReference<K> domain;
-	private final Map<Identifier, V> valuesById;
+	private final OrderedPMap<Identifier, V> valuesById;
 
 	public V get(Identifier id) { return valuesById.get(id); }
 	public V get(K key)         { return valuesById.get(key.id()); }
@@ -41,7 +40,7 @@ public final class SideTable<K extends Entity, V> implements EnumerableByIdentif
 	public boolean isEmpty() { return valuesById.isEmpty(); }
 	public int size() { return valuesById.size(); }
 	public List<Identifier> ids() { return unmodifiableList(new ArrayList<>(valuesById.keySet())); }
-	public Listing<K> keys() { return new Listing<>(domain, valuesById.keySet()); }
+	public Listing<K> keys() { return new Listing<>(domain, OrderedPSet.from(valuesById.keySet())); }
 	public Collection<V> values() { return valuesById.values(); }
 	public Set<Entry<Identifier, V>> idEntrySet() { return valuesById.entrySet(); }
 
@@ -70,9 +69,7 @@ public final class SideTable<K extends Entity, V> implements EnumerableByIdentif
 	}
 
 	public SideTable<K,V> with(Identifier id, V value) {
-		Map<Identifier, V> newMap = new LinkedHashMap<>(this.valuesById);
-		newMap.put(id, value);
-		return new SideTable<>(this.domain, unmodifiableMap(newMap));
+		return new SideTable<>(this.domain, valuesById.plus(id, value));
 	}
 
 	public SideTable<K,V> with(K key, V value) {
@@ -91,9 +88,7 @@ public final class SideTable<K extends Entity, V> implements EnumerableByIdentif
 	}
 
 	public SideTable<K,V> without(Identifier id) {
-		Map<Identifier, V> newMap = new LinkedHashMap<>(this.valuesById);
-		newMap.remove(id);
-		return new SideTable<>(this.domain, unmodifiableMap(newMap));
+		return new SideTable<>(this.domain, valuesById.minus(id));
 	}
 
 	public SideTable<K,V> without(K key) {
@@ -105,7 +100,7 @@ public final class SideTable<K extends Entity, V> implements EnumerableByIdentif
 	 * with {@link #empty(Reference, Class)}.
 	 */
 	public static <KK extends Entity,VV> SideTable<KK,VV> empty(Reference<Catalog<KK>> domain) {
-		return new SideTable<>(CatalogReference.from(domain), emptyMap());
+		return new SideTable<>(CatalogReference.from(domain), OrderedPMap.empty());
 	}
 
 	public static <KK extends Entity,VV> SideTable<KK,VV> empty(Reference<Catalog<KK>> domain, Class<VV> ignored) {
@@ -113,7 +108,7 @@ public final class SideTable<K extends Entity, V> implements EnumerableByIdentif
 	}
 
 	public static <KK extends Entity, VV> SideTable<KK,VV> of(Reference<Catalog<KK>> domain, Identifier id, VV value) {
-		return new SideTable<>(CatalogReference.from(domain), singletonMap(id, value));
+		return new SideTable<>(CatalogReference.from(domain), OrderedPMap.singleton(id, value));
 	}
 
 	public static <KK extends Entity, VV> SideTable<KK,VV> of(Reference<Catalog<KK>> domain, KK key, VV value) {
@@ -121,7 +116,7 @@ public final class SideTable<K extends Entity, V> implements EnumerableByIdentif
 	}
 
 	public static <KK extends Entity,VV> SideTable<KK,VV> fromOrderedMap(Reference<Catalog<KK>> domain, Map<Identifier, VV> contents) {
-		return new SideTable<>(CatalogReference.from(domain), unmodifiableMap(new LinkedHashMap<>(contents)));
+		return new SideTable<>(CatalogReference.from(domain), OrderedPMap.from(new LinkedHashMap<>(contents)));
 	}
 
 	public static <KK extends Entity,VV> SideTable<KK,VV> fromFunction(Reference<Catalog<KK>> domain, Stream<Identifier> keyIDs, Function<Identifier, VV> function) {
@@ -132,7 +127,7 @@ public final class SideTable<K extends Entity, V> implements EnumerableByIdentif
 				throw new IllegalArgumentException("Multiple entries with id \"" + id + "\"");
 			}
 		});
-		return new SideTable<>(CatalogReference.from(domain), unmodifiableMap(map));
+		return new SideTable<>(CatalogReference.from(domain), OrderedPMap.from(map));
 	}
 
 	@Override
