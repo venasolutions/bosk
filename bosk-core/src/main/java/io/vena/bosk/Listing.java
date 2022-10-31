@@ -239,9 +239,7 @@ public final class Listing<E extends Entity> extends AbstractCollection<Referenc
 	 * <code>this</code>.
 	 */
 	public Listing<E> filteredBy(Listing<E> other) {
-		// As of 4.0.0, pcollections does indeed always return an OrderedPSet here, but it's declared
-		// to return just a PSet, so we need a downcast. https://github.com/hrldcpr/pcollections/pull/107
-		return new Listing<>(domain, (OrderedPSet<Identifier>) ids.intersect(other.ids));
+		return new Listing<>(domain, ids.intersect(other.ids));
 	}
 
 	//
