@@ -32,7 +32,7 @@ Use the same version number for all packages.
 Ensure `javac` is supplied the `-parameters` flag.
 
 This is required because,
-for each class you use to describe your Bosk state, the "system of record" for your its structure is its constructor.
+for each class you use to describe your Bosk state, the "system of record" for its structure is its constructor.
 For example, you might define a class with a constructor like this:
 
 ```
