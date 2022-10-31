@@ -11,7 +11,7 @@ archivesBaseName = 'bosk-core'
 
 dependencies {
 	implementation group: 'org.ow2.asm', name: 'asm', version: "9.3"
-	implementation 'org.pcollections:pcollections:4.0.0'
+	implementation 'org.pcollections:pcollections:4.0.1'
 	testImplementation project(':lib-testing')
 }
 
