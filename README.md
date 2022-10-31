@@ -3,14 +3,14 @@ Bosk is a state management library for developing distributed control-plane logi
 It's a bit like server-side Redux for Java, but without the boilerplate code.
 (No selectors, no action objects, no reducers.)
 
-Bosk fosters a programming style that minimizes the surprises encountered
-when deploying multiple copies of an application as a replica set
-by encouraging reactive event-triggered closed-loop control logic
+Bosk eases the transition from a standalone application to a clustered high-availability replica set,
+by supporting a programming style that minimizes the surprises encountered during the transition.
+Bosk encourages reactive event-triggered closed-loop control logic
 based on a user-defined immutable state tree structure,
-and favouring idempotency and determinism.
+and favours idempotency and determinism.
 
 State is kept in memory, making reads extremely fast (on the order of 50ns).
-Replication is achieved by activating an optional MongoDB module, meaning the hard work of
+Replication is achieved by activating an optional [MongoDB module](bosk-mongo), meaning the hard work of
 change propagation, ordering, durability, consistency, atomicity, and observability,
 as well as fault tolerance, and emergency manual state inspection and modification,
 is all delegated to MongoDB: a well-known, reliable, battle-hardened codebase.
@@ -19,51 +19,43 @@ all we do is maintain the in-memory replica by following the MongoDB change stre
 
 ## Usage
 
-The `bosk-core` library is enough to get started.
+The [bosk-core](bosk-core) library is enough to get started.
 You can create a `Bosk` object and start writing your application.
 
-Then you can add in other packages as you need them,
-like `bosk-gson` for JSON serialization
-or `bosk-mongo` for persistence and replication.
+Add in other packages as you need them,
+like [bosk-gson](bosk-gson) for JSON serialization
+or [bosk-mongo](bosk-mongo) for persistence and replication.
 Use the same version number for all packages.
 
 ### Compiler flags
 
 Ensure `javac` is supplied the `-parameters` flag.
 
-For the classes you use to describe your Bosk state, the "system of record" for your objects' structure is their constructors. For example, you might define a class with a constructor like this:
+This is required because,
+for each class you use to describe your Bosk state, the "system of record" for your its structure is its constructor.
+For example, you might define a class with a constructor like this:
 
 ```
-public Member(Identifier id, String name, String alias) {...}
+public Member(Identifier id, String name) {...}
 ```
 
-Based on this, Bosk now knows the names and types of all the "properties" of your object. For this to work smoothly, the parameter names must be present in the compiled bytecode.
+Based on this, Bosk now knows the names and types of all the "properties" of your object.
+For this to work smoothly, the parameter names must be present in the compiled bytecode.
 
 ## Development
 
 ### Code Structure
 
 The repo is structured as a collection of subprojects because we publish several separate libraries.
-`bosk-core` is the main functionality, and then other packages like `bosk-mongo` and `bosk-gson`
+[bosk-core](bosk-core) is the main functionality, and then other packages like [bosk-mongo](bosk-mongo) and [bosk-gson](bosk-mongo)
 provide integrations with other technologies.
 
-The subprojects are listed in `settings.gradle`, and each has its own `README.md` describing what it is.
+The subprojects are listed in [settings.gradle](settings.gradle), and each has its own `README.md` describing what it is.
 
-### Maven publishing
+### Gradle setup
 
-During development, set `version` in `build.gradle` to end with `-SNAPSHOT` suffix.
-When you're ready to make a release, just delete the `-SNAPSHOT`.
-The next commit should then bump the version number and re-add the `-SNAPSHOT` suffix
-to begin development of the next version.
-
-If you'd like to publish a snapshot version, you can comment out this code from `Jenkinsfile` like so:
-
-```groovy
-    stage('Publish to Artifactory') {
-//      when {
-//          branch 'develop'
-//      }
-```
+Each project has its own `build.gradle`.
+Common settings across projects are in custom plugins under the [buildSrc directory](buildSrc/src/main/groovy).
 
 ### Versioning
 
