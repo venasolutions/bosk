@@ -15,7 +15,7 @@ change propagation, ordering, durability, consistency, atomicity, and observabil
 as well as fault tolerance, and emergency manual state inspection and modification,
 is all delegated to MongoDB: a well-known, reliable, battle-hardened codebase.
 You don't need to trust Bosk to get all these details right:
-all we do is maintain the in-memory replica by following the MongoDB change stream.
+all we do is send updates to MongoDB, and maintain the in-memory replica by following the MongoDB change stream.
 
 ## Usage
 
