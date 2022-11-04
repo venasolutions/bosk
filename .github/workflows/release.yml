@@ -28,12 +28,9 @@ jobs:
           server-password: ${{ secrets.OSSRH_TOKEN }}
           gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
 
-      - name: Run Gradle Build
-        run: ./gradlew build --no-daemon -i -x test
-
       - name: Run Gradle Publish
         run: |
-          ./gradlew publish \
+          ./gradlew test publish \
             -Pversion="${{github.event.release.tag_name}}" \
             --no-daemon -i
         env:
