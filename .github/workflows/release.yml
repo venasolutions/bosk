@@ -34,8 +34,8 @@ jobs:
       - name: Run Gradle Publish
         run: |
           ./gradlew publish \
-            -Pversion="${{github.event.release.tag_name}}" --no-daemon -i
-        env:
-          OSSRH_USERNAME: ${{secrets.OSSRH_USERNAME}}
-          OSSRH_TOKEN: ${{ secrets.OSSRH_TOKEN }}
+            -Pversion="${{github.event.release.tag_name}}" \
+            -PossrhUsername=${{secrets.OSSRH_USERNAME}} \
+            -PossrhPassword=${{secrets.OSSRH_TOKEN}} \
+            --no-daemon -i
           
