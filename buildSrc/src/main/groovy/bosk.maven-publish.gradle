@@ -58,11 +58,11 @@ publishing {
 						email = 'gjohnson@venacorp.com'
 					}
 				}
-//				scm {
-//					connection = 'scm:git:git://example.com/my-library.git'
-//					developerConnection = 'scm:git:ssh://example.com/my-library.git'
-//					url = 'http://example.com/my-library/'
-//				}
+				scm {
+					connection = 'scm:git:git://github.com/venasolutions/bosk.git'
+					developerConnection = 'scm:git:ssh://github.com:venasolutions/bosk.git'
+					url = 'https://github.com/venasolutions/bosk'
+				}
 			}
 		}
 	}
