@@ -80,8 +80,8 @@ publishing {
 			url version.endsWith('SNAPSHOT') ? snapshotsRepoUrl : releasesRepoUrl
 
 			credentials {
-				username ossrhUsername
-				password ossrhPassword
+				username System.getEnv("OSSRH_USERNAME")
+				password System.getEnv("OSSRH_TOKEN")
 			}
 		}
 
