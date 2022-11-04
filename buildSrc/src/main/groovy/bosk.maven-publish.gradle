@@ -1,16 +1,21 @@
 
 /*
- * Settings related to Bosk development and developers.
+ * Settings related to publishing Maven artifacts.
  * Actual technological dependencies of Bosk should go into the project's Gradle files.
  */
 
 plugins {
 	id 'java-library'
 	id 'maven-publish'
+	id 'signing'
 }
 
-jar.archiveBaseName = "${archivesBaseName}"
 var publicationType = version.endsWith('-SNAPSHOT') ? 'snapshot' : 'release'
+
+java {
+	withSourcesJar()
+	withJavadocJar()
+}
 
 jar {
 	manifest {
@@ -19,17 +24,16 @@ jar {
 	}
 }
 
-task sourcesJar(type: Jar, dependsOn: classes) {
-	// https://stackoverflow.com/questions/41825699/publishing-artifactswith-sources-and-javadoc-with-gradle
-	archiveClassifier.set('sources')
-	from sourceSets.main.allSource
+// https://central.sonatype.org/publish/publish-gradle/#jar-files
+
+javadoc {
+	failOnError = false
 }
 
 publishing {
 	publications {
 		mavenJava(MavenPublication) {
 			from components.java
-			artifact sourcesJar
 			versionMapping {
 				usage('java-api') {
 					fromResolutionOf('runtimeClasspath')
@@ -40,6 +44,7 @@ publishing {
 			}
 			pom {
 				name = 'Bosk'
+				packaging = 'jar'
 				description = 'Control plane state management library'
 				url = 'http://bosk.works'
 				licenses {
@@ -70,17 +75,38 @@ publishing {
 	}
 	repositories {
 		maven {
+			def releasesRepoUrl = 'https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/'
+			def snapshotsRepoUrl = 'https://s01.oss.sonatype.org/content/repositories/snapshots/'
+			url version.endsWith('SNAPSHOT') ? snapshotsRepoUrl : releasesRepoUrl
+
+			credentials {
+				username ossrhUsername
+				password ossrhPassword
+			}
+		}
+
+		/*
+		maven {
 			name = "VenaArtifactoryDeprecated"
 			credentials( PasswordCredentials )
 			allowInsecureProtocol = true
 			url = "http://artifactory.devops.vena.vpn:8081/artifactory/libs-${publicationType}-local/"
 		}
-		/*
 		maven {
 			name = "VenaArtifactory"
 			credentials( PasswordCredentials )
 			url = "https://venasolutions.jfrog.io/artifactory/vena-libs-${publicationType}-local/"
 		}
 		*/
+	}
+}
+
+signing {
+	sign publishing.publications.mavenJava
+}
+
+javadoc {
+	if(JavaVersion.current().isJava9Compatible()) {
+		options.addBooleanOption('html5', true)
 	}
 }

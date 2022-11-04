@@ -7,8 +7,6 @@ plugins {
 	id 'com.diffplug.gradle.spotless' version '3.25.0'
 }
 
-archivesBaseName = 'bosk-core'
-
 dependencies {
 	implementation group: 'org.ow2.asm', name: 'asm', version: "9.3"
 	implementation 'org.pcollections:pcollections:4.0.1'
