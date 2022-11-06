@@ -1,0 +1,41 @@
+# Based on:
+# - https://github.com/assertj/assertj/blob/f08f94806675ccaaa347e4cbc56cf02efa8cd3be/.github/workflows/release.yml#L1
+# - https://github.com/testcontainers/testcontainers-java/blob/de20484e53eb8d1f580b74ff9df31261b596ab5c/.github/workflows/release.yml#L1
+
+name: Release
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  release:
+
+    name: Release to Maven Central
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Set up Maven Central
+        uses: actions/setup-java@v3
+        with:
+          java-version: '8'
+          distribution: temurin
+          server-id: ossrh
+          server-username: ${{ secrets.OSSRH_USERNAME }}
+          server-password: ${{ secrets.OSSRH_TOKEN }}
+          gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
+
+      - name: Run Gradle Publish
+        run: |
+          ./gradlew test publish \
+            -Pversion="${{github.event.release.tag_name}}" \
+            --no-daemon -i
+        env:
+          ORG_GRADLE_PROJECT_ossrhUsername: ${{secrets.OSSRH_USERNAME}}
+          ORG_GRADLE_PROJECT_ossrhPassword: ${{secrets.OSSRH_TOKEN}}
+          ORG_GRADLE_PROJECT_signingKey: ${{secrets.GPG_PRIVATE_KEY}}
+          ORG_GRADLE_PROJECT_signingPassword: ${{secrets.GPG_PASSWORD}}
+

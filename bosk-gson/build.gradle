@@ -6,8 +6,6 @@ plugins {
 	id 'com.diffplug.gradle.spotless' version '3.25.0'
 }
 
-archivesBaseName = 'bosk-gson'
-
 dependencies {
 	api "com.google.code.gson:gson:2.9.0"
 	implementation project(":bosk-core")

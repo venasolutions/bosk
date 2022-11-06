@@ -1,16 +1,20 @@
 
 /*
- * Settings related to Bosk development and developers.
+ * Settings related to publishing Maven artifacts.
  * Actual technological dependencies of Bosk should go into the project's Gradle files.
  */
 
 plugins {
 	id 'java-library'
 	id 'maven-publish'
+	id 'signing'
 }
 
-jar.archiveBaseName = "${archivesBaseName}"
-var publicationType = version.endsWith('-SNAPSHOT') ? 'snapshot' : 'release'
+
+java {
+	withSourcesJar()
+	withJavadocJar()
+}
 
 jar {
 	manifest {
@@ -19,17 +23,10 @@ jar {
 	}
 }
 
-task sourcesJar(type: Jar, dependsOn: classes) {
-	// https://stackoverflow.com/questions/41825699/publishing-artifactswith-sources-and-javadoc-with-gradle
-	archiveClassifier.set('sources')
-	from sourceSets.main.allSource
-}
-
 publishing {
 	publications {
 		mavenJava(MavenPublication) {
 			from components.java
-			artifact sourcesJar
 			versionMapping {
 				usage('java-api') {
 					fromResolutionOf('runtimeClasspath')
@@ -40,6 +37,7 @@ publishing {
 			}
 			pom {
 				name = 'Bosk'
+				packaging = 'jar'
 				description = 'Control plane state management library'
 				url = 'http://bosk.works'
 				licenses {
@@ -60,27 +58,39 @@ publishing {
 						email = 'gjohnson@venacorp.com'
 					}
 				}
-//				scm {
-//					connection = 'scm:git:git://example.com/my-library.git'
-//					developerConnection = 'scm:git:ssh://example.com/my-library.git'
-//					url = 'http://example.com/my-library/'
-//				}
+				scm {
+					connection = 'scm:git:git://github.com/venasolutions/bosk.git'
+					developerConnection = 'scm:git:ssh://github.com:venasolutions/bosk.git'
+					url = 'https://github.com/venasolutions/bosk'
+				}
 			}
 		}
 	}
 	repositories {
 		maven {
-			name = "VenaArtifactoryDeprecated"
-			credentials( PasswordCredentials )
-			allowInsecureProtocol = true
-			url = "http://artifactory.devops.vena.vpn:8081/artifactory/libs-${publicationType}-local/"
+			def releasesRepoUrl = 'https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/'
+			def snapshotsRepoUrl = 'https://s01.oss.sonatype.org/content/repositories/snapshots/'
+			url version.endsWith('SNAPSHOT') ? snapshotsRepoUrl : releasesRepoUrl
+
+			credentials {
+				username ossrhUsername
+				password ossrhPassword
+			}
 		}
-		/*
-		maven {
-			name = "VenaArtifactory"
-			credentials( PasswordCredentials )
-			url = "https://venasolutions.jfrog.io/artifactory/vena-libs-${publicationType}-local/"
-		}
-		*/
+	}
+}
+
+
+signing {
+	sign publishing.publications.mavenJava
+	def signingKey = findProperty("signingKey")
+	def signingPassword = findProperty("signingPassword")
+	useInMemoryPgpKeys(signingKey, signingPassword)
+}
+
+javadoc {
+	failOnError = false
+	if(JavaVersion.current().isJava9Compatible()) {
+		options.addBooleanOption('html5', true)
 	}
 }
