@@ -8,7 +8,7 @@ plugins {
 }
 
 dependencies {
-	implementation group: 'org.ow2.asm', name: 'asm', version: "9.3"
+	implementation group: 'org.ow2.asm', name: 'asm', version: '9.4'
 	implementation 'org.pcollections:pcollections:4.0.1'
 	testImplementation project(':lib-testing')
 }
