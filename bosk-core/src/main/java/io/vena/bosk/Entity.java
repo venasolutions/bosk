@@ -10,9 +10,9 @@ package io.vena.bosk;
  * to determine its "identity", in the sense that it's impossible to tell whether
  * two Java objects represent the same underlying entity. <b>{@link #id} is not
  * globally unique.</b> This means you must take special care if you want to use
- * an {@link Entity} in a context where {@link #hashCode} and {@link #equals}
- * matter: You very likely <em>do not</em> want these methods to check only
- * the {@link #id}.
+ * an {@link Entity} in a context where {@link Object#hashCode hashCode} and
+ * {@link Object#equals equals} matter:
+ * You very likely <em>do not</em> want these methods to check only the {@link #id}.
  *
  * <p>
  * If you think you want to create a <code>Set</code> of your entity objects, or

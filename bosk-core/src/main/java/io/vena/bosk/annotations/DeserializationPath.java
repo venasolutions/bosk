@@ -19,7 +19,7 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
  *
  * <pre>
  *     public class MyDTO implements StateTreeNode {
- *        &#64DeserializationPath("a/b/c")
+ *        {@code @DeserializationPath("a/b/c")}
  *        MyObject field;
  *     }
  *
