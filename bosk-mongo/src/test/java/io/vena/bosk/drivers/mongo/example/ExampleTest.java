@@ -1,10 +1,12 @@
 package io.vena.bosk.drivers.mongo.example;
 
+import io.vena.bosk.drivers.mongo.UsesMongoService;
 import io.vena.bosk.exceptions.InvalidTypeException;
 import lombok.var;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+@UsesMongoService
 public class ExampleTest {
 	ExampleBosk bosk;
 
