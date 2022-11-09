@@ -54,11 +54,6 @@ allprojects {
 	// SpotBugs warnings on test code are not useful and often counterproductive
 	spotbugsTest.enabled = false
 
-	spotbugs {
-		// Won't fail the build if errors are found
-		ignoreFailures = true
-	}
-
 	tasks.withType(Tar) {
 		enabled = false
 	}

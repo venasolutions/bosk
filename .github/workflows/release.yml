@@ -30,7 +30,7 @@ jobs:
 
       - name: Run Gradle Publish
         run: |
-          ./gradlew test publish \
+          ./gradlew spotlessCheck spotBugsMain test publish \
             -Pversion="${{github.event.release.tag_name}}" \
             --no-daemon -i
         env:

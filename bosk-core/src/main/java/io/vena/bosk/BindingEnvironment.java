@@ -85,7 +85,7 @@ public final class BindingEnvironment {
 	}
 
 	public Map<String, Identifier> asMap() {
-		return bindings;
+		return unmodifiableMap(bindings);
 	}
 
 	public static final class Builder {

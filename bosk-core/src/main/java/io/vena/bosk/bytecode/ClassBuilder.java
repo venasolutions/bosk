@@ -1,5 +1,6 @@
 package io.vena.bosk.bytecode;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -69,6 +70,7 @@ public final class ClassBuilder<T> {
 	 * @param sourceFileOrigin Indicates the package in which the generated class should reside, and
 	 *                         the source file to which all debug line number information should refer.
 	 */
+	@SuppressFBWarnings("EI")
 	public ClassBuilder(String className, Class<? extends T> supertype, ClassLoader parentClassLoader, StackTraceElement sourceFileOrigin) {
 		this.supertype = supertype;
 		this.parentClassLoader = parentClassLoader;
@@ -376,10 +378,10 @@ public final class ClassBuilder<T> {
 	}
 
 	private MethodVisitor methodVisitor() {
-		try {
-			return currentMethod.methodVisitor;
-		} catch (NullPointerException e) {
+		if (currentMethod == null) {
 			throw new IllegalStateException("No method in progress");
+		} else {
+			return currentMethod.methodVisitor;
 		}
 	}
 

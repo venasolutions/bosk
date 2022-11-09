@@ -1,5 +1,6 @@
 package io.vena.bosk;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.vena.bosk.ReferenceUtils.CatalogRef;
 import io.vena.bosk.ReferenceUtils.ListingRef;
 import io.vena.bosk.ReferenceUtils.SideTableRef;
@@ -922,6 +923,7 @@ try (ReadContext originalThReadContext = bosk.new ReadContext()) {
 	public static final class NonexistentEntryException extends Exception {
 		final Path path;
 
+		@SuppressFBWarnings(value = "EI", justification = "Not mutable")
 		public NonexistentEntryException(Path path) {
 			super("No object at path \"" + path.toString() + "\"");
 			this.path = path;
