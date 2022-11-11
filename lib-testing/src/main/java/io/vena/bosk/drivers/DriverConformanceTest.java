@@ -1,6 +1,5 @@
 package io.vena.bosk.drivers;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.vena.bosk.Catalog;
 import io.vena.bosk.CatalogReference;
 import io.vena.bosk.DriverFactory;
@@ -23,7 +22,6 @@ import static java.util.Arrays.asList;
 import static java.util.stream.Collectors.toList;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-@SuppressFBWarnings(justification = "Test code. SpotBugs is counterproductive")
 public abstract class DriverConformanceTest extends AbstractDriverTest {
 	// Subclass can initialize this as desired
 	protected DriverFactory<TestEntity> driverFactory;

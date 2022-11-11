@@ -1,6 +1,5 @@
 package io.vena.bosk;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -45,7 +44,6 @@ public final class SideTable<K extends Entity, V> implements EnumerableByIdentif
 	public Collection<V> values() { return valuesById.values(); }
 	public Set<Entry<Identifier, V>> idEntrySet() { return valuesById.entrySet(); }
 
-	@SuppressFBWarnings(value = "EI", justification = "Not mutable")
 	public Map<Identifier, V> asMap() { return valuesById; }
 
 	public Stream<Entry<K, V>> valueEntryStream() {

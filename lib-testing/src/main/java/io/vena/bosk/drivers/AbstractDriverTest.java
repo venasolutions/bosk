@@ -11,7 +11,6 @@ import io.vena.bosk.Reference;
 import io.vena.bosk.drivers.state.TestEntity;
 import io.vena.bosk.exceptions.InvalidTypeException;
 import java.io.IOException;
-import javax.annotation.Nonnull;
 
 import static java.lang.Thread.currentThread;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -35,7 +34,6 @@ public class AbstractDriverTest {
 		driver = bosk.driver();
 	}
 
-	@Nonnull
 	private static TestEntity initialRoot(Bosk<TestEntity> b) throws InvalidTypeException {
 		return TestEntity.empty(Identifier.from("root"), b.catalogReference(TestEntity.class, Path.just(TestEntity.Fields.catalog)));
 	}
@@ -58,7 +56,6 @@ public class AbstractDriverTest {
 		}
 	}
 
-	@Nonnull
 	private TestEntity emptyEntityAt(Reference<TestEntity> ref) {
 		CatalogReference<TestEntity> catalogRef;
 		try {

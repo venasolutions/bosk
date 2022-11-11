@@ -1,6 +1,5 @@
 package io.vena.bosk;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.vena.bosk.BindingEnvironment.Builder;
 import io.vena.bosk.exceptions.MalformedPathException;
 import java.io.UnsupportedEncodingException;
@@ -117,7 +116,6 @@ public abstract class Path implements Iterable<String> {
 	/**
 	 * @return Path with no segments
 	 */
-	@SuppressFBWarnings(value = "MS", justification = "Not mutable")
 	public static Path empty() {
 		return ROOT_PATH;
 	}

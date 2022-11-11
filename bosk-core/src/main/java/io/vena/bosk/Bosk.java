@@ -1,6 +1,5 @@
 package io.vena.bosk;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.vena.bosk.ReferenceUtils.CatalogRef;
 import io.vena.bosk.ReferenceUtils.ListingRef;
 import io.vena.bosk.ReferenceUtils.SideTableRef;
@@ -23,13 +22,13 @@ import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.Semaphore;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.Value;
 import lombok.experimental.Accessors;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -672,7 +671,7 @@ try (ReadContext originalThReadContext = bosk.new ReadContext()) {
 		 * Unlike the other constructors, this can be used to substitute a new root temporarily,
 		 * even if there's already one active on the current thread.
 		 */
-		ReadContext(@Nonnull R root) {
+		ReadContext(@NotNull R root) {
 			originalRoot = rootSnapshot.get();
 			snapshot = requireNonNull(root);
 			rootSnapshot.set(snapshot);
@@ -923,7 +922,6 @@ try (ReadContext originalThReadContext = bosk.new ReadContext()) {
 	public static final class NonexistentEntryException extends Exception {
 		final Path path;
 
-		@SuppressFBWarnings(value = "EI", justification = "Not mutable")
 		public NonexistentEntryException(Path path) {
 			super("No object at path \"" + path.toString() + "\"");
 			this.path = path;

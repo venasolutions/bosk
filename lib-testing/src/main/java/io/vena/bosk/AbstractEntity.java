@@ -1,7 +1,5 @@
 package io.vena.bosk;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-
 /**
  * Some handy defaults for {@link Entity} implementations that don't
  * inherit {@link ReflectiveEntity}.
@@ -19,7 +17,6 @@ public abstract class AbstractEntity implements Entity {
 	}
 
 	@Override
-	@SuppressFBWarnings(value = "EQ_UNUSUAL", justification = "Yes, it's unusual not to support equals()")
 	public boolean equals(Object obj) {
 		if (this == obj) {
 			// Required to be reflexive by the specification of Object.equals.

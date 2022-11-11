@@ -2,13 +2,13 @@ package io.vena.bosk;
 
 import lombok.AccessLevel;
 import lombok.EqualsAndHashCode;
-import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
+import org.jetbrains.annotations.NotNull;
 
 @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 @EqualsAndHashCode
 public final class Identifier {
-	@NonNull final String value;
+	@NotNull final String value;
 
 	// TODO: Intern these.  No need to have several Identifier objects for the same value
 	public static Identifier from(String value) {
