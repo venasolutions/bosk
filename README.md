@@ -1,3 +1,5 @@
+![Release status](https://github.com/venasolutions/bosk/actions/workflows/release.yml/badge.svg)
+
 # Bosk
 
 ![Three inquisitive cartoon trees with eyes](/art/bosk-3trees.png)
@@ -133,7 +135,7 @@ bosk.driver().submitReplacement(bosk.nameRef, "everybody");
 During your application's initialization, register a hook to perform an action whenever state changes:
 
 ```
-bosk.registerHook("Greetings", bosk.nameRef, ref -> {
+bosk.registerHook("Name update", bosk.nameRef, ref -> {
 	System.out.println("Name is now: " + ref.value());
 });
 ```
