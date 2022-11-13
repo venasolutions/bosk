@@ -55,6 +55,7 @@ final class Formatter {
 	 * No field name should be a prefix of any other.
 	 */
 	enum DocumentFields {
+		path,
 		state,
 		echo,
 	}

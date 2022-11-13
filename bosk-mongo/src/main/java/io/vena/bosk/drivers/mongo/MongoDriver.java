@@ -41,6 +41,7 @@ import org.slf4j.LoggerFactory;
 
 import static com.mongodb.ErrorCategory.DUPLICATE_KEY;
 import static io.vena.bosk.drivers.mongo.Formatter.DocumentFields.echo;
+import static io.vena.bosk.drivers.mongo.Formatter.DocumentFields.path;
 import static io.vena.bosk.drivers.mongo.Formatter.DocumentFields.state;
 import static io.vena.bosk.drivers.mongo.Formatter.dottedFieldNameOf;
 import static io.vena.bosk.drivers.mongo.Formatter.enclosingReference;
@@ -115,7 +116,7 @@ public final class MongoDriver<R extends Entity> implements BoskDriver<R> {
 		}
 
 		R root = receiver.initialRoot(rootType);
-		ensureTenantDocumentExists(formatter.object2bsonValue(root, rootType));
+		ensureDocumentExists(formatter.object2bsonValue(root, rootType), "$setOnInsert");
 		return root;
 	}
 
@@ -219,8 +220,17 @@ public final class MongoDriver<R extends Entity> implements BoskDriver<R> {
 					return;
 				}
 
+				// Round trip via state tree nodes
 				R root = formatter.document2object(newState, rootRef);
-				doUpdate(replacementDoc(rootRef, root), documentFilter());
+				BsonValue initialState = formatter.object2bsonValue(root, rootRef.targetType());
+
+				// Start with a blank document so subsequent changes become update events instead of inserts
+				// TODO: should we do this for initialization too? We want those to be updates as well, right?
+				collection.replaceOne(documentFilter(), new Document());
+
+				// Set all the same fields we set on initialization
+				ensureDocumentExists(initialState, "$set");
+
 				session.commitTransaction();
 			} finally {
 				if (session.hasActiveTransaction()) {
@@ -269,9 +279,9 @@ public final class MongoDriver<R extends Entity> implements BoskDriver<R> {
 		return new BsonDocument("$unset", new BsonDocument(key, new BsonNull())); // Value is ignored
 	}
 
-	private void ensureTenantDocumentExists(BsonValue initialState) {
+	private void ensureDocumentExists(BsonValue initialState, String updateCommand) {
+		BsonDocument update = new BsonDocument(updateCommand, initialDocument(initialState));
 		BsonDocument filter = documentFilter();
-		BsonDocument update = initialTenantUpsert(initialState);
 		UpdateOptions options = new UpdateOptions();
 		options.upsert(true);
 		LOGGER.debug("** Initial tenant upsert for {}", documentID);
@@ -285,6 +295,9 @@ public final class MongoDriver<R extends Entity> implements BoskDriver<R> {
 			if (DUPLICATE_KEY == ErrorCategory.fromErrorCode(e.getCode())) {
 				// This can happen in MongoDB 4.0 if two upserts occur in parallel.
 				// https://docs.mongodb.com/v4.0/reference/method/db.collection.update/
+				// As of MongoDB 4.2, this is no longer required. Since 4.0 is not longer
+				// supported, we could presumably delete this code.
+				// https://www.mongodb.com/docs/manual/core/retryable-writes/#std-label-retryable-update-upsert
 				LOGGER.debug("| Retrying: {}", e.getMessage());
 				result = collection.updateOne(filter, update, options);
 			} else {
@@ -294,11 +307,12 @@ public final class MongoDriver<R extends Entity> implements BoskDriver<R> {
 		LOGGER.debug("| Result: {}", result);
 	}
 
-	BsonDocument initialTenantUpsert(BsonValue initialState) {
+	private BsonDocument initialDocument(BsonValue initialState) {
 		BsonDocument fieldValues = new BsonDocument("_id", documentID);
+		fieldValues.put(path.name(), new BsonString("/"));
 		fieldValues.put(state.name(), initialState);
 		fieldValues.put(echo.name(), new BsonString(uniqueEchoToken()));
-		return new BsonDocument("$setOnInsert", fieldValues);
+		return fieldValues;
 	}
 
 	/**
