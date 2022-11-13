@@ -220,8 +220,17 @@ public final class MongoDriver<R extends Entity> implements BoskDriver<R> {
 					return;
 				}
 
+				// Round trip via state tree nodes
 				R root = formatter.document2object(newState, rootRef);
-				doUpdate(replacementDoc(rootRef, root), documentFilter());
+				BsonValue initialState = formatter.object2bsonValue(root, rootRef.targetType());
+
+				// Start with a blank document so subsequent changes become update events instead of inserts
+				// TODO: should we do this for initialization too? We want those to be updates as well, right?
+				collection.replaceOne(documentFilter(), new Document());
+
+				// Set all the same fields we set on initialization
+				ensureDocumentExists(initialState, "$set");
+
 				session.commitTransaction();
 			} finally {
 				if (session.hasActiveTransaction()) {
