@@ -1,6 +1,8 @@
 package io.vena.bosk.drivers.mongo;
 
 import com.mongodb.MongoException;
+import com.mongodb.client.MongoCollection;
+import com.mongodb.client.MongoCursor;
 import io.vena.bosk.Bosk;
 import io.vena.bosk.BoskDriver;
 import io.vena.bosk.Catalog;
@@ -26,16 +28,22 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingDeque;
 import lombok.Value;
 import lombok.experimental.Accessors;
+import org.bson.BsonDocument;
+import org.bson.BsonNull;
+import org.bson.BsonString;
+import org.bson.Document;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import static io.vena.bosk.ListingEntry.LISTING_ENTRY;
+import static io.vena.bosk.drivers.mongo.Formatter.DocumentFields.path;
 import static java.lang.Long.max;
 import static java.lang.System.currentTimeMillis;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
@@ -378,6 +386,54 @@ class MongoDriverSpecialTest {
 			after = originalBosk.rootReference().value().values();
 		}
 		assertEquals(Optional.of(TestValues.blank()), after); // Now it's there
+	}
+
+	@Test
+	@UsesMongoService
+	void refurbish_fixesMetadata() throws IOException, InterruptedException {
+		// Set up the database so it looks basically right
+		Bosk<TestEntity> initialBosk = new Bosk<TestEntity>(
+			"Initial",
+			TestEntity.class,
+			this::initialRoot,
+			createDriverFactory()
+		);
+
+		// (Close this so it doesn't crash when we delete the "path" field)
+		((MongoDriver<TestEntity>)initialBosk.driver()).close();
+
+		// Remove the `path` metadata field
+		MongoCollection<Document> collection = mongoService.client()
+			.getDatabase(driverSettings.database())
+			.getCollection(driverSettings.collection());
+		BsonDocument filterDoc = new BsonDocument("_id", new BsonString("boskDocument"));
+		BsonDocument deletionDoc = new BsonDocument("$unset", new BsonDocument(path.name(), new BsonNull())); // Value is ignored
+		collection.updateOne(filterDoc, deletionDoc);
+
+		// Make the bosk we want to test
+		Bosk<TestEntity> bosk = new Bosk<TestEntity>(
+			"bosk",
+			TestEntity.class,
+			this::initialRoot,
+			createDriverFactory()
+		);
+
+		// Verify that the path field is indeed missing
+		bosk.driver().flush();
+		try (MongoCursor<Document> cursor = collection.find(filterDoc).cursor()) {
+			Document doc = cursor.next();
+			assertNull(doc.get(path.name()));
+		}
+
+		// Refurbish
+		((MongoDriver<?>)bosk.driver()).refurbish();
+
+		// Verify that it's there now
+		try (MongoCursor<Document> cursor = collection.find(filterDoc).cursor()) {
+			Document doc = cursor.next();
+			assertEquals("/", doc.get(path.name()));
+		}
+
 	}
 
 	private <E extends Entity> DriverFactory<E> createDriverFactory() {
