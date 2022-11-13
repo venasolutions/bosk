@@ -41,6 +41,7 @@ import org.slf4j.LoggerFactory;
 
 import static com.mongodb.ErrorCategory.DUPLICATE_KEY;
 import static io.vena.bosk.drivers.mongo.Formatter.DocumentFields.echo;
+import static io.vena.bosk.drivers.mongo.Formatter.DocumentFields.path;
 import static io.vena.bosk.drivers.mongo.Formatter.DocumentFields.state;
 import static io.vena.bosk.drivers.mongo.Formatter.dottedFieldNameOf;
 import static io.vena.bosk.drivers.mongo.Formatter.enclosingReference;
@@ -299,6 +300,7 @@ public final class MongoDriver<R extends Entity> implements BoskDriver<R> {
 
 	private BsonDocument initialDocument(BsonValue initialState) {
 		BsonDocument fieldValues = new BsonDocument("_id", documentID);
+		fieldValues.put(path.name(), new BsonString("/"));
 		fieldValues.put(state.name(), initialState);
 		fieldValues.put(echo.name(), new BsonString(uniqueEchoToken()));
 		return fieldValues;
