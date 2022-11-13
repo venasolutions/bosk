@@ -285,6 +285,9 @@ public final class MongoDriver<R extends Entity> implements BoskDriver<R> {
 			if (DUPLICATE_KEY == ErrorCategory.fromErrorCode(e.getCode())) {
 				// This can happen in MongoDB 4.0 if two upserts occur in parallel.
 				// https://docs.mongodb.com/v4.0/reference/method/db.collection.update/
+				// As of MongoDB 4.2, this is no longer required. Since 4.0 is not longer
+				// supported, we could presumably delete this code.
+				// https://www.mongodb.com/docs/manual/core/retryable-writes/#std-label-retryable-update-upsert
 				LOGGER.debug("| Retrying: {}", e.getMessage());
 				result = collection.updateOne(filter, update, options);
 			} else {
