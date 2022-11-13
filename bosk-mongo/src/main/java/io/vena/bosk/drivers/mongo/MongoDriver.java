@@ -270,8 +270,8 @@ public final class MongoDriver<R extends Entity> implements BoskDriver<R> {
 	}
 
 	private void ensureDocumentExists(BsonValue initialState) {
+		BsonDocument update = new BsonDocument("$setOnInsert", initialDocument(initialState));
 		BsonDocument filter = documentFilter();
-		BsonDocument update = initialUpsert(initialState);
 		UpdateOptions options = new UpdateOptions();
 		options.upsert(true);
 		LOGGER.debug("** Initial tenant upsert for {}", documentID);
@@ -297,11 +297,11 @@ public final class MongoDriver<R extends Entity> implements BoskDriver<R> {
 		LOGGER.debug("| Result: {}", result);
 	}
 
-	BsonDocument initialUpsert(BsonValue initialState) {
+	private BsonDocument initialDocument(BsonValue initialState) {
 		BsonDocument fieldValues = new BsonDocument("_id", documentID);
 		fieldValues.put(state.name(), initialState);
 		fieldValues.put(echo.name(), new BsonString(uniqueEchoToken()));
-		return new BsonDocument("$setOnInsert", fieldValues);
+		return fieldValues;
 	}
 
 	/**
