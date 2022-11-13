@@ -115,7 +115,7 @@ public final class MongoDriver<R extends Entity> implements BoskDriver<R> {
 		}
 
 		R root = receiver.initialRoot(rootType);
-		ensureDocumentExists(formatter.object2bsonValue(root, rootType));
+		ensureDocumentExists(formatter.object2bsonValue(root, rootType), "$setOnInsert");
 		return root;
 	}
 
@@ -269,8 +269,8 @@ public final class MongoDriver<R extends Entity> implements BoskDriver<R> {
 		return new BsonDocument("$unset", new BsonDocument(key, new BsonNull())); // Value is ignored
 	}
 
-	private void ensureDocumentExists(BsonValue initialState) {
-		BsonDocument update = new BsonDocument("$setOnInsert", initialDocument(initialState));
+	private void ensureDocumentExists(BsonValue initialState, String updateCommand) {
+		BsonDocument update = new BsonDocument(updateCommand, initialDocument(initialState));
 		BsonDocument filter = documentFilter();
 		UpdateOptions options = new UpdateOptions();
 		options.upsert(true);
