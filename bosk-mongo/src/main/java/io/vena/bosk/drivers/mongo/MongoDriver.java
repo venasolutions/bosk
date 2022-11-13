@@ -115,7 +115,7 @@ public final class MongoDriver<R extends Entity> implements BoskDriver<R> {
 		}
 
 		R root = receiver.initialRoot(rootType);
-		ensureTenantDocumentExists(formatter.object2bsonValue(root, rootType));
+		ensureDocumentExists(formatter.object2bsonValue(root, rootType));
 		return root;
 	}
 
@@ -269,9 +269,9 @@ public final class MongoDriver<R extends Entity> implements BoskDriver<R> {
 		return new BsonDocument("$unset", new BsonDocument(key, new BsonNull())); // Value is ignored
 	}
 
-	private void ensureTenantDocumentExists(BsonValue initialState) {
+	private void ensureDocumentExists(BsonValue initialState) {
 		BsonDocument filter = documentFilter();
-		BsonDocument update = initialTenantUpsert(initialState);
+		BsonDocument update = initialUpsert(initialState);
 		UpdateOptions options = new UpdateOptions();
 		options.upsert(true);
 		LOGGER.debug("** Initial tenant upsert for {}", documentID);
@@ -294,7 +294,7 @@ public final class MongoDriver<R extends Entity> implements BoskDriver<R> {
 		LOGGER.debug("| Result: {}", result);
 	}
 
-	BsonDocument initialTenantUpsert(BsonValue initialState) {
+	BsonDocument initialUpsert(BsonValue initialState) {
 		BsonDocument fieldValues = new BsonDocument("_id", documentID);
 		fieldValues.put(state.name(), initialState);
 		fieldValues.put(echo.name(), new BsonString(uniqueEchoToken()));
