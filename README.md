@@ -228,7 +228,7 @@ Common settings across projects are in custom plugins under the [buildSrc direct
 
 In the long run, we'll use the usual semantic versioning.
 
-For the 0.x.y releases, treat x as a manjor release number.
+For the 0.x.y releases, treat x as a major release number.
 
 For the 0.0.x releases, all bets are off, and no backward compatibility is guaranteed.
 
