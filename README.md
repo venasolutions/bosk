@@ -126,6 +126,10 @@ try (var __ = bosk.readContext()) {
 }
 ```
 
+A read context is intended to be coarse-grained, for example covering an entire HTTP request,
+giving you "snapshot-at-start" semantics and protecting you from race conditions.
+It is an antipattern to use many small read contexts during the course of a single operation.
+
 To modify state, use the `BoskDriver` interface:
 
 ```
