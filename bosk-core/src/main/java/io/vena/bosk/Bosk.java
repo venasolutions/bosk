@@ -699,7 +699,7 @@ try (ReadContext originalThReadContext = bosk.new ReadContext()) {
 		}
 	}
 
-	public ReadContext readContext() {
+	public final ReadContext readContext() {
 		return new ReadContext();
 	}
 
