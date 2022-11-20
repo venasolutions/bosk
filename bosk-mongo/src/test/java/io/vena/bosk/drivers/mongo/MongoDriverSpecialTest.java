@@ -439,10 +439,9 @@ class MongoDriverSpecialTest {
 
 	private <E extends Entity> DriverFactory<E> createDriverFactory() {
 		return (bosk, downstream) -> {
-			MongoDriver<E> driver = new MongoDriver<E>(
-				bosk, mongoService.clientSettings(), driverSettings, new BsonPlugin(),
-				downstream
-			);
+			MongoDriver<E> driver = MongoDriver.<E>factory(
+				mongoService.clientSettings(), driverSettings, new BsonPlugin()
+			).build(bosk, downstream);
 			tearDownActions.addFirst(driver::close);
 			return driver;
 		};

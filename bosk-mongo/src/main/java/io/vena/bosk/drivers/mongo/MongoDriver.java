@@ -63,7 +63,7 @@ public final class MongoDriver<R extends Entity> implements BoskDriver<R> {
 
 	static final String COLLECTION_NAME = "boskCollection";
 
-	public MongoDriver(Bosk<R> bosk, MongoClientSettings clientSettings, MongoDriverSettings driverSettings, BsonPlugin bsonPlugin, BoskDriver<R> downstream) {
+	private MongoDriver(Bosk<R> bosk, MongoClientSettings clientSettings, MongoDriverSettings driverSettings, BsonPlugin bsonPlugin, BoskDriver<R> downstream) {
 		validateMongoClientSettings(clientSettings);
 		this.description = MongoDriver.class.getSimpleName() + ": " + driverSettings;
 		this.settings = driverSettings;
@@ -78,8 +78,12 @@ public final class MongoDriver<R extends Entity> implements BoskDriver<R> {
 		this.rootRef = bosk.rootReference();
 	}
 
-	public static <RR extends Entity> DriverFactory<RR> factory(MongoClientSettings clientSettings, MongoDriverSettings driverSettings, BsonPlugin bsonPlugin) {
+	public static <RR extends Entity> MongoDriverFactory<RR> factory(MongoClientSettings clientSettings, MongoDriverSettings driverSettings, BsonPlugin bsonPlugin) {
 		return (b,d) -> new MongoDriver<>(b, clientSettings, driverSettings, bsonPlugin, d);
+	}
+
+	public interface MongoDriverFactory<RR extends Entity> extends DriverFactory<RR> {
+		@Override MongoDriver<RR> build(Bosk<RR> bosk, BoskDriver<RR> downstream);
 	}
 
 	private void validateMongoClientSettings(MongoClientSettings clientSettings) {
