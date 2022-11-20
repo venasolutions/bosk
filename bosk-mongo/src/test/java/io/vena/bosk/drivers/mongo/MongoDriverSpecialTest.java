@@ -39,6 +39,7 @@ import org.junit.jupiter.api.Test;
 
 import static io.vena.bosk.ListingEntry.LISTING_ENTRY;
 import static io.vena.bosk.drivers.mongo.Formatter.DocumentFields.path;
+import static io.vena.bosk.drivers.mongo.MongoDriver.COLLECTION_NAME;
 import static java.lang.Long.max;
 import static java.lang.System.currentTimeMillis;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -76,7 +77,7 @@ class MongoDriverSpecialTest {
 		// Start with a clean slate
 		mongoService.client()
 			.getDatabase(driverSettings.database())
-			.getCollection(driverSettings.collection())
+			.getCollection(COLLECTION_NAME)
 			.drop();
 	}
 
@@ -405,7 +406,7 @@ class MongoDriverSpecialTest {
 		// Remove the `path` metadata field
 		MongoCollection<Document> collection = mongoService.client()
 			.getDatabase(driverSettings.database())
-			.getCollection(driverSettings.collection());
+			.getCollection(COLLECTION_NAME);
 		BsonDocument filterDoc = new BsonDocument("_id", new BsonString("boskDocument"));
 		BsonDocument deletionDoc = new BsonDocument("$unset", new BsonDocument(path.name(), new BsonNull())); // Value is ignored
 		collection.updateOne(filterDoc, deletionDoc);

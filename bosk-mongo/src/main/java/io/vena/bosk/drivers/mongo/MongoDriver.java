@@ -61,6 +61,8 @@ public final class MongoDriver<R extends Entity> implements BoskDriver<R> {
 	private final String echoPrefix;
 	private final AtomicLong echoCounter = new AtomicLong(1_000_000_000_000L); // Start with a big number so the length doesn't change often
 
+	static final String COLLECTION_NAME = "boskCollection";
+
 	public MongoDriver(Bosk<R> bosk, MongoClientSettings clientSettings, MongoDriverSettings driverSettings, BsonPlugin bsonPlugin, BoskDriver<R> downstream) {
 		validateMongoClientSettings(clientSettings);
 		this.description = MongoDriver.class.getSimpleName() + ": " + driverSettings;
@@ -69,7 +71,7 @@ public final class MongoDriver<R extends Entity> implements BoskDriver<R> {
 		this.formatter = new Formatter(bosk, bsonPlugin);
 		this.collection = mongoClient
 			.getDatabase(driverSettings.database())
-			.getCollection(driverSettings.collection());
+			.getCollection(COLLECTION_NAME);
 		this.receiver = new MongoChangeStreamReceiver<>(downstream, bosk.rootReference(), collection, formatter);
 		this.echoPrefix = bosk.instanceID().toString();
 		this.documentID = new BsonString("boskDocument");

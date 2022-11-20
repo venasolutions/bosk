@@ -9,6 +9,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 
+import static io.vena.bosk.drivers.mongo.MongoDriver.COLLECTION_NAME;
+
 @UsesMongoService
 class MongoDriverConformanceTest extends DriverConformanceTest {
 	public static final String TEST_DB = MongoDriverConformanceTest.class.getSimpleName() + "_DB";
@@ -50,7 +52,7 @@ class MongoDriverConformanceTest extends DriverConformanceTest {
 				driver.close();
 				mongoService.client()
 					.getDatabase(driverSettings.database())
-					.getCollection(driverSettings.collection())
+					.getCollection(COLLECTION_NAME)
 					.drop();
 			});
 			return driver;

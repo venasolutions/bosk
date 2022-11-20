@@ -11,6 +11,5 @@ import lombok.experimental.Accessors;
 public class MongoDriverSettings {
 	String database;
 
-	@Default String collection = "boskCollection";
 	@Default long flushTimeoutMS = 30_000;
 }
