@@ -42,7 +42,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
  *
  * @author pdoyle
  */
-final class MongoChangeStreamReceiver<R extends Entity> implements MongoReceiver<R> {
+final class SingleDocumentMongoChangeStreamReceiver<R extends Entity> implements MongoReceiver<R> {
 	private final Formatter formatter;
 	private final BoskDriver<R> downstream;
 	private final Reference<R> rootRef;
@@ -57,7 +57,7 @@ final class MongoChangeStreamReceiver<R extends Entity> implements MongoReceiver
 	private volatile BsonDocument lastProcessedResumeToken = null;
 	private final AtomicBoolean isClosed = new AtomicBoolean(false);
 
-	MongoChangeStreamReceiver(BoskDriver<R> downstream, Reference<R> rootRef, MongoCollection<Document> collection, Formatter formatter) {
+	SingleDocumentMongoChangeStreamReceiver(BoskDriver<R> downstream, Reference<R> rootRef, MongoCollection<Document> collection, Formatter formatter) {
 		this.downstream = downstream;
 		this.rootRef = rootRef;
 		this.formatter = formatter;
@@ -277,5 +277,5 @@ final class MongoChangeStreamReceiver<R extends Entity> implements MongoReceiver
 
 	private static final Set<String> ALREADY_WARNED = synchronizedSet(new HashSet<>());
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(MongoChangeStreamReceiver.class);
+	private static final Logger LOGGER = LoggerFactory.getLogger(SingleDocumentMongoChangeStreamReceiver.class);
 }

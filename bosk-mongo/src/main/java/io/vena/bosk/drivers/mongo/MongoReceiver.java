@@ -11,7 +11,7 @@ import org.bson.BsonDocument;
 
 /**
  * Sends updates to a downstream driver based on events received from MongoDB.
- * Implements the "back end" of a {@link MongoDriver}, encapsulating the
+ * Implements the "back end" of a {@link SingleDocumentMongoDriver}, encapsulating the
  * downstream driver.
  *
  * <p>
@@ -24,7 +24,7 @@ import org.bson.BsonDocument;
  * </li><li>
  *     A {@link BoskDriver#flush} needs to call {@link #flushDownstream()}.
  * </li><li>
- *     An echo operation (which is how {@link MongoDriver} implements {@link BoskDriver#flush}
+ *     An echo operation (which is how {@link SingleDocumentMongoDriver} implements {@link BoskDriver#flush}
  *     needs to detect echo events, so we expose a listener interface via {@link #putEchoListener}
  *     and {@link #removeEchoListener}.
  * </li><li>

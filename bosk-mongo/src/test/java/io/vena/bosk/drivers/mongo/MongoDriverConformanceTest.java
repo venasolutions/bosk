@@ -9,7 +9,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 
-import static io.vena.bosk.drivers.mongo.MongoDriver.COLLECTION_NAME;
+import static io.vena.bosk.drivers.mongo.SingleDocumentMongoDriver.COLLECTION_NAME;
 
 @UsesMongoService
 class MongoDriverConformanceTest extends DriverConformanceTest {

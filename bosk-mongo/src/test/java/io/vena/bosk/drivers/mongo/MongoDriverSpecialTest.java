@@ -39,7 +39,7 @@ import org.junit.jupiter.api.Test;
 
 import static io.vena.bosk.ListingEntry.LISTING_ENTRY;
 import static io.vena.bosk.drivers.mongo.Formatter.DocumentFields.path;
-import static io.vena.bosk.drivers.mongo.MongoDriver.COLLECTION_NAME;
+import static io.vena.bosk.drivers.mongo.SingleDocumentMongoDriver.COLLECTION_NAME;
 import static java.lang.Long.max;
 import static java.lang.System.currentTimeMillis;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
