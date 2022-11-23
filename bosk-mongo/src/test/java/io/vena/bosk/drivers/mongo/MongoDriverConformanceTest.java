@@ -11,8 +11,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 
-import static io.vena.bosk.drivers.mongo.MainDriver.COLLECTION_NAME;
-
 @UsesMongoService
 class MongoDriverConformanceTest extends DriverConformanceTest implements TestParameters {
 	private final Deque<Runnable> tearDownActions = new ArrayDeque<>();
@@ -48,7 +46,6 @@ class MongoDriverConformanceTest extends DriverConformanceTest implements TestPa
 				driver.close();
 				mongoService.client()
 					.getDatabase(driverSettings.database())
-					.getCollection(COLLECTION_NAME)
 					.drop();
 			});
 			return driver;
