@@ -57,7 +57,6 @@ abstract class AbstractMongoDriverTest {
 		// Start with a clean slate
 		mongoService.client()
 			.getDatabase(driverSettings.database())
-			.getCollection(MainDriver.COLLECTION_NAME)
 			.drop();
 	}
 
