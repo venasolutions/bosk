@@ -2,7 +2,9 @@ package io.vena.bosk;
 
 import io.vena.bosk.HookRecorder.Event;
 import io.vena.bosk.exceptions.InvalidTypeException;
+import java.io.IOException;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.val;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -327,7 +329,77 @@ public class HooksTest extends AbstractBoskTest {
 	//
 
 	@Test
-	void testNested_breadthFirst() {
+	void testNested_breadthFirst() throws IOException, InterruptedException {
+		AtomicBoolean initializing = new AtomicBoolean(true);
+
+		// Child 1 update triggers A and B, and A triggers C
+
+		bosk.registerHook("A", child1StringRef, recorder.hookNamed("A", ref -> {
+			if (initializing.get()) {
+				assertEquals("child1", ref.value(),
+					"Upon registration, hooks runs on initial state");
+				return;
+			}
+
+			assertEquals("newValue", ref.value(),
+				"Update that triggered the hook is visible");
+			assertEquals("child2", child2StringRef.value(),
+				"Subsequent change to child2 is not visible");
+			assertEquals("child3", child3StringRef.value(),
+				"Subsequent change to child3 is not visible");
+			bosk.driver().submitReplacement(child2StringRef, ref.value() + "_child2_hookA");
+		}));
+		bosk.registerHook("B", child1StringRef, recorder.hookNamed("B", ref -> {
+			if (initializing.get()) {
+				assertEquals("child1", ref.value(),
+					"Upon registration, hooks runs on initial state");
+				return;
+			}
+
+			assertEquals("newValue", ref.value(),
+				"Update that triggered the hook is visible");
+			assertEquals("child2", child2StringRef.value(),
+				"A's update to child2 is not visible even though A runs first");
+			assertEquals("child3", child3StringRef.value(),
+				"Subsequent change to child3 is not visible");
+			bosk.driver().submitReplacement(child3StringRef, ref.value() + "_child3_hookB");
+		}));
+		bosk.registerHook("C", child2StringRef, recorder.hookNamed("C", ref -> {
+			if (initializing.get()) {
+				assertEquals("child2", ref.value(),
+					"Upon registration, hooks runs on initial state");
+				return;
+			}
+
+			assertEquals("newValue_child2_hookA", ref.value(),
+				"Update that triggered the hook is visible");
+			assertEquals("newValue", child1StringRef.value(),
+				"Prior update still visible");
+			assertEquals("child3", child3StringRef.value(),
+				"B's update to child3 is not visible even though B runs first");
+		}));
+
+		// Reset everything and submit the replacement that triggers the hooks
+		recorder.restart();
+		initializing.set(false);
+		bosk.driver().submitReplacement(child1StringRef, "newValue");
+		bosk.driver().flush();
+
+		// Check for expected hook events
+		List<Event> expectedEvents = asList(
+			new Event("A", CHANGED, child1StringRef, "newValue"),
+			new Event("B", CHANGED, child1StringRef, "newValue"),
+			new Event("C", CHANGED, child2StringRef, "newValue_child2_hookA")
+		);
+
+		assertEquals(
+			expectedEvents,
+			recorder.events());
+
+	}
+
+	@Test
+	void testNestedMultipleUpdates_breadthFirst() {
 		// Register hooks to propagate string updates from parent -> child 1 -> 2 -> 3 with a tag
 		bosk.registerHook("+P", parentStringRef, recorder.hookNamed("P", ref -> {
 			bosk.driver().submitReplacement(child1StringRef, ref.value() + "+P");
