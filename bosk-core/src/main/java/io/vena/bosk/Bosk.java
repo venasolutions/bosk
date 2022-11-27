@@ -278,12 +278,20 @@ public class Bosk<R extends Entity> {
 		/**
 		 * @return false if the update was ignored
 		 */
-		@SuppressWarnings("unchecked")
 		private synchronized <T> boolean tryGraftReplacement(Reference<T> target, T newValue) {
 			Dereferencer dereferencer = dereferencerFor(target);
 			try {
 				LOGGER.debug("Applying replacement at {}", target);
-				currentRoot = (R) requireNonNull(dereferencer.with(currentRoot, target, requireNonNull(newValue)));
+				R oldRoot = currentRoot;
+				@SuppressWarnings("unchecked")
+				R newRoot = (R) requireNonNull(dereferencer.with(oldRoot, target, requireNonNull(newValue)));
+				currentRoot = newRoot;
+				if (LOGGER.isTraceEnabled()) {
+					LOGGER.trace("Replacement at {} changed root from {} to {}",
+						target,
+						System.identityHashCode(oldRoot),
+						System.identityHashCode(newRoot));
+				}
 				return true;
 			} catch (NonexistentEntryException e) {
 				LOGGER.debug("Ignoring replacement of {}", target, e);
@@ -294,7 +302,6 @@ public class Bosk<R extends Entity> {
 		/**
 		 * @return false if the update was ignored
 		 */
-		@SuppressWarnings("unchecked")
 		private synchronized <T> boolean tryGraftDeletion(Reference<T> target) {
 			Path targetPath = target.path();
 			if (targetPath.length() == 0) {
@@ -303,7 +310,16 @@ public class Bosk<R extends Entity> {
 			Dereferencer dereferencer = dereferencerFor(target);
 			try {
 				LOGGER.debug("Applying deletion at {}", target);
-				currentRoot = (R)requireNonNull(dereferencer.without(currentRoot, target));
+				R oldRoot = currentRoot;
+				@SuppressWarnings("unchecked")
+				R newRoot = (R) requireNonNull(dereferencer.without(oldRoot, target));
+				currentRoot = newRoot;
+				if (LOGGER.isTraceEnabled()) {
+					LOGGER.trace("Deletion at {} changed root from {} to {}",
+						target,
+						System.identityHashCode(oldRoot),
+						System.identityHashCode(newRoot));
+				}
 				return true;
 			} catch (NonexistentEntryException e) {
 				LOGGER.debug("Ignoring deletion of {}", target, e);
@@ -331,10 +347,10 @@ public class Bosk<R extends Entity> {
 		 */
 		private <T,S> void triggerQueueingOfHooks(Reference<T> target, @Nullable R priorRoot, R rootForHook, HookRegistration<S> reg) {
 			reg.triggerAction(priorRoot, rootForHook, target, changedRef -> {
-				LOGGER.debug("Hook: queue {} due to {}", changedRef, target);
+				LOGGER.debug("Hook: queue {}({}) due to {}", reg.name, changedRef, target);
 				hookExecutionQueue.addLast(() -> {
 					try (@SuppressWarnings("unused") ReadContext executionContext = new ReadContext(rootForHook)) {
-						LOGGER.debug("Hook: RUN {}", changedRef);
+						LOGGER.debug("Hook: RUN {}({}) in {}", reg.name, changedRef, executionContext);
 						reg.hook.onChanged(changedRef);
 					}
 				});
