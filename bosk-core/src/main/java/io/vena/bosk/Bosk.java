@@ -375,7 +375,7 @@ public class Bosk<R extends Entity> {
 						for (Runnable ex = hookExecutionQueue.pollFirst(); ex != null; ex = hookExecutionQueue.pollFirst()) {
 							try {
 								ex.run();
-							} catch (Exception | AssertionError e) {
+							} catch (Exception e) {
 								LOGGER.error("Hook aborted due to exception: {}",  e.getMessage(), e);
 							}
 						}
