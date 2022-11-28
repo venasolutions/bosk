@@ -2,7 +2,7 @@
 
 # Bosk
 
-![Three inquisitive cartoon trees with eyes](/art/bosk-3trees.png)
+![Three inquisitive cartoon trees with eyes](/art/bosk-evergreen-3trees-small.png)
 
 Bosk is a state management library for developing distributed application control-plane logic.
 It's a bit like server-side Redux for Java, but without the boilerplate code.
@@ -236,8 +236,3 @@ For the 0.x.y releases, treat x as a major release number.
 
 For the 0.0.x releases, all bets are off, and no backward compatibility is guaranteed.
 
-### Logo
-
-Logo was derived from this public-domain image: https://openclipart.org/detail/44023/small-trees-bushes
-
-Modified by Grady Johnson.

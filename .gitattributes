@@ -1,5 +1,6 @@
 * text eol=lf
 *.ico binary
 *.jar binary
+*.jpg binary
 *.png binary
 *.svg binary
