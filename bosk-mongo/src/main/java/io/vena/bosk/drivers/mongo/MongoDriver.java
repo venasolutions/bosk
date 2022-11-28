@@ -10,7 +10,11 @@ public interface MongoDriver<R extends Entity> extends BoskDriver<R> {
 	void refurbish();
 	void close();
 
-	static <RR extends Entity> MongoDriverFactory<RR> factory(MongoClientSettings clientSettings, MongoDriverSettings driverSettings, BsonPlugin bsonPlugin) {
+	static <RR extends Entity> MongoDriverFactory<RR> factory(
+		MongoClientSettings clientSettings,
+		MongoDriverSettings driverSettings,
+		BsonPlugin bsonPlugin
+	) {
 		return (b, d) -> new SingleDocumentMongoDriver<>(b, clientSettings, driverSettings, bsonPlugin, d);
 	}
 
