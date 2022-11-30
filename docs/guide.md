@@ -1,5 +1,56 @@
 ## User's Guide
 
+### The Bosk Object
+
+The `Bosk` object is a container for your application state tree.
+If it helps, you can picture it as an `AtomicReference<MyStateTreeRoot>` that your application can access,
+though it actually does quite a lot more than this:
+- it acts as a factory for `Reference` objects, which provide efficient access to specific nodes of your state tree,
+- it provides stable thread-local state snapshots, via `ReadContext`,
+- it provides a `BoskDriver` interface, through which you can modify the state tree, and
+- it can execute _hook_ callback functions when part of the tree changes.
+
+It's typically a singleton.
+
+#### Initialization
+
+Initialization of the `Bosk` object happens during its constructor.
+Perhaps this seems self-evident, but it means a lot happens during the constructor, including running user-supplied code, in order to establish the initial bosk state invariants.
+
+There are two primary things that need initializing:
+- The `BoskDriver`
+- The state tree
+
+##### Driver initialization
+
+First, the driver is initialized by calling the `DriverFactory` function passed in to the bosk constructor.
+The driver factory is an important bosk extension point that allows functionality to be customized.
+Every `Bosk` object has a _local driver_, which applies updates directly to the in-memory state tree;
+the `DriverFactory` allows this to be extended with additional functionality by stacking "decorator" layers on top of the local driver.
+
+The `DriverFactory` function is invoked in the `Bosk` constructor as follows:
+
+```
+this.driver = driverFactory.build(this, localDriver);
+```
+
+The return value of this function is stored, and becomes the object returned by `Bosk.driver()`.
+
+Note that the driver accepts the `Bosk` object itself, even though this object is still under construction.
+The reason for this is to allow drivers to create `Reference` objects, which requires the `Bosk` (which behaves as a `Reference` factory).
+During the `DriverFactory`, the bosk object can be used for anything that doesn't involve accessing either the driver or the state tree, because neither of these is ready yet at the time the factory is called.
+Other functionality, like creating references, or `Bosk.instanceID()`, works as expected.
+
+##### State tree initialization
+
+The state tree (described below) is initialized by calling `driver.initialState`.
+Drivers are free to choose how the initial state is computed: they can supply the initial state themselves, or they can delegate to a downstream driver.
+For example, `MongoDriver` will load the initial state from the database if it's available, and if not, it will delegate to the downstream driver.
+
+If all of the drivers choose to delegate to their downstream drivers, ultimately the `initialState` method of the bosk's local driver will be called.
+This method calls the `Bosk` constructor's `DefaultRootFunction` parameter to compute the initial state tree.
+The overall effect of this setup is that the `DefaultRootFunction` parameter is only used if the bosk's driver does not supply the initial state.
+
 ### The State Tree
 
 Your application state takes the form of a tree of immutable node objects that you design.
@@ -99,55 +150,6 @@ It behaves just like an `Optional` field that is always empty.
 
 Phantom fields are primarily useful as the domain for a sparse `Listing` or `SideTable` in situations where there is no useful information to be stored about the key entities.
 If you don't already know what this means, you probably don't want to use `Phantom`.
-
-### The Bosk Object
-
-The `Bosk` object is a container for your application state tree.
-If it helps, you can picture it as an `AtomicReference<MyStateTreeRoot>` that your application can access,
-though it actually does quite a lot more than this:
-- it acts as a factory for `Reference` objects, which provide efficient access to specific nodes of your state tree,
-- it provides stable thread-local state snapshots, via `ReadContext`,
-- it provides a `BoskDriver` interface, through which you can modify the state tree, and
-- it can execute _hook_ callback functions when part of the tree changes.
-
-#### Initialization
-
-Initialization of the `Bosk` object happens during its constructor.
-Perhaps this seems self-evident, but it means a lot happens during the constructor, including running user-supplied code, in order to establish the initial bosk state invariants.
-
-There are two primary things that need initializing:
-- The `BoskDriver`
-- The state tree
-
-##### Driver initialization
-
-First, the driver is initialized by calling the `DriverFactory` function passed in to the bosk constructor.
-The driver factory is an important bosk extension point that allows functionality to be customized.
-Every `Bosk` object has a _local driver_, which applies updates directly to the in-memory state tree;
-the `DriverFactory` allows this to be extended with additional functionality by stacking "decorator" layers on top of the local driver.
-
-The `DriverFactory` function is invoked in the `Bosk` constructor as follows:
-
-```
-this.driver = driverFactory.build(this, localDriver);
-```
-
-The return value of this function is stored, and becomes the object returned by `Bosk.driver()`.
-
-Note that the driver accepts the `Bosk` object itself, even though this object is still under construction.
-The reason for this is to allow drivers to create `Reference` objects, which requires the `Bosk` (which behaves as a `Reference` factory).
-During the `DriverFactory`, the bosk object can be used for anything that doesn't involve accessing either the driver or the state tree, because neither of these is ready yet at the time the factory is called.
-Other functionality, like creating references, or `Bosk.instanceID()`, works as expected.
-
-##### State tree initialization
-
-The state tree is initialized by calling `driver.initialState`.
-Drivers are free to choose how the initial state is computed: they can supply the initial state themselves, or they can delegate to a downstream driver.
-For example, `MongoDriver` will load the initial state from the database if it's available, and if not, it will delegate to the downstream driver.
-
-If all of the drivers choose to delegate to their downstream drivers, ultimately the `initialState` method of the bosk's local driver will be called.
-This method calls the `Bosk` constructor's `DefaultRootFunction` parameter to compute the initial state tree.
-The overall effect of this setup is that the `DefaultRootFunction` parameter is only used if the bosk's driver does not supply the initial state.
 
 ### Reads
 
