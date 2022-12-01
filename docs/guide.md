@@ -30,7 +30,7 @@ the `DriverFactory` allows this to be extended with additional functionality by 
 
 The `DriverFactory` function is invoked in the `Bosk` constructor as follows:
 
-```
+``` java
 this.driver = driverFactory.build(this, localDriver);
 ```
 
@@ -173,7 +173,7 @@ The `ReadContext` object defines the duration of a single "operation".
 Without a `ReadContext`, a call to `Reference.value()` will throw `IllegalStateException`.
 `ReadContext` is an `AutoCloseable` object that uses `ThreadLocal` to establish the state snapshot to be used for the duration of the operation:
 
-```
+``` java
 try (var __ = bosk.readContext()) {
 	exampleRef.value(); // Returns the value from the snapshot
 }
@@ -196,7 +196,7 @@ if there is already an active read context on the calling thread, the call to `r
 Sometimes a program will use multiple threads to perform a single operation, and it is wise to use the same state snapshot for all of them.
 A snapshot from one thread can be used on another via `ReadContext.adopt`:
 
-```
+``` java
 try (var __ = inheritedContext.adopt()) {
 	exampleRef.value(); // Returns the same value as the thread that created inheritedContext
 }
@@ -208,7 +208,7 @@ A path can contain placeholders, called _parameters_, that can later be bound to
 A reference whose path contains one or more parameters is referred to as a _parameterized reference_ (or sometimes an _indefinite_ reference).
 Parameters are delimited by a hyphen character `-`:
 
-```
+``` java
 Reference<City> anyCity = bosk.reference(City.class, Path.parseParameterized(
 	"/planets/-planet-/cities/-city-"));
 ```
@@ -216,14 +216,14 @@ Reference<City> anyCity = bosk.reference(City.class, Path.parseParameterized(
 Parameter values can either be supplied by position or by value.
 To supply parameters by position, use `Reference.boundTo`:
 
-```
+``` java
 Reference<City> anchorhead = anyCity.boundTo(Identifier.from("tatooine"), Identifier.from("anchorhead"));
 // Concrete reference to /planets/tatooine/cities/anchorhead
 ```
 
 To supply parameters by name, generate a `BindingEnvironment` and use `Reference.boundBy`. For example, this produces the same concrete reference as the previous `boundTo` example:
 
-```
+``` java
 BindingEnvironment env = BindingEnvironment.builder()
 	.bind("planet", Identifier.from("tatooine"))
 	.bind("city",   Identifier.from("anchorhead"))
@@ -233,7 +233,7 @@ Reference<City> anchorhead = anyCity.boundBy(env);
 
 You can also extract a binding environment using a parameterized reference to do pattern-matching:
 
-```
+``` java
 BindingEnvironment env = anyCity.parametersFrom(anchorhead.path()); // binds -planet- and -city-
 ```
 
@@ -387,7 +387,7 @@ For example, an application could create a `LoggingDriver` class to perform logg
 
 The `DriverFactory` interface is used to instantiate a driver layer, given the downstream driver object:
 
-```
+``` java
 public interface DriverFactory<R extends Entity> {
 	BoskDriver<R> build(Bosk<R> bosk, BoskDriver<R> downstream);
 }
@@ -396,7 +396,7 @@ public interface DriverFactory<R extends Entity> {
 The `DriverStack` class facilitates the composition of driver layers.
 For example, a stack could be composed as follows:
 
-```
+``` java
 DriverFactory<ExampleState> mongoDriverFactory() {
 	return DriverStack.of(
 		LoggingDriver.factory("Submitted to MongoDriver"),
@@ -413,7 +413,7 @@ This creates a chain configured to process each update as follows:
 Later on, this could even be extended by sandwiching the `MongoDriver` between two `LoggingDriver` instances,
 in order to log events submitted to and received from `MongoDriver`:
 
-```
+``` java
 DriverFactory<ExampleState> mongoDriverFactory() {
 	return DriverStack.of(
 		LoggingDriver.factory("Submitted to MongoDriver"),
@@ -451,7 +451,7 @@ Newly booted servers connect to the database, initialize their bosk from the cur
 Like most drivers, `MongoDriver` is not instantiated directly, but instead provides a `DriverFactory` to simplify composition with other driver components.
 Create a `MongoDriverFactory` by calling `MongoDriver.factory`:
 
-```
+``` java
 static <RR extends Entity> MongoDriverFactory<RR> factory(
 	MongoClientSettings clientSettings,
 	MongoDriverSettings driverSettings,
@@ -467,7 +467,7 @@ The arguments are as follows:
 
 Here is an example of a method that would return a fully configured `MongoDriverFactory`:
 
-```
+``` java
 static DriverFactory<ExampleState> driverFactory() {
 	MongoClientSettings clientSettings = MongoClientSettings.builder()
 		.readConcern(ReadConcern.MAJORITY)
@@ -501,7 +501,7 @@ For local development, standalone MongoDB servers don't support change streams (
 To support `MongoDriver`, you must use a replica set, even if you are running just one server.
 This can be achieved using the following `Dockerfile`:
 
-```
+``` dockerfile
 FROM mongo:4.4 # ...but use a newer version if you can
 RUN echo "rs.initiate()" > /docker-entrypoint-initdb.d/rs-initiate.js 
 CMD [ "mongod", "--replSet", "rsLonesome", "--port", "27017", "--bind_ip_all" ]
@@ -553,7 +553,7 @@ Otherwise, you must add your field in multiple steps.
 In the first step, you declare the field to be `Optional` and supply a default value to make it behave as though the field were present in the database.
 Declare the constructor argument to be `Optional`, and supply the default value as follows:
 
-```
+``` java
 ExampleNode(Optional<ExampleValue> newField) {
 	if (newField.isPresent()) {
 		this.newField = newField;
@@ -614,7 +614,7 @@ The `bosk-gson` module uses the Gson library to support JSON serialization and d
 To configure a `Gson` object that is compatible with a particular `Bosk` object, use the `GsonPlugin.adaptersFor` method.
 Here is an example:
 
-```
+``` java
 GsonPlugin gsonPlugin = new GsonPlugin();
 boskGson = new GsonBuilder()
 	.registerTypeAdapterFactory(gsonPlugin.adaptersFor(bosk))
@@ -636,26 +636,26 @@ and child objects nested inside parents.
 
 The format of the various built-in types is shown below.
 
-```
-"reference": "/a/b/c", // References are strings
-"catalog": [           // Catalogs are arrays of single-member objects
-	{
-		"entry1": {
-			"id": "entry1", // The id field is included here (redundantly)
-			...
-		}
-	}
+``` yaml
+"reference": "/a/b/c", # References are strings
+"catalog": [           # Catalogs are arrays of single-member objects
+    {
+        "entry1": {
+            "id": "entry1", # The id field is included here (redundantly)
+            "exampleField": "value"
+        }
+    }
 ],
-"listing": {           // Listings are objects with two fields
-	"ids": ["entry1", "entry2"],
-	"domain": "/catalog"   // Reference to the containing Catalog
+"listing": {           # Listings are objects with two fields
+    "ids": ["entry1", "entry2"],
+    "domain": "/catalog"   # Reference to the containing Catalog
 },
-"sideTable": {         // SideTables are objects with two fields
-	"valuesById": [
-		{ "entry1": { ... } },
-		{ "entry2": { ... } }
-	],
-	"domain": "/catalog"   // Reference to the containing Catalog
+"sideTable": {         # SideTables are objects with two fields
+    "valuesById": [
+        { "entry1": { "exampleField": "value" } },
+        { "entry2": { "exampleField": "value" } }
+    ],
+    "domain": "/catalog"   # Reference to the containing Catalog
 }
 ```
 
@@ -678,7 +678,7 @@ the deserialization must know the corresponding state tree location so it can co
 
 To deserialize just one node of the bosk state, use a try-with-resources statement to wrap the deserialization in a `DeserializationScope` object initialized with the path of the node being deserialized:
 
-```
+``` java
 try (var __ = gsonPlugin.newDeserializationScope(ref)) {
 	newValue = gson.fromJson(exampleJson, ref.targetType());
 }
@@ -710,7 +710,7 @@ As a naming convention,
 
 Example:
 
-```
+``` java
 import io.vena.bosk.Bosk;
 import io.vena.bosk.Identifier;
 import io.vena.bosk.Path;
@@ -760,7 +760,7 @@ employing `SideTable`s rather than putting all state in the same object.
 For example, suppose your application distributes shards of data to worker nodes in a cluster.
 You could imagine a `Worker` object like this:
 
-```
+``` java
 // Not recommended
 
 public record Worker (
@@ -781,7 +781,7 @@ The entity itself should contain only configuration; decisions and observations 
 
 A better arrangement of this state might look like this:
 
-```
+``` java
 // Recommended
 
 public record Worker (
