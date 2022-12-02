@@ -873,6 +873,11 @@ try (ReadContext originalThReadContext = bosk.readContext()) {
 		}
 
 		@Override
+		public <TT> Reference<TT> truncatedTo(Class<TT> targetClass, int remainingSegments) throws InvalidTypeException {
+			return rootRef.then(targetClass, path().truncatedTo(remainingSegments));
+		}
+
+		@Override
 		public final int hashCode() {
 			return Objects.hash(rootType(), path);
 		}
@@ -990,7 +995,6 @@ try (ReadContext originalThReadContext = bosk.readContext()) {
 					));
 			}
 		}
-
 	}
 
 	private <T> Reference<T> newReference(Path path, Type targetType) {
