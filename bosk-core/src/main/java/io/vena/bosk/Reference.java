@@ -160,6 +160,8 @@ public interface Reference<T> {
 	<K extends Entity,V> SideTableReference<K,V> thenSideTable(Class<K> keyClass, Class<V> valueClass, String... segments) throws InvalidTypeException;
 	<TT> Reference<Reference<TT>> thenReference(Class<TT> targetClass, String... segments) throws InvalidTypeException;
 
+	<TT> Reference<TT> truncatedTo(Class<TT> targetClass, int remainingSegments) throws InvalidTypeException;
+
 	/**
 	 * @param targetClass Type constraint on the reference; the returned
 	 * reference will satisfy <code>targetClass.{@link Class#isAssignableFrom isAssignableFrom}(result.{@link

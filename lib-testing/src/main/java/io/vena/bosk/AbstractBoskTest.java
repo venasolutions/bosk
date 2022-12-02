@@ -142,7 +142,7 @@ public abstract class AbstractBoskTest {
 		@Override public <TT> Reference<Reference<TT>> thenReference(Class<TT> targetClass, String... segments) { return null; }
 		@Override public <TT> Reference<TT> enclosingReference(Class<TT> targetClass) { return null; }
 		@Override public Reference<T> boundBy(BindingEnvironment bindings) { return null; }
-
+		@Override public <TT> Reference<TT> truncatedTo(Class<TT> targetClass, int remainingSegments) { return null; }
 	}
 
 	protected static Bosk<TestRoot> setUpBosk(DriverFactory<TestRoot> driverFactory) {
