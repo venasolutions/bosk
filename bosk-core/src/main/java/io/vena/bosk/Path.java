@@ -236,7 +236,7 @@ public abstract class Path implements Iterable<String> {
 		if (this == other) {
 			return true;
 		} else if (this.length() == other.length()) {
-			return matchesImpl(other.truncatedBy(other.length() - this.length()));
+			return matchesImpl(other);
 		} else {
 			return false;
 		}
@@ -493,9 +493,9 @@ public abstract class Path implements Iterable<String> {
 				// Either both are the same parameter, or they are two equal non-parameter strings
 				return true;
 			} else {
-				// If our segment is a parameter, the other one doesn't matter:
+				// If either segment is a parameter, the other one doesn't matter:
 				// by appropriate choice of binding, we could make them equal.
-				return isParameterSegment(lastSegment());
+				return isParameterSegment(lastSegment()) || isParameterSegment(otherSegment);
 			}
 		}
 
