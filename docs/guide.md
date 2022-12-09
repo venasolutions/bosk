@@ -4,10 +4,10 @@
 
 The `Bosk` object is a container for your application state tree.
 If it helps, you can picture it as an `AtomicReference<MyStateTreeRoot>` that your application can access,
-though it actually does quite a lot more than this:
+though it actually does several more things:
 - it acts as a factory for `Reference` objects, which provide efficient access to specific nodes of your state tree,
 - it provides stable thread-local state snapshots, via `ReadContext`,
-- it provides a `BoskDriver` interface, through which you can modify the state tree, and
+- it provides a `BoskDriver` interface, through which you can modify the immutable state tree, and
 - it can execute _hook_ callback functions when part of the tree changes.
 
 It's typically a singleton.
@@ -36,9 +36,9 @@ this.driver = driverFactory.build(this, localDriver);
 
 The return value of this function is stored, and becomes the object returned by `Bosk.driver()`.
 
-Note that the driver accepts the `Bosk` object itself, even though this object is still under construction.
+Note that the factory accepts the `Bosk` object itself, even though this object is still under construction.
 The reason for this is to allow drivers to create `Reference` objects, which requires the `Bosk` (which behaves as a `Reference` factory).
-During the `DriverFactory`, the bosk object can be used for anything that doesn't involve accessing either the driver or the state tree, because neither of these is ready yet at the time the factory is called.
+During the `DriverFactory`, the bosk object can be used for anything that doesn't involve accessing the driver or the state tree, because neither of these is ready yet at the time the factory is called.
 Other functionality, like creating references, or `Bosk.instanceID()`, works as expected.
 
 ##### State tree initialization
@@ -47,7 +47,7 @@ The state tree (described below) is initialized by calling `driver.initialState`
 Drivers are free to choose how the initial state is computed: they can supply the initial state themselves, or they can delegate to a downstream driver.
 For example, `MongoDriver` will load the initial state from the database if it's available, and if not, it will delegate to the downstream driver.
 
-If all of the drivers choose to delegate to their downstream drivers, ultimately the `initialState` method of the bosk's local driver will be called.
+If all drivers choose to delegate to their downstream drivers, ultimately the `initialState` method of the bosk's local driver will be called.
 This method calls the `Bosk` constructor's `DefaultRootFunction` parameter to compute the initial state tree.
 The overall effect of this setup is that the `DefaultRootFunction` parameter is only used if the bosk's driver does not supply the initial state.
 
@@ -92,7 +92,7 @@ Unlike `Path`, `Reference` is type-checked upon creation to make sure it refers 
 It is valid for a reference to refer to an object that _does not currently_ exist
 (such as an `Optional.empty()` or a nonexistent `Catalog` entry),
 but attempting to create a reference to an object that _cannot_ exist
-(such as a nonexistent node field) results in an `InvalidTypeException`.
+(such as a nonexistent field of an object) results in an `InvalidTypeException`.
 
 Two `Reference` objects are considered equal if they have the same path and the same root type.
 In particular, references from two different bosks can be equal.
@@ -104,44 +104,53 @@ In particular, references from two different bosks can be equal.
 `StateTreeNode` is a marker interface you use to indicate that your class can be stored in a bosk.
 It has no functionality.
 
-A node's contents are defined by the names and types of its constructor's arguments.
-Each argument must have a corresponding getter method with the same name, taking no arguments, and returning the same type.
-(These conventions are compatible with `record` types, which are encouraged.)
-
 `Entity` is a `StateTreeNode` that has a method `id()` returning an `Identifier`.
 Certain objects in a bosk are required to be entities:
 - The root object
 - Any `Catalog` entry
+
+A node's contents are defined by the names and types of its constructor's arguments.
+Each argument must have a corresponding getter method with the same name, taking no arguments, and returning the same type.
+(These conventions are compatible with `record` types, which are encouraged.)
 
 ##### `Catalog`
 
 A `Catalog` is an immutable ordered set of `Entity` objects of a particular type.
 A `Catalog` field establishes a one-to-many parent/child relationship between nodes.
 
+Outside of a state tree, `Catalog` also doubles as a handy immutable collection data structure.
 Entities can be added or removed by calling the `with` and `without` methods, respectively.
 The `with` operation is an "upsert" operation that replaces an entry if one already exists with a matching ID; otherwise, it adds the new entry to the end.
 The `without` operation removes the entry with a given ID, leaving the remaining objects in the same order; if there is no such entry, the operation has no effect.
 
-Because catalogs _contain_ their entries, the entries can be retrieved or iterated without a `ReadContext`.
+Because `Ctalog` objects _contain_ their entries, the entries can be retrieved or iterated without a `ReadContext`.
 
 ##### `Listing`
 
 A `Listing` is an ordered set of references to nodes in a particular `Catalog` referred to as the listing's _domain_.
 A `Listing` establishes a one-to-many reference relationship between nodes.
 
-A listing entry carries no information besides its existence.
-A `Reference` to a listing entry is of type `Reference<ListingEntry>` and, if the entry exists,
-it always has the value `LISTING_ENTRY`. (`ListingEntry` is a unit type.)
+The `Listing` object does not contain its entries; rather, it references entries contained in the domain `Catalog` in the bosk.
+This means you need a `ReadContext` to access the referenced objects themselves.
 
 Just as a `Reference` points to a node that may or may not exist,
 the entities pointed to by a `Listing` may or may not exist within the domain catalog;
 that is, an entry can be added to a `Listing` even if the corresponding `Catalog` entry does not exist.
+
+Formally speaking, a listing entry carries no information besides its existence.
+A `Reference` to a listing entry is of type `Reference<ListingEntry>` and, if the entry exists,
+it always has the value `LISTING_ENTRY`. (`ListingEntry` is a unit type.)
 
 ##### `SideTable`
 
 A `SideTable` is an ordered map from nodes in a particular `Catalog`, referred to as the `SideTable`'s _domain_,
 to some specified type of node.
 A `SideTable` allows you to associate additional information with entities without adding fields to those entities.
+
+The `SideTable` object does not contain its keys, but _does_ contain its values.
+The keys are contained in the domain `Catalog` in the bosk.
+This means you need a `ReadContext` to access the referenced key objects themselves.
+Accessing the value objects, on the other hand, does not require a `ReadContext`.
 
 ##### `Phantom`
 
@@ -157,11 +166,11 @@ Bosk is designed to provide stable, deterministic, repeatable reads, using the `
 `Reference` contains several related methods that provide access to the current state of the tree.
 
 The most commonly used method is `Reference.value()`, which returns the current value of the reference's target node, or throws `NonexistentReferenceException` if the node does not exist.
-A referenced node does not exist if any of the reference's path segments don't exist;
+A referenced node does not _exist_ if any of the reference's path segments don't exist;
 for example, a reference to `/planets/tatooine/cities/anchorhead` doesn't exist if there is no planet `tatooine`.
 
 There are a variety of similar methods with slight variations in behaviour.
-For example, `Reference.valueIfExists()` is like `value`, but returns `null` if the node does not exist.
+For example, `Reference.valueIfExists()` is like `value()`, but returns `null` if the node does not exist.
 
 #### `ReadContext`
 
@@ -182,14 +191,14 @@ exampleRef.value(); // Throws IllegalStateException
 
 By convention, in the bosk library, methods that require an active read context have `value` in their name.
 
-The intent is to create a read context at the start of an operation and hold it open for the duration so that the state is fixed and unchanging.
+The intent is to create a read context at the start of an operation and hold it open for the duration, so that the state is fixed and unchanging.
 For example, if you're using a servlet container, use one read context for the entirety of a single HTTP endpoint method.
-Creating many small read contexts opens your application up to race conditions due to state changes from one context to the next.
+Creating many brief read contexts opens your application up to race conditions due to state changes from one context to the next.
 
 ##### Creation
 
 At any point in the code, a call to `bosk.readContext()` will establish a read context on the calling thread;
-if there is already an active read context on the calling thread, the call to `readContext` will have no effect. 
+if there is already an active read context on the calling thread, the call to `readContext` has no effect. 
 
 ##### Propagation
 
@@ -240,8 +249,8 @@ BindingEnvironment env = anyCity.parametersFrom(anchorhead.path()); // binds -pl
 ### Updates
 
 The state tree is modified by submitting updates to the bosk's _driver_.
-
 The `BoskDriver` interface accepts updates and causes them to be applied asynchronously to the bosk state.
+
 Because updates are applied asynchronously, it's possible that intervening updates could cause the update to become impossible to apply;
 for example, changing a field of an object that has been deleted.
 Updates that can't be applied due to the contents of the bosk state are silently ignored.
@@ -260,7 +269,7 @@ for example, a replacement operation on `/planets/tatooine/cities` will be ignor
 
 [^nonexistent]: It may seem preferable to throw an exception at submission time in such cases.
 However, driver implementations are explicitly allowed to queue updates and apply them later,
-since queueing is often a key strategy to achieve robust, scalable distributed systems.
+because queueing is often a key strategy to achieve robust, scalable distributed systems.
 Requiring synchronous confirmation about the current state of the bosk rules out queueing.
 By requiring these operations to be ignored, bosk ensures the behaviour is the same in local development and in production,
 and so any confusion caused by this behaviour should be encountered early on in the application development process.
@@ -322,7 +331,7 @@ They can also fire spontaneously; any application logic in a hook must be design
 
 A hook's scope can be a parameterized reference, in which case it will be called any time _any_ matching node is updated.
 
-The hook call-back occurs inside a read context based on a state snapshot taken immediately after the triggering update occurred.
+The hook call-back occurs inside a read context containing a state snapshot taken immediately after the triggering update occurred.
 
 If a single update triggers multiple hooks, the hooks will run in the order they were registered.
 
@@ -343,7 +352,7 @@ This would cause a delay between when B _submits_ the update and when the bosk _
 Rather than expose users to a race condition in some operating environments that is not present in others,
 bosk heavily favours consistency, and employs a convention that can be implemented efficiently in many environments:
 updates from B are never visible in C's read scope.
-Whatever confusion this might cause, that confusion will be encountered during initial application development, during initial tests,
+Whatever confusion this might cause, that confusion will be encountered during initial application development,
 rather than providing surprises when moving to a different environment for production.
 
 See the `HooksTest` unit test for examples to illustrate the behaviour.
@@ -354,7 +363,7 @@ Any `Exception` thrown by a hook is caught, logged, and ignored.
 This makes the hook execution loop robust against most bugs in hooks.
 
 `Error`s are not ignored.
-In particular, `AssertionError` is not ignored, which allows you to write unit tests that include assertions in hooks.
+In particular, `AssertionError` is not ignored, which allows you to write unit tests that include assertions inside hooks.
 
 ### Drivers
 
@@ -370,6 +379,7 @@ Every bosk has a _local driver_, which applies changes directly to the in-memory
 If you use `Bosk::simpleDriver` as your driver factory when you initialize your `Bosk` object,
 then the driver is _just_ the local driver.
 
+The local driver performs the grafting operations that create a new state tree containing specified changes applied to the existing tree.
 The local driver is also the component responsible for triggering and executing hooks.
 
 Despite the `BoskDriver` interface's asynchronous design, the local driver actually operates synchronously, and does not use a background thread.
@@ -434,8 +444,8 @@ Some handy drivers ship with the `bosk-core` module.
 This can be useful in composing your own drivers, and in unit tests.
 
 - `BufferingDriver` queues all updates, and applies them only when `flush()` is called.
-- `ForwardingDriver` accepts a collection of zero or more downstream drivers, and forwards all updates to all of them
-- `MirroringDriver` accepts updates to one bosk, and emits corresponding updates to another similar bosk
+- `ForwardingDriver` accepts a collection of zero or more downstream drivers, and forwards all updates to all of them.
+- `MirroringDriver` accepts updates to one bosk, and emits corresponding updates to another bosk with the same root type.
 
 #### `MongoDriver` and `bosk-mongo`
 
@@ -491,7 +501,7 @@ static DriverFactory<ExampleState> driverFactory() {
 
 ##### Database setup
 
-Bosk supports MongoDB 4.4 and up.
+Bosk supports MongoDB 4.2 and up.
 
 To support change streams, MongoDB must be deployed as a replica set.
 In production, this is a good practice anyway, so this requirement shouldn't cause any hardship:
@@ -502,7 +512,7 @@ To support `MongoDriver`, you must use a replica set, even if you are running ju
 This can be achieved using the following `Dockerfile`:
 
 ``` dockerfile
-FROM mongo:4.4 # ...but use a newer version if you can
+FROM mongo:4.2 # ...but use a newer version if you can
 RUN echo "rs.initiate()" > /docker-entrypoint-initdb.d/rs-initiate.js 
 CMD [ "mongod", "--replSet", "rsLonesome", "--port", "27017", "--bind_ip_all" ]
 ```
@@ -511,10 +521,10 @@ CMD [ "mongod", "--replSet", "rsLonesome", "--port", "27017", "--bind_ip_all" ]
 
 An important design principle of `MongoDriver` is that it should be able to recover from temporary outages without requiring an application reboot.
 When faced with a situation it can't cope with, `MongoDriver` has just one fallback mode of operation: a _disconnected_ state that does not process changes from the database.
-Once disconnected, `MongoDriver` will no longer send updates downstream, and so the in-memory state will stay frozen until bosk can reconnect.
+Once disconnected, `MongoDriver` will no longer send updates downstream, and so the in-memory state will stay frozen until the connection can be re-established.
 
 Recovering from a disconnected state occurs automatically when conditions improve, and should not require any explicit action to be taken.
-Also, no particular sequence of steps should be required to recover: any actions that an operator then takes to restore the database state and connectivity should have the expected effect.
+Also, no particular sequence of steps should be required to recover: any actions that an operator takes to restore the database state and connectivity should have the expected effect.
 
 For example, suppose the bosk database were to be deleted.
 `MongoDriver` would respond by suspending updates, and leaving the last known good state intact in memory.
@@ -541,7 +551,7 @@ The code for `BsonPlugin` will have the details, but some high-level points abou
 - It does not match the JSON format generated by `bosk-gson`. The two are not mutually compatible. This is a deliberate decision based on differing requirements.
 - It strongly favours objects over arrays, because object members offer idempotency and (ironically) stronger ordering guarantees.
 
-##### Schema upgrades: how to add a new field
+##### Schema evolution: how to add a new field
 
 In general, bosk does not support `null` field values.
 This means if you add a new field to your state tree node classes, they become incompatible with the existing database contents (which do not have that field).
@@ -550,8 +560,7 @@ This means that new fields must, at least initially, be declared as `Optional`.
 If your application code is ok with the field being `Optional`, and can cope with that field's absence, you can stop here.
 Otherwise, you must add your field in multiple steps.
 
-In the first step, you declare the field to be `Optional` and supply a default value to make it behave as though the field were present in the database.
-Declare the constructor argument to be `Optional`, and supply the default value as follows:
+In the first step, you declare the new constructor argument to be `Optional` and supply a default value to make it behave as though the field were present in the database:
 
 ``` java
 ExampleNode(Optional<ExampleValue> newField) {
@@ -564,7 +573,7 @@ ExampleNode(Optional<ExampleValue> newField) {
 ```
 
 This way, any updates written to MongoDB will include the new field, so the state will be gradually upgraded to include the new field.
-Because MongoDriver ignores any fields in the database it doesn't recognize,
+Because `MongoDriver` ignores any fields in the database it doesn't recognize,
 this new version of the code can coexist with older versions that don't know about this field.
 
 The second step is to ensure that any older versions of the server are shut down.
@@ -824,6 +833,24 @@ write your hooks in a style that follows these steps:
 3. If they differ, make changes to the local state to make it match the desired state
 
 This style leads to more stable systems than imperative-style hooks that respond to bosk updates by issuing arbitrary imperative commands.
+
+#### Avoid recursive data structures
+
+Having a node of some type contain a descendant node of the same type is usually a code smell in a Bosk state tree.
+Recursive structures require the application to create an unlimited number of `Reference`s dynamically
+(for example, `/root/child`, `/root/child/child`, `/root/child/child/child` and so on),
+which is awkward and slow.
+It also makes it difficult to evolve your design if you later need to handle a use case in which the relationship is not strictly a tree.
+
+For example, if you are representing information about files and folders in your bosk,
+one natural design would be to nest child folders inside parent folders,
+and make the files children of the folder they are in.
+**Don't do this.**
+
+Instead, create two top-level `Catalog`s: one for `File`s and one for `Folder`s.
+Represent their nesting relationships using `Reference`s.
+This way, two parameterized references can access all your objects: `/files/-file-` and `/folders/-folder-`.
+Later, if you discover you need to handle hard links, where the same file is in multiple folders, this becomes a straightforward extension instead of an awkward redesign.
 
 ### Glossary
 
