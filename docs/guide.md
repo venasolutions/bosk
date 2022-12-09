@@ -214,7 +214,8 @@ try (var __ = inheritedContext.adopt()) {
 #### Parameters
 
 A path can contain placeholders, called _parameters_, that can later be bound to `Identifier` values.
-A reference whose path contains one or more parameters is referred to as a _parameterized reference_ (or sometimes an _indefinite_ reference).
+A reference whose path contains one or more parameters is referred to as a _parameterized reference_ (or sometimes an _indefinite_ reference);
+a reference with no parameters is a _concrete_ (or sometimes _definite_) reference.
 Parameters are delimited by a hyphen character `-`:
 
 ``` java
@@ -226,7 +227,9 @@ Parameter values can either be supplied by position or by value.
 To supply parameters by position, use `Reference.boundTo`:
 
 ``` java
-Reference<City> anchorhead = anyCity.boundTo(Identifier.from("tatooine"), Identifier.from("anchorhead"));
+Reference<City> anchorhead = anyCity.boundTo(
+	Identifier.from("tatooine"),
+	Identifier.from("anchorhead"));
 // Concrete reference to /planets/tatooine/cities/anchorhead
 ```
 
@@ -420,6 +423,8 @@ This creates a chain configured to process each update as follows:
 2. The `MongoDriver` will send the update to MongoDB, and then receive a change event and forward it to the bosk's local driver
 3. The local driver will update the in-memory state tree
 
+(The local driver doesn't appear in a `DriverStack`. It is implicitly at the bottom of every stack.)
+
 Later on, this could even be extended by sandwiching the `MongoDriver` between two `LoggingDriver` instances,
 in order to log events submitted to and received from `MongoDriver`:
 
@@ -438,6 +443,8 @@ The `DriverFactory` and `DriverStack` classes make this a one-line change.
 Note that `DriverStack` extends `DriverFactory`; that is, a `DriverStack` is a kind of `DriverFactory` that invokes other factories to assemble a driver.
 The local driver is not explicitly named in the driver stack.
 
+All of this might appear a bit abstract, but the upshot is that your drivers can snap together like Lego.
+
 #### Built-in drivers
 
 Some handy drivers ship with the `bosk-core` module.
@@ -446,11 +453,11 @@ This can be useful in composing your own drivers, and in unit tests.
 - `BufferingDriver` queues all updates, and applies them only when `flush()` is called.
 - `ForwardingDriver` accepts a collection of zero or more downstream drivers, and forwards all updates to all of them.
 - `MirroringDriver` accepts updates to one bosk, and emits corresponding updates to another bosk with the same root type.
+- `MongoDriver` enables persistence and replication, and is important enough that it deserves its own section.
 
 #### `MongoDriver` and `bosk-mongo`
 
-`MongoDriver` is an important enough driver that it deserves its own section.
-By using `MongoDriver` (by adding the `bosk-mongo` dependency to your project),
+By adding the `bosk-mongo` dependency to your project and configuring `MongoDriver`,
 you can turn your server into a replica set with relatively little difficulty.
 
 `MongoDriver` uses MongoDB as a broadcast medium to deliver bosk updates to all the servers in your replica set.
@@ -646,8 +653,8 @@ and child objects nested inside parents.
 The format of the various built-in types is shown below.
 
 ``` yaml
-"reference": "/a/b/c", # References are strings
-"catalog": [           # Catalogs are arrays of single-member objects
+"reference": "/a/b/c",      # References are strings
+"catalog": [                # Catalogs are arrays of single-member objects
     {
         "entry1": {
             "id": "entry1", # The id field is included here (redundantly)
@@ -655,16 +662,16 @@ The format of the various built-in types is shown below.
         }
     }
 ],
-"listing": {           # Listings are objects with two fields
+"listing": {                # Listings are objects with two fields
     "ids": ["entry1", "entry2"],
-    "domain": "/catalog"   # Reference to the containing Catalog
+    "domain": "/catalog"    # Reference to the containing Catalog
 },
-"sideTable": {         # SideTables are objects with two fields
+"sideTable": {              # SideTables are objects with two fields
     "valuesById": [
         { "entry1": { "exampleField": "value" } },
         { "entry2": { "exampleField": "value" } }
     ],
-    "domain": "/catalog"   # Reference to the containing Catalog
+    "domain": "/catalog"    # Reference to the containing Catalog
 }
 ```
 
@@ -672,10 +679,10 @@ A field of type `Optional<T>` is simply serialized as a `T`, unless the optional
 
 A field of type `Phantom<T>` is not serialized (just like `Optional.empty()`).
 
+#### DeserializationScope
+
 Fields marked as `@Self` or `@Enclosing` are not serialized.
 They are inferred automatically at deserialization time.
-
-#### DeserializationScope
 
 In order to infer the correct values of `@Self` and `@Enclosing` references,
 the deserialization process must keep track of the current location in the state tree.
@@ -807,7 +814,7 @@ public record Cluster (
 
 #### Use large read contexts
 
-Using more than one `ReadContext` for the same operation causes that operation to be exposed to race conditions from concurrent state updates.
+Using a succession of multiple `ReadContext`s for the same operation causes that operation to be exposed to race conditions from concurrent state updates.
 
 For any one operation, use a single `ReadContext` around the whole operation.
 The "operation" should be as coarse-grained as feasible.
@@ -823,7 +830,7 @@ In general, open one large `ReadContext` as early as possible in your applicatio
 Bosk is often used to control a server's _local state_.
 For example, a caching application could use bosk to control what's in the cache,
 so that all servers have the same cache contents and therefore provide reliable response times across the cluster.
-This is _local state_ because the state exists independently in each server instance.
+The cache itself is _local state_ because it exists independently in each server instance.
 
 To make your system declarative and idempotent,
 write your hooks in a style that follows these steps:
@@ -840,7 +847,7 @@ Having a node of some type contain a descendant node of the same type is usually
 Recursive structures require the application to create an unlimited number of `Reference`s dynamically
 (for example, `/root/child`, `/root/child/child`, `/root/child/child/child` and so on),
 which is awkward and slow.
-It also makes it difficult to evolve your design if you later need to handle a use case in which the relationship is not strictly a tree.
+It also makes it difficult to evolve your design if you discover you need to handle a use case in which the relationship is not strictly a tree.
 
 For example, if you are representing information about files and folders in your bosk,
 one natural design would be to nest child folders inside parent folders,
@@ -850,7 +857,7 @@ and make the files children of the folder they are in.
 Instead, create two top-level `Catalog`s: one for `File`s and one for `Folder`s.
 Represent their nesting relationships using `Reference`s.
 This way, two parameterized references can access all your objects: `/files/-file-` and `/folders/-folder-`.
-Later, if you discover you need to handle hard links, where the same file is in multiple folders, this becomes a straightforward extension instead of an awkward redesign.
+In addition, if you discover you need to handle hard links, where the same file is in multiple folders, this becomes a straightforward extension instead of an awkward redesign.
 
 ### Glossary
 
