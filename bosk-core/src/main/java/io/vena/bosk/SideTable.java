@@ -130,6 +130,19 @@ public final class SideTable<K extends Entity, V> implements EnumerableByIdentif
 		return new SideTable<>(CatalogReference.from(domain), OrderedPMap.from(map));
 	}
 
+	public static <KK extends Entity,VV> SideTable<KK,VV> fromEntries(Reference<Catalog<KK>> domain, Stream<Entry<Identifier, VV>> entries) {
+		LinkedHashMap<Identifier,VV> map = new LinkedHashMap<>();
+		entries.forEachOrdered(entry -> {
+			Identifier id = entry.getKey();
+			VV value = entry.getValue();
+			VV existing = map.put(id, value);
+			if (existing != null) {
+				throw new IllegalArgumentException("Multiple entries with id \"" + id + "\"");
+			}
+		});
+		return new SideTable<>(CatalogReference.from(domain), OrderedPMap.from(map));
+	}
+
 	@Override
 	public String toString() {
 		return domain + "/" + valuesById;

@@ -1,6 +1,7 @@
 package io.vena.bosk;
 
 import io.vena.bosk.exceptions.InvalidTypeException;
+import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -12,7 +13,11 @@ import org.junit.jupiter.api.Test;
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.singletonMap;
 import static java.util.stream.Collectors.toList;
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SideTableTest extends AbstractBoskTest {
 	Bosk<TestRoot> bosk;
@@ -71,12 +76,16 @@ class SideTableTest extends AbstractBoskTest {
 
 		assertEqualsOrderedMap(expected, SideTable.fromOrderedMap(entitiesRef, expected));
 		assertEqualsOrderedMap(expected, SideTable.fromFunction(entitiesRef, expected.keySet().stream(), expected::get));
+		assertEqualsOrderedMap(expected, SideTable.fromEntries(entitiesRef, expected.entrySet().stream()));
 	}
 
 	@Test
 	void duplicateEntries_throws() {
 		assertThrows(IllegalArgumentException.class, ()-> {
 			SideTable.fromFunction(entitiesRef, Stream.of("dup", "dup").map(Identifier::from), Identifier::toString);
+		});
+		assertThrows(IllegalArgumentException.class, ()-> {
+			SideTable.fromEntries(entitiesRef, Stream.of("dup", "dup").map(v -> new SimpleEntry<>(Identifier.from(v), v)));
 		});
 	}
 
