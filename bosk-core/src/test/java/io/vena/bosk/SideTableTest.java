@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.stream.Stream;
+import lombok.var;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -22,13 +23,21 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class SideTableTest extends AbstractBoskTest {
 	Bosk<TestRoot> bosk;
 	CatalogReference<TestEntity> entitiesRef;
+	CatalogReference<TestChild> childrenRef;
+	SideTableReference<TestChild, String> sideTableRef;
 	Bosk<TestRoot>.ReadContext readContext;
 	TestEntity firstEntity;
 
 	@BeforeEach
 	void setup() throws InvalidTypeException {
 		bosk = setUpBosk(Bosk::simpleDriver);
-		entitiesRef = bosk.catalogReference(TestEntity.class, Path.just(TestRoot.Fields.entities));
+		entitiesRef = bosk.catalogReference(TestEntity.class, Path.just(
+			TestRoot.Fields.entities));
+		childrenRef = bosk.catalogReference(TestChild.class, Path.of(
+			TestRoot.Fields.entities, "parent", TestEntity.Fields.children));
+		sideTableRef = bosk.sideTableReference(TestChild.class, String.class, Path.of(
+			TestRoot.Fields.entities, "parent", TestEntity.Fields.stringSideTable));
+
 		readContext = bosk.readContext();
 		firstEntity = entitiesRef.value().iterator().next();
 	}
@@ -87,6 +96,24 @@ class SideTableTest extends AbstractBoskTest {
 		assertThrows(IllegalArgumentException.class, ()-> {
 			SideTable.fromEntries(entitiesRef, Stream.of("dup", "dup").map(v -> new SimpleEntry<>(Identifier.from(v), v)));
 		});
+	}
+
+	@Test
+	void forEachValue_expectedResults() {
+		Map<TestChild, String> expected = new LinkedHashMap<>();
+		Map<TestChild, String> actual = new LinkedHashMap<>();
+		try (var __ = bosk.readContext()) {
+			SideTable<TestChild, String> sideTable = sideTableRef.value();
+
+			// Record everything that forEachValue produces
+			sideTable.forEachValue(actual::put);
+
+			// Compute what it ought to have produced
+			Catalog<TestChild> entities = childrenRef.value();
+			expected.put(entities.get(Identifier.from("child2")), "I'm child 2");
+		}
+
+		assertEquals(expected, actual);
 	}
 
 	private <V> void assertEqualsOrderedMap(Map<Identifier,V> expected, SideTable<TestEntity,V> actual) {

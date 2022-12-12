@@ -59,7 +59,7 @@ public final class SideTable<K extends Entity, V> implements EnumerableByIdentif
 	 *
 	 * @see #forEachID
 	 */
-	public void forEach(BiConsumer<? super K, ? super V> action) {
+	public void forEachValue(BiConsumer<? super K, ? super V> action) {
 		AddressableByIdentifier<K> domainValue = domain.value();
 		valuesById.forEach((id, value) -> action.accept(domainValue.get(id), value));
 	}
