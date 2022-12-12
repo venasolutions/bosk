@@ -107,11 +107,14 @@ class ListingTest {
 			for (TestEntity child: children) {
 				TestEntity actual = listing.getValue(child.id());
 				assertSame(child, actual, "All expected entities should be present in the Listing");
-				TestEntity expected = listing.domain().then(TestEntity.class, child.id().toString()).value();
+				Reference<TestEntity> childRef = listing.domain().then(TestEntity.class, child.id().toString());
+				assertTrue(listing.contains(childRef));
+				TestEntity expected = childRef.value();
 				assertSame(expected, actual, "The definition of Listing.get should hold");
 			}
 			Identifier nonexistent = Identifier.unique("nonexistent");
 			assertNull(listing.getValue(nonexistent), "Identifier missing from listing returns null");
+			assertFalse(listing.contains(listing.domain().then(TestEntity.class, nonexistent.toString())));
 			Listing<TestEntity> danglingRef = listing.withID(nonexistent);
 			assertThrows(NonexistentReferenceException.class, () -> danglingRef.getValue(nonexistent), "Identifier missing from catalog throws");
 		}

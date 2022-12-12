@@ -68,7 +68,10 @@ public final class Listing<E extends Entity> extends AbstractCollection<Referenc
 	public boolean contains(Object o) {
 		// Per AbstractCollection.contains javadocs, we are permitted to
 		// throw ClassCastException if `o` is an object of an unexpected type.
-		return ids.contains(((Entity)o).id());
+		Reference<?> reference = (Reference<?>) o;
+		return domain.encloses(reference)
+			&& reference.path().truncatedBy(1).equals(domain.path())
+			&& ids.contains(Identifier.from(reference.path().lastSegment()));
 	}
 
 	//
