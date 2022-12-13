@@ -29,7 +29,7 @@ public class MirroringDriver<R extends Entity> implements BoskDriver<R> {
 	}
 
 	@Override
-	public R initialRoot(Type rootType) throws InvalidTypeException {
+	public R initialRoot(Type rootType) {
 		throw new UnsupportedOperationException(MirroringDriver.class.getSimpleName() + " cannot supply an initial root");
 	}
 

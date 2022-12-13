@@ -1,7 +1,5 @@
 package io.vena.bosk;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import io.vena.bosk.annotations.Enclosing;
 import io.vena.bosk.annotations.Self;
 import io.vena.bosk.exceptions.InvalidTypeException;
@@ -197,18 +195,4 @@ public abstract class AbstractBoskTest {
 			MapValue.fromFunction(asList("key1", "key2"), k ->k + "_value"));
 	}
 
-	protected Gson gsonFor(Bosk<TestRoot> bosk) {
-		return new GsonBuilder()
-			.setPrettyPrinting()
-			.registerTypeAdapterFactory(new GsonPlugin().adaptersFor(bosk))
-			.create();
-	}
-
-	protected Reference<TestEntity> entityReference(Identifier id, Bosk<TestRoot> bosk) {
-		try {
-			return bosk.catalogReference(TestEntity.class, Path.just(TestRoot.Fields.entities)).then(id);
-		} catch (InvalidTypeException e) {
-			throw new AssertionError("Expected entities reference to work", e);
-		}
-	}
 }

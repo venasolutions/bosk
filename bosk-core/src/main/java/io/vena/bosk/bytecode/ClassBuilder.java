@@ -135,7 +135,7 @@ public final class ClassBuilder<T> {
 	}
 
 	/**
-	 * Emit a CHECKCAST: https://docs.oracle.com/javase/specs/jvms/se8/html/jvms-6.html#jvms-6.5.checkcast
+	 * Emit a CHECKCAST: <a href="https://docs.oracle.com/javase/specs/jvms/se8/html/jvms-6.html#jvms-6.5.checkcast">...</a>
 	 */
 	public void castTo(Class<?> expectedType) {
 		emitLineNumberInfo();
@@ -151,7 +151,7 @@ public final class ClassBuilder<T> {
 	}
 
 	/**
-	 * Emit ALOAD: https://docs.oracle.com/javase/specs/jvms/se8/html/jvms-6.html#jvms-6.5.aload
+	 * Emit ALOAD: <a href="https://docs.oracle.com/javase/specs/jvms/se8/html/jvms-6.html#jvms-6.5.aload">...</a>
 	 */
 	public void pushLocal(LocalVariable var) {
 		beginPush();
@@ -159,7 +159,7 @@ public final class ClassBuilder<T> {
 	}
 
 	/**
-	 * Emit ASTORE: https://docs.oracle.com/javase/specs/jvms/se8/html/jvms-6.html#jvms-6.5.astore
+	 * Emit ASTORE: <a href="https://docs.oracle.com/javase/specs/jvms/se8/html/jvms-6.html#jvms-6.5.astore">...</a>
 	 */
 	public LocalVariable popToLocal() {
 		LocalVariable result = currentMethod.newLocal();
@@ -172,7 +172,7 @@ public final class ClassBuilder<T> {
 	 * Emit code to push the given object on the operand stack.
 	 *
 	 * <p>
-	 * Implemented as a GETFIELD: https://docs.oracle.com/javase/specs/jvms/se8/html/jvms-6.html#jvms-6.5.getfield
+	 * Implemented as a GETFIELD: <a href="https://docs.oracle.com/javase/specs/jvms/se8/html/jvms-6.html#jvms-6.5.getfield">...</a>
 	 */
 	public void pushObject(Object object) {
 		CurriedField field = curry(object);
@@ -230,7 +230,7 @@ public final class ClassBuilder<T> {
 	}
 
 	/**
-	 * Emit LDC: https://docs.oracle.com/javase/specs/jvms/se8/html/jvms-6.html#jvms-6.5.ldc
+	 * Emit LDC: <a href="https://docs.oracle.com/javase/specs/jvms/se8/html/jvms-6.html#jvms-6.5.ldc">...</a>
 	 */
 	public void pushInt(int value) {
 		beginPush();
@@ -238,7 +238,7 @@ public final class ClassBuilder<T> {
 	}
 
 	/**
-	 * Emit LDC: https://docs.oracle.com/javase/specs/jvms/se8/html/jvms-6.html#jvms-6.5.ldc
+	 * Emit LDC: <a href="https://docs.oracle.com/javase/specs/jvms/se8/html/jvms-6.html#jvms-6.5.ldc">...</a>
 	 */
 	public void pushString(String value) {
 		beginPush();
@@ -246,7 +246,7 @@ public final class ClassBuilder<T> {
 	}
 
 	/**
-	 * Emit DUP: https://docs.oracle.com/javase/specs/jvms/se8/html/jvms-6.html#jvms-6.5.dup
+	 * Emit DUP: <a href="https://docs.oracle.com/javase/specs/jvms/se8/html/jvms-6.html#jvms-6.5.dup">...</a>
 	 */
 	public void dup() {
 		beginPush();
@@ -254,7 +254,7 @@ public final class ClassBuilder<T> {
 	}
 
 	/**
-	 * Emit SWAP: https://docs.oracle.com/javase/specs/jvms/se8/html/jvms-6.html#jvms-6.5.swap
+	 * Emit SWAP: <a href="https://docs.oracle.com/javase/specs/jvms/se8/html/jvms-6.html#jvms-6.5.swap">...</a>
 	 */
 	public void swap() {
 		methodVisitor().visitInsn(SWAP);
