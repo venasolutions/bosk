@@ -17,7 +17,6 @@ import io.vena.bosk.annotations.DerivedRecord;
 import io.vena.bosk.bytecode.ClassBuilder;
 import io.vena.bosk.bytecode.LocalVariable;
 import io.vena.bosk.exceptions.InvalidTypeException;
-import io.vena.bosk.exceptions.NotYetImplementedException;
 import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
@@ -117,55 +116,55 @@ public final class GsonAdapterCompiler {
 	 */
 	private void generate_writeFields(Class<?> nodeClass, Gson gson, List<Parameter> parameters, ClassBuilder<Codec> cb) {
 		cb.beginMethod(CODEC_WRITE_FIELDS);
-		try {
-			// Incoming arguments
-			final LocalVariable node = cb.parameter(1);
-			final LocalVariable jsonWriter = cb.parameter(2);
+		// Incoming arguments
+		final LocalVariable node = cb.parameter(1);
+		final LocalVariable jsonWriter = cb.parameter(2);
 
-			for (Parameter parameter : parameters) {
-				if (isImplicitParameter(nodeClass, parameter)) {
-					continue;
-				}
-				if (Phantom.class.isAssignableFrom(parameter.getType())) {
-					continue;
-				}
-
-				String name = parameter.getName();
-
-				// Build a FieldWritePlan
-				// Maintenance note: resist the urge to put case-specific intelligence into
-				// building the plan. The plan should be straightforward and "obviously
-				// correct". The execution of the plan should contain the sophistication.
-				FieldWritePlan plan;
-				Type parameterType = parameter.getParameterizedType();
-				if (compilationsInProgress.get().contains(parameterType)) {
-					// Avoid infinite recursion - look up this field's adapter dynamically
-					plan = new OrdinaryFieldWritePlan();
-				} else {
-					plan = new StaticallyBoundFieldWritePlan();
-				}
-				if (nodeClass.isAnnotationPresent(DerivedRecord.class)) {
-					plan = new ReferencingFieldWritePlan(plan, nodeClass.getSimpleName());
-				}
-				if (Optional.class.isAssignableFrom(parameter.getType())) {
-					plan = new OptionalFieldWritePlan(plan);
-				}
-
-				LOGGER.debug("FieldWritePlan for {}.{}: {}", nodeClass.getSimpleName(), name, plan);
-
-				// Put the field value on the operand stack
-				cb.pushLocal(node);
-				cb.castTo(nodeClass);
-				cb.invoke(getterMethod(nodeClass, name));
-
-				// Execute the plan
-				plan.generateFieldWrite(name, cb, gson, jsonWriter, parameterType);
+		for (Parameter parameter : parameters) {
+			if (isImplicitParameter(nodeClass, parameter)) {
+				continue;
 			}
-			// TODO: Support void methods
+			if (Phantom.class.isAssignableFrom(parameter.getType())) {
+				continue;
+			}
+
+			String name = parameter.getName();
+
+			// Build a FieldWritePlan
+			// Maintenance note: resist the urge to put case-specific intelligence into
+			// building the plan. The plan should be straightforward and "obviously
+			// correct". The execution of the plan should contain the sophistication.
+			FieldWritePlan plan;
+			Type parameterType = parameter.getParameterizedType();
+			if (compilationsInProgress.get().contains(parameterType)) {
+				// Avoid infinite recursion - look up this field's adapter dynamically
+				plan = new OrdinaryFieldWritePlan();
+			} else {
+				plan = new StaticallyBoundFieldWritePlan();
+			}
+			if (nodeClass.isAnnotationPresent(DerivedRecord.class)) {
+				plan = new ReferencingFieldWritePlan(plan, nodeClass.getSimpleName());
+			}
+			if (Optional.class.isAssignableFrom(parameter.getType())) {
+				plan = new OptionalFieldWritePlan(plan);
+			}
+
+			LOGGER.debug("FieldWritePlan for {}.{}: {}", nodeClass.getSimpleName(), name, plan);
+
+			// Put the field value on the operand stack
 			cb.pushLocal(node);
-		} catch (InvalidTypeException e) {
-			throw new NotYetImplementedException(e);
+			cb.castTo(nodeClass);
+			try {
+				cb.invoke(getterMethod(nodeClass, name));
+			} catch (InvalidTypeException e) {
+				throw new AssertionError("Should be impossible for a type that has already been validated", e);
+			}
+
+			// Execute the plan
+			plan.generateFieldWrite(name, cb, gson, jsonWriter, parameterType);
 		}
+		// TODO: Support void methods
+		cb.pushLocal(node);
 		cb.finishMethod();
 	}
 

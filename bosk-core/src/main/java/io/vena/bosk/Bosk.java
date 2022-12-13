@@ -7,7 +7,6 @@ import io.vena.bosk.dereferencers.Dereferencer;
 import io.vena.bosk.dereferencers.PathCompiler;
 import io.vena.bosk.exceptions.InvalidTypeException;
 import io.vena.bosk.exceptions.NoReadContextException;
-import io.vena.bosk.exceptions.NotYetImplementedException;
 import io.vena.bosk.exceptions.ReferenceBindingException;
 import io.vena.bosk.util.Classes;
 import java.io.IOException;
@@ -579,7 +578,7 @@ public class Bosk<R extends Entity> {
 			} catch (InvalidTypeException e) {
 				// TODO: Add truncation methods to Reference so we can refactor this to create
 				// the container reference without risking an InvalidTypeException
-				throw new NotYetImplementedException(e);
+				throw new AssertionError("Parameterized reference must be truncatable at the location of the parameter", e);
 			}
 		}
 	}
@@ -900,7 +899,7 @@ try (ReadContext originalThReadContext = bosk.new ReadContext()) {
 			try {
 				containerRef = reference(enumerableByIdentifierClass(), containerPath);
 			} catch (InvalidTypeException e) {
-				throw new NotYetImplementedException("Parameter reference should come after a " + EnumerableByIdentifier.class, e);
+				throw new AssertionError("Parameter reference must come after a " + EnumerableByIdentifier.class, e);
 			}
 			EnumerableByIdentifier<?> container = containerRef.valueIfExists();
 			if (container != null) {

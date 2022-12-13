@@ -3,7 +3,6 @@ package io.vena.bosk;
 import io.vena.bosk.annotations.Enclosing;
 import io.vena.bosk.annotations.Self;
 import io.vena.bosk.exceptions.InvalidTypeException;
-import io.vena.bosk.exceptions.NotYetImplementedException;
 import java.lang.reflect.Type;
 import java.util.Optional;
 import java.util.function.BiConsumer;
@@ -161,7 +160,7 @@ public abstract class AbstractBoskTest {
 		try {
 			teb = new TestEntityBuilder(bosk);
 		} catch (InvalidTypeException e) {
-			throw new NotYetImplementedException(e);
+			throw new AssertionError(e);
 		}
 		Identifier parentID = Identifier.from("parent");
 		Reference<TestEntity> parentRef = teb.entityRef(parentID);

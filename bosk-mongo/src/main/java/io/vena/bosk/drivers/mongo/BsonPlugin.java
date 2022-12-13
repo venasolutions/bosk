@@ -15,7 +15,6 @@ import io.vena.bosk.SerializationPlugin;
 import io.vena.bosk.SideTable;
 import io.vena.bosk.StateTreeNode;
 import io.vena.bosk.exceptions.InvalidTypeException;
-import io.vena.bosk.exceptions.NotYetImplementedException;
 import io.vena.bosk.exceptions.UnexpectedPathException;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles.Lookup;
@@ -219,7 +218,7 @@ public final class BsonPlugin extends SerializationPlugin {
 				if (result) {
 					return LISTING_ENTRY;
 				} else {
-					throw new NotYetImplementedException("Unexpected value for Listing entry: " + result);
+					throw new BsonFormatException("Unexpected value for Listing entry: " + result);
 				}
 			}
 		};
@@ -288,7 +287,7 @@ public final class BsonPlugin extends SerializationPlugin {
 
 				Listing<E> result =  Listing.of(domain, ids);
 				if (result.size() > ids.size()) {
-					throw new NotYetImplementedException("Duplicate ids");
+					throw new BsonFormatException("Duplicate ids");
 				}
 				return result;
 			}
@@ -326,7 +325,7 @@ public final class BsonPlugin extends SerializationPlugin {
 					V value = valueCodec.decode(reader, decoderContext);
 					Object old = entries.put(key, value);
 					if (old != null) {
-						throw new NotYetImplementedException("Duplicate keys in MapValue: \"" + key + "\"");
+						throw new BsonFormatException("Duplicate keys in MapValue: \"" + key + "\"");
 					}
 				}
 				reader.readEndDocument();
@@ -369,7 +368,7 @@ public final class BsonPlugin extends SerializationPlugin {
 				try {
 					return ctor.newInstance((Object) entries.toArray((Object[])Array.newInstance(entryClass, entries.size())));
 				} catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
-					throw new NotYetImplementedException(e);
+					throw new IllegalStateException("Error reading " + listValueType, e);
 				}
 			}
 
@@ -403,7 +402,7 @@ public final class BsonPlugin extends SerializationPlugin {
 		// Pre-compute some reflection-based stuff
 		//
 		Constructor<?> constructor = theOnlyConstructorFor(nodeClass);
-		LinkedHashMap<String, Parameter> parametersByName = Stream.of(constructor.getParameters()).collect(toMap(Parameter::getName, p->p, (x,y)->{ throw new NotYetImplementedException("Two parameters with same name \"" + x.getName() + "\": " + x + "; " + y); }, LinkedHashMap::new));
+		LinkedHashMap<String, Parameter> parametersByName = Stream.of(constructor.getParameters()).collect(toMap(Parameter::getName, p->p, (x,y)->{ throw new BsonFormatException("Two parameters with same name \"" + x.getName() + "\": " + x + "; " + y); }, LinkedHashMap::new));
 
 		MethodHandle writerHandle = computeAllFieldsWriterHandle(nodeClass, parametersByName, registry, bosk);
 		MethodHandle factoryHandle = computeFactoryHandle(constructor);
@@ -415,7 +414,7 @@ public final class BsonPlugin extends SerializationPlugin {
 				try {
 					writerHandle.invoke(value, writer, encoderContext);
 				} catch (Throwable e) {
-					throw new NotYetImplementedException("Error encoding " + nodeClass + ": " + e.getMessage(), e);
+					throw new IllegalStateException("Error encoding " + nodeClass + ": " + e.getMessage(), e);
 				}
 				writer.writeEndDocument();
 			}
@@ -430,7 +429,7 @@ public final class BsonPlugin extends SerializationPlugin {
 				try {
 					return (T) factoryHandle.invoke(parameterValues.toArray());
 				} catch (Throwable e) {
-					throw new NotYetImplementedException("Error decoding " + nodeClass.getSimpleName() + ": " + e.getMessage(), e);
+					throw new IllegalStateException("Error decoding " + nodeClass.getSimpleName() + ": " + e.getMessage(), e);
 				}
 			}
 
@@ -452,7 +451,7 @@ public final class BsonPlugin extends SerializationPlugin {
 				try {
 					fieldWriter.invoke(value, writer, encoderContext);
 				} catch (Throwable e) {
-					throw new NotYetImplementedException("Error encoding " + catalogType + ": " + e.getMessage(), e);
+					throw new IllegalStateException("Error encoding " + catalogType + ": " + e.getMessage(), e);
 				}
 			}
 
@@ -471,7 +470,7 @@ public final class BsonPlugin extends SerializationPlugin {
 					if (entryId.equals(entry.id())) {
 						entries.add(entry);
 					} else {
-						throw new NotYetImplementedException("Catalog entry ID mismatch: " + entryId + " vs " + entry.id());
+						throw new BsonFormatException("Catalog entry ID mismatch: " + entryId + " vs " + entry.id());
 					}
 				}
 
@@ -479,7 +478,7 @@ public final class BsonPlugin extends SerializationPlugin {
 
 				Catalog<E> result =  Catalog.of(entries);
 				if (result.size() > entries.size()) {
-					throw new NotYetImplementedException("Duplicate entry IDs in catalog");
+					throw new BsonFormatException("Duplicate entry IDs in catalog");
 				}
 				return result;
 			}
@@ -510,7 +509,7 @@ public final class BsonPlugin extends SerializationPlugin {
 				try {
 					fieldWriter.invoke(value, writer, encoderContext);
 				} catch (Throwable e) {
-					throw new NotYetImplementedException("Error encoding " + sideTableType + ": " + e.getMessage(), e);
+					throw new IllegalStateException("Error encoding " + sideTableType + ": " + e.getMessage(), e);
 				}
 			}
 
@@ -534,7 +533,7 @@ public final class BsonPlugin extends SerializationPlugin {
 					}
 					Object old = valuesById.put(id, value);
 					if (old != null) {
-						throw new NotYetImplementedException("Duplicate IDs in sideTable: " + id);
+						throw new BsonFormatException("Duplicate IDs in sideTable: " + id);
 					}
 				}
 				reader.readEndDocument();
@@ -575,7 +574,7 @@ public final class BsonPlugin extends SerializationPlugin {
 			}
 			Object old = parameterValuesByName.put(fieldName, value);
 			if (old != null) {
-				throw new NotYetImplementedException("Hey, two " + fieldName + " fields");
+				throw new BsonFormatException("Hey, two " + fieldName + " fields");
 			}
 		}
 		return parameterValuesByName;
@@ -585,7 +584,7 @@ public final class BsonPlugin extends SerializationPlugin {
 		Class<?> valueClass = rawClass(valueType);
 		Object value;
 		if (Phantom.class.isAssignableFrom(valueClass)) {
-			throw new NotYetImplementedException("Unexpected Phantom field");
+			throw new BsonFormatException("Unexpected Phantom field");
 		} else if (Optional.class.isAssignableFrom(valueClass)) {
 			// Optional field is present in BSON; wrap it using Optional.of
 			Type contentsType = parameterType(valueType, Optional.class, 0);
@@ -606,7 +605,7 @@ public final class BsonPlugin extends SerializationPlugin {
 			try {
 				getter = LOOKUP.unreflect(getterMethod(nodeClass, name));
 			} catch (IllegalAccessException | InvalidTypeException e1) {
-				throw new NotYetImplementedException("Eh?", e1);
+				throw new IllegalStateException("Eh?", e1);
 			}
 			MethodHandle fieldWriter = parameterWriterHandle(nodeClass, name, parameter, codecRegistry, bosk); // (P,W,E)
 			MethodHandle writerCall = filterArguments(fieldWriter, 0, getter); // (N,W,E)

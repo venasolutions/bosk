@@ -44,6 +44,7 @@ public abstract class DereferencerRuntime implements Dereferencer {
 		}
 	}
 
+	@SuppressWarnings("SameReturnValue")
 	protected static Object listingEntryOrThrow(Listing<?> listing, Identifier id, Reference<?> ref) throws NonexistentEntryException {
 		if (listing.containsID(id)) {
 			return LISTING_ENTRY;

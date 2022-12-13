@@ -311,6 +311,7 @@ public final class ClassBuilder<T> {
 		methodVisitor().visitTypeInsn(NEW, Type.getInternalName(type));
 	}
 
+	@SuppressWarnings("SameParameterValue")
 	private void branchAround(Runnable action, int opcode, int poppedSlots) {
 		Label label = new Label();
 		methodVisitor().visitJumpInsn(opcode, label);
