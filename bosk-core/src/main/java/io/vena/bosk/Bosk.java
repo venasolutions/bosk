@@ -947,6 +947,10 @@ try (ReadContext originalThReadContext = bosk.new ReadContext()) {
 	// Reference factory methods
 	//
 
+	/**
+	 * @return a Reference to the object at the given <code>path</code>. {@link Reference#targetType()} will return the actual type of the target object (which may or may not be <code>requestedClass</code>).
+	 * @throws InvalidTypeException if the {@link Reference#targetType() target type} of the resulting Reference does not conform to <code>requestedClass</code>.
+	 */
 	public final <T> Reference<T> reference(Class<T> requestedClass, Path path) throws InvalidTypeException {
 		Type targetType;
 		try {
