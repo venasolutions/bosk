@@ -74,7 +74,7 @@ public final class GsonAdapterCompiler {
 			List<Parameter> parameters = asList(constructor.getParameters());
 
 			// Generate the Codec class and instantiate it
-			ClassBuilder<Codec> cb = new ClassBuilder<>("GSON_CODEC_" + nodeClass.getSimpleName(), CodecRuntime.class, nodeClass.getClassLoader(), here());
+			ClassBuilder<Codec> cb = new ClassBuilder<>("GSON_CODEC_" + nodeClass.getSimpleName(), GsonCodecRuntime.class, nodeClass.getClassLoader(), here());
 			cb.beginClass();
 
 			generate_writeFields(nodeClass, gson, parameters, cb);
@@ -396,7 +396,7 @@ public final class GsonAdapterCompiler {
 		try {
 			CODEC_WRITE_FIELDS = Codec.class.getDeclaredMethod("writeFields", Object.class, JsonWriter.class);
 			CODEC_INSTANTIATE_FROM = Codec.class.getDeclaredMethod("instantiateFrom", List.class);
-			DYNAMIC_WRITE_FIELD = CodecRuntime.class.getDeclaredMethod("dynamicWriteField", Object.class, String.class, TypeToken.class, Gson.class, JsonWriter.class);
+			DYNAMIC_WRITE_FIELD = GsonCodecRuntime.class.getDeclaredMethod("dynamicWriteField", Object.class, String.class, TypeToken.class, Gson.class, JsonWriter.class);
 			LIST_GET = List.class.getDeclaredMethod("get", int.class);
 			OPTIONAL_IS_PRESENT = Optional.class.getDeclaredMethod("isPresent");
 			OPTIONAL_GET = Optional.class.getDeclaredMethod("get");

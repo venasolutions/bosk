@@ -7,7 +7,7 @@ import com.google.gson.stream.JsonWriter;
 import io.vena.bosk.codecs.GsonAdapterCompiler.Codec;
 import java.io.IOException;
 
-public abstract class CodecRuntime implements Codec {
+public abstract class GsonCodecRuntime implements Codec {
 	/**
 	 * Looks up a {@link TypeAdapter} at serialization time, and uses it to {@link TypeAdapter#write write} the given field.
 	 *
