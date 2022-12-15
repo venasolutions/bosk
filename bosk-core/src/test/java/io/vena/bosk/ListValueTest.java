@@ -86,6 +86,14 @@ class ListValueTest {
 		checkIterators(ListValue.of(contents).listIterator(), ListValue.of(contents).iterator());
 	}
 
+	@Test
+	void differentArrayTypes_stillEqual() {
+		Object[] objects = new Object[]{"string1", "string2"};
+		ListValue<?> fromObjects = ListValue.of(objects);
+		ListValue<?> fromStrings = ListValue.of("string1", "string2");
+		assertEquals(fromObjects, fromStrings);
+	}
+
 	private void checkIterators(Iterator<String> expected, Iterator<String> actual) {
 		while (expected.hasNext()) {
 			assertTrue(actual.hasNext());
