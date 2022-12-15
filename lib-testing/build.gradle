@@ -10,6 +10,7 @@ dependencies {
 	// It's a mild kind of circular dependency we can probably live with for now.
 	implementation project(":bosk-core")
 	implementation project(":bosk-gson")
+	implementation project(":bosk-jackson")
 	implementation project(":bosk-mongo")
 
 	// The bosk.development plugin brings these in as test dependencies,

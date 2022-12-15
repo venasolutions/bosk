@@ -1,5 +1,10 @@
 package io.vena.bosk;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JavaType;
+import com.fasterxml.jackson.databind.Module;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.type.TypeFactory;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import io.vena.bosk.SerializationPlugin.DeserializationScope;
@@ -30,6 +35,7 @@ import org.bson.codecs.configuration.CodecRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static com.fasterxml.jackson.databind.SerializationFeature.INDENT_OUTPUT;
 import static io.vena.bosk.ReferenceUtils.parameterType;
 import static io.vena.bosk.ReferenceUtils.rawClass;
 import static io.vena.bosk.ReferenceUtils.theOnlyConstructorFor;
@@ -42,6 +48,8 @@ public abstract class AbstractRoundTripTest extends AbstractBoskTest {
 		return Stream.of(
 				directFactory(),
 				factoryThatMakesAReference(),
+
+				jacksonRoundTripFactory(),
 
 				// Variety of Gson configurations
 				gsonRoundTripFactory(b->b),
@@ -61,6 +69,47 @@ public abstract class AbstractRoundTripTest extends AbstractBoskTest {
 			bosk.rootReference();
 			return Bosk.simpleDriver(bosk, downstream);
 		};
+	}
+
+	public static <R extends Entity> DriverFactory<R> jacksonRoundTripFactory() {
+		return new JacksonRoundTripDriverFactory<>();
+	}
+
+	@RequiredArgsConstructor
+	private static class JacksonRoundTripDriverFactory<R extends Entity> implements DriverFactory<R> {
+		private final JacksonPlugin jp = new JacksonPlugin();
+
+		@Override
+		public BoskDriver<R> build(Bosk<R> bosk, BoskDriver<R> driver) {
+			return new PreprocessingDriver<R>(driver) {
+				final Module module = jp.moduleFor(bosk);
+				final ObjectMapper objectMapper = new ObjectMapper()
+					.registerModule(module)
+					.enable(INDENT_OUTPUT);
+
+				@Override
+				<T> T preprocess(Reference<T> reference, T newValue) {
+					try {
+						JavaType targetType = javaType(reference.targetType());
+						String json = objectMapper.writerFor(targetType).writeValueAsString(newValue);
+						try (DeserializationScope scope = jp.newDeserializationScope(reference)) {
+							return objectMapper.readerFor(targetType).readValue(json);
+						}
+					} catch (JsonProcessingException e) {
+						throw new AssertionError(e);
+					}
+				}
+
+				private JavaType javaType(Type type) {
+					return TypeFactory.defaultInstance().constructType(type);
+				}
+			};
+		}
+
+		@Override
+		public String toString() {
+			return getClass().getSimpleName() + identityHashCode(this);
+		}
 	}
 
 	public static <R extends Entity> DriverFactory<R> gsonRoundTripFactory(UnaryOperator<GsonBuilder> customizer) {
