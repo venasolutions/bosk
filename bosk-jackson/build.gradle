@@ -1,0 +1,14 @@
+
+plugins {
+	id 'bosk.development'
+	id 'bosk.maven-publish'
+	id 'com.github.spotbugs' version '5.0.9'
+	id 'com.diffplug.gradle.spotless' version '3.25.0'
+}
+
+dependencies {
+	api 'com.fasterxml.jackson.core:jackson-databind:2.14.1'
+	implementation project(":bosk-core")
+
+	testImplementation project(":lib-testing")
+}
