@@ -145,7 +145,7 @@ bosk.registerHook("Name update", bosk.nameRef, ref -> {
 ```
 
 After this, you can add in other packages as you need them,
-like [bosk-gson](bosk-gson) for JSON serialization.
+like [bosk-gson](bosk-gson) or [bosk-jackson](bosk-jackson) for JSON serialization.
 or [bosk-mongo](bosk-mongo) for persistence and replication.
 Use the same version number for all packages.
 
@@ -203,7 +203,7 @@ Now you can run multiple copies of your application, and they will share state.
 ### Code Structure
 
 The repo is structured as a collection of subprojects because we publish several separate libraries.
-[bosk-core](bosk-core) is the main functionality, and then other packages like [bosk-mongo](bosk-mongo) and [bosk-gson](bosk-mongo)
+[bosk-core](bosk-core) is the main functionality, and then other packages like [bosk-mongo](bosk-mongo) and [bosk-jackson](bosk-jackson)
 provide integrations with other technologies.
 
 The subprojects are listed in [settings.gradle](settings.gradle), and each has its own `README.md` describing what it is.
