@@ -190,6 +190,13 @@ public final class JacksonPlugin extends SerializationPlugin {
 		JsonDeserializer<T> deserializer(DeserializationConfig config);
 	}
 
+	/**
+	 * Common properties all our deserializers have.
+	 */
+	private abstract class BoskDeserializer<T> extends JsonDeserializer<T> {
+		@Override public boolean isCachable() { return true; }
+	}
+
 	private <V> SerDes<ListValue<V>> listValueSerDes(JavaType type, BeanDescription beanDesc, Bosk<?> bosk) {
 		Constructor<?> ctor = theOnlyConstructorFor(type.getRawClass());
 		JavaType arrayType = listValueEquivalentArrayType(type);
@@ -210,7 +217,7 @@ public final class JacksonPlugin extends SerializationPlugin {
 
 			@Override
 			public JsonDeserializer<ListValue<V>> deserializer(DeserializationConfig deserializationConfig) {
-				return new JsonDeserializer<ListValue<V>>() {
+				return new BoskDeserializer<ListValue<V>>() {
 					@Override
 					@SuppressWarnings({"unchecked"})
 					public ListValue<V> deserialize(JsonParser p, DeserializationContext ctxt) throws IOException {
@@ -249,7 +256,7 @@ public final class JacksonPlugin extends SerializationPlugin {
 
 			@Override
 			public JsonDeserializer<MapValue<V>> deserializer(DeserializationConfig deserializationConfig) {
-				return new JsonDeserializer<MapValue<V>>() {
+				return new BoskDeserializer<MapValue<V>>() {
 					@Override
 					public MapValue<V> deserialize(JsonParser p, DeserializationContext ctxt) throws IOException {
 						LinkedHashMap<String, V> result = new LinkedHashMap<>();
@@ -287,7 +294,7 @@ public final class JacksonPlugin extends SerializationPlugin {
 
 			@Override
 			public JsonDeserializer<Reference<?>> deserializer(DeserializationConfig config) {
-				return new JsonDeserializer<Reference<?>>() {
+				return new BoskDeserializer<Reference<?>>() {
 					@Override
 					public Reference<?> deserialize(JsonParser p, DeserializationContext ctxt) throws IOException {
 						try {
@@ -327,7 +334,7 @@ public final class JacksonPlugin extends SerializationPlugin {
 
 			@Override
 			public JsonDeserializer<Listing<E>> deserializer(DeserializationConfig config) {
-				return new JsonDeserializer<Listing<E>>() {
+				return new BoskDeserializer<Listing<E>>() {
 					@Override
 					@SuppressWarnings("unchecked")
 					public Listing<E> deserialize(JsonParser p, DeserializationContext ctxt) throws IOException {
@@ -400,7 +407,7 @@ public final class JacksonPlugin extends SerializationPlugin {
 			@Override
 			@SuppressWarnings("unchecked")
 			public JsonDeserializer<SideTable<K, V>> deserializer(DeserializationConfig config) {
-				return new JsonDeserializer<SideTable<K, V>>() {
+				return new BoskDeserializer<SideTable<K, V>>() {
 					@Override
 					public SideTable<K, V> deserialize(JsonParser p, DeserializationContext ctxt) throws IOException {
 						Reference<Catalog<K>> domain = null;
@@ -502,7 +509,7 @@ public final class JacksonPlugin extends SerializationPlugin {
 
 			@Override
 			public JsonDeserializer<Catalog<E>> deserializer(DeserializationConfig config) {
-				return new JsonDeserializer<Catalog<E>>() {
+				return new BoskDeserializer<Catalog<E>>() {
 					@Override
 					@SuppressWarnings({"rawtypes", "unchecked"})
 					public Catalog<E> deserialize(JsonParser p, DeserializationContext ctxt) throws IOException {
@@ -535,7 +542,7 @@ public final class JacksonPlugin extends SerializationPlugin {
 
 			@Override
 			public JsonDeserializer<Identifier> deserializer(DeserializationConfig config) {
-				return new JsonDeserializer<Identifier>() {
+				return new BoskDeserializer<Identifier>() {
 					@Override
 					public Identifier deserialize(JsonParser p, DeserializationContext ctxt) throws IOException {
 						return Identifier.from(p.getText());
@@ -566,7 +573,7 @@ public final class JacksonPlugin extends SerializationPlugin {
 
 			@Override
 			public JsonDeserializer<ListingEntry> deserializer(DeserializationConfig config) {
-				return new JsonDeserializer<ListingEntry>() {
+				return new BoskDeserializer<ListingEntry>() {
 					@Override
 					public ListingEntry deserialize(JsonParser p, DeserializationContext ctxt) throws IOException {
 						if (p.getBooleanValue()) {
@@ -638,7 +645,7 @@ public final class JacksonPlugin extends SerializationPlugin {
 
 				@Override
 				public JsonDeserializer<L> deserializer(DeserializationConfig config) {
-					return new JsonDeserializer<L>() {
+					return new BoskDeserializer<L>() {
 						@Override
 						public L deserialize(JsonParser p, DeserializationContext ctxt) throws IOException {
 							JsonDeserializer<Reference<E>> refDeserializer = (JsonDeserializer<Reference<E>>)(JsonDeserializer) ctxt
