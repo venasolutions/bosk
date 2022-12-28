@@ -1,113 +1,105 @@
 package io.vena.bosk;
 
 import io.vena.bosk.exceptions.InvalidTypeException;
-import io.vena.bosk.junit.PerformanceTest;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
+import org.openjdk.jmh.annotations.Benchmark;
+import org.openjdk.jmh.annotations.BenchmarkMode;
+import org.openjdk.jmh.annotations.Fork;
+import org.openjdk.jmh.annotations.Level;
+import org.openjdk.jmh.annotations.Measurement;
+import org.openjdk.jmh.annotations.OutputTimeUnit;
+import org.openjdk.jmh.annotations.Scope;
+import org.openjdk.jmh.annotations.Setup;
+import org.openjdk.jmh.annotations.State;
+import org.openjdk.jmh.annotations.TearDown;
+import org.openjdk.jmh.annotations.Warmup;
 
-import static io.vena.bosk.MicroBenchmark.callingMethodInfo;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
+import static org.openjdk.jmh.annotations.Mode.AverageTime;
 
+@Fork(0)
+@Warmup(iterations = 5, time = 1)
+@Measurement(iterations = 10, time = 1)
+@OutputTimeUnit(NANOSECONDS)
 public class ReferenceBenchmark extends AbstractBoskTest {
-	private Bosk<TestRoot> bosk;
-	private Bosk<TestRoot>.ReadContext context;
 
-	@BeforeEach
-	void setup() {
-		this.bosk = setUpBosk(Bosk::simpleDriver);
-		context = bosk.readContext();
+	@State(Scope.Benchmark)
+	public static class BenchmarkState {
+		private Bosk<TestRoot> bosk;
+		private Bosk<TestRoot>.ReadContext context;
+		private Reference<TestRoot> rootRef;
+		private Reference<TestEnum> ref5Segments;
+		private TestRoot root;
+		private ThreadLocal<TestRoot> threadLocalRoot;
+
+		final Identifier parentID = Identifier.from("parent");
+		final Identifier child1ID = Identifier.from("child1");
+
+		@Setup(Level.Trial)
+		public void setup() throws InvalidTypeException {
+			this.bosk = setUpBosk(Bosk::simpleDriver);
+			context = bosk.readContext();
+			rootRef = bosk.rootReference();
+			TestRoot localRoot = root = rootRef.value();
+			threadLocalRoot = ThreadLocal.withInitial(() -> localRoot);
+			ref5Segments = bosk.reference(TestEnum.class, Path.of(
+				TestRoot.Fields.entities, "parent",
+				TestEntity.Fields.children, "child1",
+				TestChild.Fields.testEnum
+			));
+		}
+
+		@TearDown(Level.Trial)
+		public void closeReadContext() {
+			context.close();
+		}
+
 	}
 
-	@AfterEach
-	void closeReadContext() {
-		context.close();
+	@Benchmark
+	@BenchmarkMode(AverageTime)
+	public Object emptyBenchmark(BenchmarkState benchmarkState) {
+		return benchmarkState;
 	}
 
-	@PerformanceTest
-	void referencePerf_emptyBenchmark() {
-		double rate = new MicroBenchmark(callingMethodInfo()) {
-			@Override
-			protected void doIterations(long count) {
-				for (long i = 0; i < count; i++) {
-				}
-			}
-		}.computeRate();
+	@Benchmark
+	@BenchmarkMode(AverageTime)
+	public Object reused_root(BenchmarkState benchmarkState) {
+		return benchmarkState.rootRef.value();
 	}
 
-	@PerformanceTest
-	void referencePerf_reused_root() {
-		Reference<TestRoot> rootRef = bosk.rootReference();
-		double rate = new MicroBenchmark(callingMethodInfo()) {
-			@Override
-			protected void doIterations(long count) {
-				for (long i = 0; i < count; i++) {
-					rootRef.value();
-				}
-			}
-		}.computeRate();
+	@Benchmark
+	@BenchmarkMode(AverageTime)
+	public Object fresh_root(BenchmarkState benchmarkState) {
+		return benchmarkState.bosk.rootReference().value();
 	}
 
-	@PerformanceTest
-	void referencePerf_fresh_root() {
-		double rate = new MicroBenchmark(callingMethodInfo()) {
-			@Override
-			protected void doIterations(long count) {
-				for (long i = 0; i < count; i++) {
-					bosk.rootReference().value();
-				}
-			}
-		}.computeRate();
+	@Benchmark
+	@BenchmarkMode(AverageTime)
+	public Object reused_5segments(BenchmarkState benchmarkState) throws InvalidTypeException {
+		return benchmarkState.ref5Segments.value();
 	}
 
-	@PerformanceTest
-	void referencePerf_reused_5segments() throws InvalidTypeException {
-		Reference<TestEnum> ref = bosk.reference(TestEnum.class, Path.of(
-			TestRoot.Fields.entities, "parent",
-			TestEntity.Fields.children, "child1",
-			TestChild.Fields.testEnum
-		));
-		double rate = new MicroBenchmark(callingMethodInfo()) {
-			public TestEnum escape;
-
-			@Override
-			protected void doIterations(long count) {
-				for (long i = 0; i < count; i++) {
-					escape = ref.value();
-				}
-			}
-		}.computeRate();
+	@Benchmark
+	@BenchmarkMode(AverageTime)
+	public Object javaOnly_5segments(BenchmarkState benchmarkState) {
+		return benchmarkState
+			.threadLocalRoot.get()
+			.entities()
+			.get(benchmarkState.parentID)
+			.children()
+			.get(benchmarkState.child1ID)
+			.testEnum();
 	}
 
-	@PerformanceTest
-	void referencePerf_javaOnly_5segments() {
-		Identifier parentID = Identifier.from("parent");
-		Identifier child1ID = Identifier.from("child1");
-		ThreadLocal<TestRoot> root = ThreadLocal.withInitial(bosk.rootReference()::value);
-		double rate = new MicroBenchmark(callingMethodInfo()) {
-			public TestEnum escape;
-
-			@Override
-			protected void doIterations(long count) {
-				for (long i = 0; i < count; i++) {
-					escape = root.get().entities().get(parentID).children().get(child1ID).testEnum();
-				}
-			}
-		}.computeRate();
-	}
-
-	@PerformanceTest
-	void referencePerf_javaObjectsOnly_5segments() {
-		Identifier parentID = Identifier.from("parent");
-		Identifier child1ID = Identifier.from("child1");
-		TestRoot root = bosk.rootReference().value();
-		double rate = new MicroBenchmark(callingMethodInfo()) {
-			public TestEnum escape;
-
-			@Override
-			protected void doIterations(long count) {
-				for (long i = 0; i < count; i++) {
-					escape = root.entities().get(parentID).children().get(child1ID).testEnum();
-				}
-			}
-		}.computeRate();
+	@Benchmark
+	@BenchmarkMode(AverageTime)
+	public Object javaObjectsOnly_5segments(BenchmarkState benchmarkState) {
+		return benchmarkState
+			.root
+			.entities()
+			.get(benchmarkState.parentID)
+			.children()
+			.get(benchmarkState.child1ID)
+			.testEnum();
 	}
 }
