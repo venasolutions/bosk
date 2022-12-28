@@ -329,10 +329,30 @@ To wait for a particular hook to run, the hook and application code must coopera
 
 The `Bosk.registerHook` method indicates that a particular call-back should occur any time a specified part of the state tree (the hook's _scope_) is updated.
 
+``` java
+bosk.registerHook("Name update", bosk.nameRef, ref -> {
+	System.out.println("Name is now: " + ref.value());
+});
+```
+
 Hooks are also called at registration time for all matching nodes.
 They can also fire spontaneously; any application logic in a hook must be designed to accept additional calls even if the tree state didn't change.
 
 A hook's scope can be a parameterized reference, in which case it will be called any time _any_ matching node is updated.
+Suppose your bosk has a field declared as follows:
+
+``` java
+final Reference<ExampleWidget> anyWidget = reference(ExampleWidget.class, Path.parseParameterized(
+	"/widgets/-widget-"));
+```
+
+You can then declare a hook as follows:
+
+``` java
+bosk.registerHook("Widget changed", bosk.anyWidget, ref -> {
+	System.out.println("A widget changed: " + ref); // `ref` points to the particular widget that changed
+});
+```
 
 The hook call-back occurs inside a read context containing a state snapshot taken immediately after the triggering update occurred.
 
