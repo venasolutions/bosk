@@ -23,6 +23,9 @@ is all delegated to MongoDB: a well-known, reliable, battle-hardened codebase.
 You don't need to trust Bosk to get all these details right:
 all we do is send updates to MongoDB, and maintain the in-memory replica by following the MongoDB change stream.
 
+## Documentation
+- [User's Guide](docs/guide.md)
+
 ## Getting Started
 
 ### Build settings
