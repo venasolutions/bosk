@@ -427,10 +427,12 @@ public interface DriverFactory<R extends Entity> {
 ```
 
 The `DriverStack` class facilitates the composition of driver layers.
+`DriverStack` extends `DriverFactory`; that is, a `DriverStack` is a kind of `DriverFactory` that invokes other factories to assemble a composite driver.
+
 For example, a stack could be composed as follows:
 
 ``` java
-DriverFactory<ExampleState> mongoDriverFactory() {
+DriverFactory<ExampleState> exampleDriverFactory() {
 	return DriverStack.of(
 		LoggingDriver.factory("Submitted to MongoDriver"),
 		MongoDriver.factory(...)
@@ -449,7 +451,7 @@ Later on, this could even be extended by sandwiching the `MongoDriver` between t
 in order to log events submitted to and received from `MongoDriver`:
 
 ``` java
-DriverFactory<ExampleState> mongoDriverFactory() {
+DriverFactory<ExampleState> exampleDriverFactory() {
 	return DriverStack.of(
 		LoggingDriver.factory("Submitted to MongoDriver"),
 		MongoDriver.factory(...),
@@ -459,9 +461,6 @@ DriverFactory<ExampleState> mongoDriverFactory() {
 ```
 
 The `DriverFactory` and `DriverStack` classes make this a one-line change.
-
-Note that `DriverStack` extends `DriverFactory`; that is, a `DriverStack` is a kind of `DriverFactory` that invokes other factories to assemble a driver.
-The local driver is not explicitly named in the driver stack.
 
 All of this might appear a bit abstract, but the upshot is that your drivers can snap together like Lego.
 
