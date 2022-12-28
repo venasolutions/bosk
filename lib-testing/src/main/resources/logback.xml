@@ -9,7 +9,8 @@
 		<appender-ref ref="CONSOLE" />
 	</root>
 
-	<!-- How to add more tracing during unit tests -->
-	<logger name="io.vena.bosk.MicroBenchmark" level="INFO"/>
+	<!-- How to add more tracing during unit tests
+	<logger name="io.vena.bosk" level="INFO"/>
+	 -->
 
 </configuration>
