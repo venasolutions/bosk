@@ -57,31 +57,42 @@ public class ReferenceBenchmark extends AbstractBoskTest {
 
 	@Benchmark
 	@BenchmarkMode(AverageTime)
-	public Object emptyBenchmark(BenchmarkState benchmarkState) {
+	public Object benchmarkOverhead(BenchmarkState benchmarkState) {
 		return benchmarkState;
 	}
 
 	@Benchmark
 	@BenchmarkMode(AverageTime)
-	public Object reused_root(BenchmarkState benchmarkState) {
+	public Object root_reused(BenchmarkState benchmarkState) {
 		return benchmarkState.rootRef.value();
 	}
 
 	@Benchmark
 	@BenchmarkMode(AverageTime)
-	public Object fresh_root(BenchmarkState benchmarkState) {
+	public Object root_fresh(BenchmarkState benchmarkState) {
 		return benchmarkState.bosk.rootReference().value();
 	}
 
 	@Benchmark
 	@BenchmarkMode(AverageTime)
-	public Object reused_5segments(BenchmarkState benchmarkState) throws InvalidTypeException {
+	public Object deep_reused(BenchmarkState benchmarkState) throws InvalidTypeException {
 		return benchmarkState.ref5Segments.value();
 	}
 
 	@Benchmark
 	@BenchmarkMode(AverageTime)
-	public Object javaOnly_5segments(BenchmarkState benchmarkState) {
+	public Object deep_reusedRoot(BenchmarkState benchmarkState) throws InvalidTypeException {
+		return benchmarkState.rootRef.value()
+			.entities()
+			.get(benchmarkState.parentID)
+			.children()
+			.get(benchmarkState.child1ID)
+			.testEnum();
+	}
+
+	@Benchmark
+	@BenchmarkMode(AverageTime)
+	public Object deep_java_threadLocal(BenchmarkState benchmarkState) {
 		return benchmarkState
 			.threadLocalRoot.get()
 			.entities()
@@ -93,7 +104,7 @@ public class ReferenceBenchmark extends AbstractBoskTest {
 
 	@Benchmark
 	@BenchmarkMode(AverageTime)
-	public Object javaObjectsOnly_5segments(BenchmarkState benchmarkState) {
+	public Object deep_java_only(BenchmarkState benchmarkState) {
 		return benchmarkState
 			.root
 			.entities()
