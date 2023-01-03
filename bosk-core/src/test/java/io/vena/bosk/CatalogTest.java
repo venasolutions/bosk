@@ -12,7 +12,6 @@ import java.util.Spliterator;
 import java.util.stream.Stream;
 import lombok.EqualsAndHashCode;
 import lombok.Value;
-import lombok.experimental.Accessors;
 import lombok.experimental.NonFinal;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -341,13 +340,11 @@ class CatalogTest {
 
 	@Value
 	@NonFinal
-	@Accessors(fluent = true)
 	private static class BasicEntity implements Entity {
 		Identifier id;
 	}
 
 	@Value
-	@Accessors(fluent = true)
 	@EqualsAndHashCode(callSuper = true)
 	private static class ComplexEntity extends BasicEntity {
 		@EqualsAndHashCode.Include

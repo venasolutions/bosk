@@ -18,7 +18,6 @@ import lombok.AccessLevel;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
-import lombok.experimental.Accessors;
 import org.pcollections.OrderedPSet;
 
 import static java.util.Collections.unmodifiableList;
@@ -34,7 +33,6 @@ import static java.util.stream.Collectors.toList;
  *
  * @param <E>
  */
-@Accessors(fluent=true)
 @EqualsAndHashCode(callSuper = false)
 @RequiredArgsConstructor(access=AccessLevel.PACKAGE)
 public final class Listing<E extends Entity> extends AbstractCollection<Reference<E>> {

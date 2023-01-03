@@ -9,7 +9,6 @@ import java.util.function.BiConsumer;
 import lombok.EqualsAndHashCode;
 import lombok.Value;
 import lombok.With;
-import lombok.experimental.Accessors;
 import lombok.experimental.FieldNameConstants;
 
 import static java.util.Arrays.asList;
@@ -17,7 +16,6 @@ import static java.util.Arrays.asList;
 public abstract class AbstractBoskTest {
 	@Value
 	@EqualsAndHashCode(callSuper=false)
-	@Accessors(fluent=true)
 	@With
 	@FieldNameConstants
 	public static class TestRoot extends AbstractEntity {
@@ -35,7 +33,6 @@ public abstract class AbstractBoskTest {
 
 	@Value
 	@EqualsAndHashCode(callSuper=false)
-	@Accessors(fluent=true)
 	@With
 	@FieldNameConstants
 	public static class TestEntity extends AbstractEntity {
@@ -56,7 +53,6 @@ public abstract class AbstractBoskTest {
 
 	@Value
 	@EqualsAndHashCode(callSuper=false)
-	@Accessors(fluent=true)
 	@With
 	@FieldNameConstants
 	public static class TestChild extends AbstractEntity {
@@ -68,7 +64,6 @@ public abstract class AbstractBoskTest {
 
 	@Value
 	@EqualsAndHashCode(callSuper=false)
-	@Accessors(fluent=true)
 	@With
 	@FieldNameConstants
 	public static class Optionals extends AbstractEntity {
@@ -89,7 +84,6 @@ public abstract class AbstractBoskTest {
 
 	@Value
 	@EqualsAndHashCode(callSuper=false)
-	@Accessors(fluent=true)
 	@With
 	@FieldNameConstants
 	public static class Phantoms extends AbstractEntity {
@@ -110,7 +104,6 @@ public abstract class AbstractBoskTest {
 
 	@Value
 	@EqualsAndHashCode(callSuper=true)
-	@Accessors(fluent=true)
 	@With
 	@FieldNameConstants
 	public static class ImplicitRefs extends ReflectiveEntity<ImplicitRefs> {

@@ -4,7 +4,6 @@ import io.vena.bosk.exceptions.InvalidTypeException;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.Value;
-import lombok.experimental.Accessors;
 import lombok.experimental.FieldNameConstants;
 import lombok.val;
 import org.junit.jupiter.api.BeforeEach;
@@ -43,7 +42,6 @@ public class ReferenceErrorTest {
 	}
 
 	@RequiredArgsConstructor
-	@Accessors(fluent = true)
 	@FieldNameConstants
 	public static class BadGetters implements Entity {
 		final Identifier id;
@@ -59,7 +57,6 @@ public class ReferenceErrorTest {
 	}
 
 	@Value
-	@Accessors(fluent = true)
 	@FieldNameConstants
 	public static class NestedObject implements StateTreeNode {
 		Optional<String> string;

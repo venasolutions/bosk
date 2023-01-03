@@ -6,7 +6,6 @@ import lombok.AccessLevel;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
-import lombok.experimental.Accessors;
 import lombok.experimental.FieldDefaults;
 import lombok.val;
 import org.junit.jupiter.api.Test;
@@ -35,7 +34,7 @@ class OptionalRefsTest extends AbstractRoundTripTest {
 	}
 
 	@EqualsAndHashCode(callSuper = false)
-	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
+	@Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
 	public static class OptionalString implements Entity {
 		Identifier id;
 		Optional<String> field;
@@ -49,7 +48,7 @@ class OptionalRefsTest extends AbstractRoundTripTest {
 	}
 
 	@EqualsAndHashCode(callSuper = false)
-	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
+	@Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
 	public static class OptionalEntity implements Entity {
 		Identifier id;
 		Optional<OptionalEntity> field;
@@ -62,7 +61,7 @@ class OptionalRefsTest extends AbstractRoundTripTest {
 	}
 
 	@EqualsAndHashCode(callSuper = false)
-	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
+	@Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
 	public static class OptionalReference implements Entity {
 		Identifier id;
 		Optional<Reference<OptionalReference>> field;
@@ -76,7 +75,7 @@ class OptionalRefsTest extends AbstractRoundTripTest {
 	}
 
 	@EqualsAndHashCode(callSuper = false)
-	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
+	@Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
 	public static class OptionalCatalog implements Entity {
 		Identifier id;
 		Optional<Catalog<OptionalCatalog>> field;
@@ -90,7 +89,7 @@ class OptionalRefsTest extends AbstractRoundTripTest {
 	}
 
 	@EqualsAndHashCode(callSuper = false)
-	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
+	@Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
 	public static class OptionalListing implements Entity {
 		Identifier id;
 		Catalog<OptionalListing> catalog;
@@ -105,7 +104,7 @@ class OptionalRefsTest extends AbstractRoundTripTest {
 	}
 
 	@EqualsAndHashCode(callSuper = false)
-	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
+	@Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
 	public static class OptionalSideTable implements Entity {
 		Identifier id;
 		Catalog<OptionalSideTable> catalog;

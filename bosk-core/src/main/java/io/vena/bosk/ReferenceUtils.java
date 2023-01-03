@@ -20,7 +20,6 @@ import java.util.stream.Stream;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Value;
-import lombok.experimental.Accessors;
 
 import static io.vena.bosk.util.ReflectionHelpers.setAccessible;
 import static java.lang.String.format;
@@ -37,7 +36,6 @@ public final class ReferenceUtils {
 
 	@RequiredArgsConstructor
 	@Value
-	@Accessors(fluent = true)
 	static class CatalogRef<E extends Entity> implements CatalogReference<E> {
 		Reference<Catalog<E>> ref;
 		Class<E> entryClass;
@@ -72,7 +70,6 @@ public final class ReferenceUtils {
 	}
 
 	@Value
-	@Accessors(fluent = true)
 	static class ListingRef<E extends Entity> implements ListingReference<E> {
 		Reference<Listing<E>> ref;
 
@@ -105,7 +102,6 @@ public final class ReferenceUtils {
 		@Override public String toString() { return ref.toString(); }
 	}
 
-	@Accessors(fluent=true)
 	@RequiredArgsConstructor
 	static final class SideTableRef<K extends Entity,V> implements SideTableReference<K,V> {
 		private final Reference<SideTable<K,V>> ref;
@@ -246,7 +242,6 @@ C&lt;String> someField;
 	 * @author pdoyle
 	 */
 	@Value
-	@Accessors(fluent = true)
 	static class TypedHandle {
 		// The order of the fields here is supposed to remind you of a method declaration: ReturnType methodName(ArgType x, ArgType y)
 		Type returnType;

@@ -25,7 +25,6 @@ import lombok.Getter;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.Value;
-import lombok.experimental.Accessors;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -73,7 +72,6 @@ import static lombok.AccessLevel.NONE;
  *
  * @param <R> The type of the root {@link Entity}.
  */
-@Accessors(fluent=true)
 public class Bosk<R extends Entity> {
 	@Getter private final String name;
 	@Getter private final Identifier instanceID = Identifier.from(randomUUID().toString());
@@ -169,7 +167,6 @@ public class Bosk<R extends Entity> {
 	 * @author pdoyle
 	 */
 	@RequiredArgsConstructor
-	@Accessors(fluent = true)
 	private final class LocalDriver implements BoskDriver<R> {
 		final DefaultRootFunction<R> initialRootFunction;
 		final Deque<Runnable> hookExecutionQueue = new ConcurrentLinkedDeque<>();
@@ -737,7 +734,6 @@ try (ReadContext originalThReadContext = bosk.new ReadContext()) {
 		}
 	}
 
-	@Accessors(fluent=true)
 	@RequiredArgsConstructor
 	private abstract class ReferenceImpl<T> implements Reference<T> {
 		@Getter protected final Path path;
@@ -941,7 +937,6 @@ try (ReadContext originalThReadContext = bosk.new ReadContext()) {
 	 * which is a user-facing exception that is part of the contract of {@link Reference#value()}.
 	 */
 	@Getter
-	@Accessors(fluent=true)
 	public static final class NonexistentEntryException extends Exception {
 		final Path path;
 

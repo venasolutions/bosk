@@ -17,13 +17,11 @@ import lombok.AccessLevel;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
-import lombok.experimental.Accessors;
 import org.pcollections.OrderedPMap;
 import org.pcollections.OrderedPSet;
 
 import static java.util.Collections.unmodifiableList;
 
-@Accessors(fluent = true)
 @EqualsAndHashCode
 @RequiredArgsConstructor(access=AccessLevel.PRIVATE)
 public final class SideTable<K extends Entity, V> implements EnumerableByIdentifier<V> {

@@ -5,9 +5,7 @@ import java.util.List;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
-import lombok.experimental.Accessors;
 
-@Accessors(fluent = true)
 class HookRecorder {
 	@Getter
 	private final List<Event> events = new ArrayList<>();

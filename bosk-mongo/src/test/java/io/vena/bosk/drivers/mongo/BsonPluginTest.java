@@ -11,7 +11,6 @@ import io.vena.bosk.SideTable;
 import io.vena.bosk.exceptions.InvalidTypeException;
 import lombok.EqualsAndHashCode;
 import lombok.Value;
-import lombok.experimental.Accessors;
 import lombok.experimental.FieldNameConstants;
 import org.bson.BsonDocument;
 import org.bson.BsonDocumentReader;
@@ -48,7 +47,7 @@ class BsonPluginTest {
 		return new Root(Identifier.from("root"), Catalog.empty(), SideTable.empty(catalogRef));
 	}
 
-	@Value @Accessors(fluent = true) @FieldNameConstants
+	@Value @FieldNameConstants
 	@EqualsAndHashCode(callSuper = false)
 	public static class Root implements Entity {
 		Identifier id;
@@ -56,7 +55,7 @@ class BsonPluginTest {
 		SideTable<Item, SideTable<Item, String>> nestedSideTable;
 	}
 
-	@Value @Accessors(fluent = true) @FieldNameConstants
+	@Value @FieldNameConstants
 	@EqualsAndHashCode(callSuper = false)
 	public static class Item implements Entity {
 		Identifier id;

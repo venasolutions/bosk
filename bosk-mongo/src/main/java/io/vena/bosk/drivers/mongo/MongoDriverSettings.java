@@ -5,10 +5,8 @@ import io.vena.bosk.drivers.mongo.Formatter.DocumentFields;
 import lombok.Builder;
 import lombok.Builder.Default;
 import lombok.Value;
-import lombok.experimental.Accessors;
 
 @Value
-@Accessors(fluent = true)
 @Builder
 public class MongoDriverSettings {
 	String database;
@@ -18,7 +16,6 @@ public class MongoDriverSettings {
 	@Default Testing testing = Testing.builder().build();
 
 	@Value
-	@Accessors(fluent = true)
 	@Builder
 	static class Testing {
 		/**

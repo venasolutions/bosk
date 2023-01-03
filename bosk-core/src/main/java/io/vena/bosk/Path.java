@@ -20,7 +20,6 @@ import java.util.function.UnaryOperator;
 import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
 import lombok.Value;
-import lombok.experimental.Accessors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -63,7 +62,6 @@ import static lombok.AccessLevel.PACKAGE;
  *
  * @author pdoyle
  */
-@Accessors(fluent=true)
 @RequiredArgsConstructor(access = PACKAGE)
 public abstract class Path implements Iterable<String> {
 	public abstract int length();

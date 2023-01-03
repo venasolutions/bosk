@@ -13,7 +13,6 @@ import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Value;
-import lombok.experimental.Accessors;
 import lombok.experimental.FieldDefaults;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -118,7 +117,7 @@ class TypeValidationTest {
 	// OK, here come the classes...
 	//
 
-	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
+	@Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
 	public static final class Primitives implements Entity {
 		Identifier id;
 		boolean booleanPrimitive;
@@ -137,7 +136,7 @@ class TypeValidationTest {
 		Double doubleObject;
 	}
 
-	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
+	@Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
 	public static final class SimpleTypes implements Entity {
 		Identifier id;
 		String string;
@@ -148,7 +147,7 @@ class TypeValidationTest {
 		}
 	}
 
-	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
+	@Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
 	public static final class BoskyTypes implements Entity {
 		Identifier id;
 		Reference<SimpleTypes> ref;
@@ -163,7 +162,7 @@ class TypeValidationTest {
 		ReferenceSubclass referenceSubclass;
 	}
 
-	@Value @Accessors(fluent=true)
+	@Value
 	public static class ValueStruct implements StateTreeNode {
 		String string;
 		ListValue<String> innerList;
@@ -184,7 +183,7 @@ class TypeValidationTest {
 		final String validField;
 	}
 
-	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
+	@Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
 	public static final class AllowedFieldNames implements Entity {
 		Identifier id;
 		int justLetters;
@@ -192,7 +191,7 @@ class TypeValidationTest {
 		int hereComesAnUnderscore_toldYouSo;
 	}
 
-	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true)
+	@Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true)
 	public static final class ImplicitReferences_onConstructorParameters implements Entity {
 		Identifier id;
 		Reference<ImplicitReferences_onConstructorParameters> selfRef;
@@ -212,7 +211,7 @@ class TypeValidationTest {
 		}
 	}
 
-	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true)
+	@Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true)
 	@RequiredArgsConstructor
 	public static final class ImplicitReferences_onFields implements Entity {
 		Identifier id;
@@ -221,13 +220,13 @@ class TypeValidationTest {
 		@Enclosing Reference<ImplicitReferences_onFields> enclosingRef;
 	}
 
-	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
+	@Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
 	public static final class MissingConstructorArgument implements Entity {
 		Identifier id;
 		String field = "fieldValue";
 	}
 
-	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
+	@Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
 	public static final class ExtraConstructor implements Entity {
 		Identifier id;
 
@@ -240,7 +239,7 @@ class TypeValidationTest {
 		}
 	}
 
-	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true)
+	@Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true)
 	public static final class ExtraConstructorArgument implements Entity {
 		Identifier id;
 
@@ -258,7 +257,7 @@ class TypeValidationTest {
 		}
 	}
 
-	@Accessors(fluent=true) @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
+	@FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
 	public static final class GetterHasParameter implements Entity {
 		Identifier id;
 		String field;
@@ -272,7 +271,7 @@ class TypeValidationTest {
 		}
 	}
 
-	@Accessors(fluent=true) @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
+	@FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
 	public static final class GetterReturnsWrongType implements Entity {
 		Identifier id;
 		String field;
@@ -285,7 +284,7 @@ class TypeValidationTest {
 		}
 	}
 
-	@Accessors(fluent=true) @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
+	@FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
 	public static final class GetterReturnsSupertype implements Entity {
 		Identifier id;
 		Integer field;
@@ -298,7 +297,7 @@ class TypeValidationTest {
 		}
 	}
 
-	@Accessors(fluent=true) @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
+	@FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
 	public static final class GetterReturnsSubtype implements Entity {
 		Identifier id;
 		Number field;
@@ -311,7 +310,7 @@ class TypeValidationTest {
 		}
 	}
 
-	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE) @RequiredArgsConstructor
+	@Getter @FieldDefaults(level=AccessLevel.PRIVATE) @RequiredArgsConstructor
 	public static class MutableField implements Entity {
 		Identifier id;
 
@@ -320,14 +319,14 @@ class TypeValidationTest {
 		}
 	}
 
-	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE) @RequiredArgsConstructor
+	@Getter @FieldDefaults(level=AccessLevel.PRIVATE) @RequiredArgsConstructor
 	public static final class MutableInheritedField extends MutableField {
 		public static void testException(InvalidTypeException e) {
 			assertThat(e.getMessage(), containsString("not final"));
 		}
 	}
 
-	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
+	@Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
 	public static final class NestedError implements Entity {
 		Identifier id;
 		GetterReturnsWrongType field;
@@ -338,7 +337,7 @@ class TypeValidationTest {
 		}
 	}
 
-	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
+	@Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
 	public static final class ArrayField implements Entity {
 		Identifier id;
 		String[] strings;
@@ -349,7 +348,7 @@ class TypeValidationTest {
 		}
 	}
 
-	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
+	@Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
 	public static final class ReferenceToInvalidType implements Entity {
 		Identifier id;
 		Reference<ArrayField> ref;
@@ -359,7 +358,7 @@ class TypeValidationTest {
 		}
 	}
 
-	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
+	@Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
 	public static final class CatalogOfInvalidType implements Entity {
 		Identifier id;
 		Catalog<ArrayField> catalog;
@@ -369,7 +368,7 @@ class TypeValidationTest {
 		}
 	}
 
-	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
+	@Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
 	public static final class ListingOfInvalidType implements Entity {
 		Identifier id;
 		Listing<ArrayField> listing;
@@ -379,7 +378,7 @@ class TypeValidationTest {
 		}
 	}
 
-	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
+	@Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
 	public static final class OptionalOfInvalidType implements Entity {
 		Identifier id;
 		Optional<ArrayField> optional;
@@ -389,7 +388,7 @@ class TypeValidationTest {
 		}
 	}
 
-	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
+	@Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
 	public static final class SideTableWithInvalidKey implements Entity {
 		Identifier id;
 		SideTable<ArrayField,String> sideTable;
@@ -399,7 +398,7 @@ class TypeValidationTest {
 		}
 	}
 
-	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
+	@Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
 	public static final class SideTableWithInvalidValue implements Entity {
 		Identifier id;
 		SideTable<SimpleTypes,ArrayField> sideTable;
@@ -409,7 +408,7 @@ class TypeValidationTest {
 		}
 	}
 
-	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
+	@Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
 	public static final class FieldNameWithDollarSign implements Entity {
 		Identifier id;
 		int weird$name;
@@ -423,7 +422,7 @@ class TypeValidationTest {
 	 * According to JLS 3.1, Java identifiers comprise only ASCII characters.
 	 * https://docs.oracle.com/javase/specs/jls/se14/html/jls-3.html#jls-3.1
 	 *
-	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
+	@Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
 	public static final class FieldNameWithNonAsciiLetters implements Entity {
 		Identifier id;
 		int trèsCassé;
@@ -434,7 +433,7 @@ class TypeValidationTest {
 	}
 	 */
 
-	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true)
+	@Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true)
 	public static final class EnclosingNonReference implements Entity {
 		Identifier id;
 		String enclosingString;
@@ -449,7 +448,7 @@ class TypeValidationTest {
 		}
 	}
 
-	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true)
+	@Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true)
 	public static final class EnclosingReferenceToString implements Entity {
 		Identifier id;
 		Reference<String> enclosingStringReference;
@@ -464,7 +463,7 @@ class TypeValidationTest {
 		}
 	}
 
-	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true)
+	@Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true)
 	public static final class EnclosingReferenceToCatalog implements Entity {
 		Identifier id;
 		Reference<Catalog<SimpleTypes>> enclosingCatalogReference;
@@ -479,7 +478,7 @@ class TypeValidationTest {
 		}
 	}
 
-	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true)
+	@Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true)
 	public static final class EnclosingReferenceToOptional implements Entity {
 		Identifier id;
 		Reference<Optional<SimpleTypes>> enclosingOptionalReference;
@@ -494,7 +493,7 @@ class TypeValidationTest {
 		}
 	}
 
-	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true)
+	@Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true)
 	public static final class SelfNonReference implements Entity {
 		Identifier id;
 		String str;
@@ -509,7 +508,7 @@ class TypeValidationTest {
 		}
 	}
 
-	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true)
+	@Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true)
 	public static final class SelfWrongType implements Entity {
 		Identifier id;
 		Reference<SimpleTypes> ref;
@@ -524,7 +523,7 @@ class TypeValidationTest {
 		}
 	}
 
-	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true)
+	@Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true)
 	public static class SelfSubtype implements Entity {
 		Identifier id;
 		Reference<TheSubtype> ref;
@@ -545,7 +544,7 @@ class TypeValidationTest {
 		}
 	}
 
-	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true)
+	@Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true)
 	@RequiredArgsConstructor
 	public static final class HasDeserializationPath implements Entity {
 		Identifier id;
@@ -557,7 +556,7 @@ class TypeValidationTest {
 		}
 	}
 
-	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true)
+	@Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true)
 	@RequiredArgsConstructor
 	public static final class ListValueOfIdentifier implements Entity {
 		Identifier id;
@@ -568,7 +567,7 @@ class TypeValidationTest {
 		}
 	}
 
-	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true)
+	@Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true)
 	@RequiredArgsConstructor
 	public static final class ListValueOfReference implements Entity {
 		Identifier id;
@@ -579,7 +578,7 @@ class TypeValidationTest {
 		}
 	}
 
-	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true)
+	@Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true)
 	@RequiredArgsConstructor
 	public static final class ListValueOfEntity implements Entity {
 		Identifier id;
@@ -590,7 +589,7 @@ class TypeValidationTest {
 		}
 	}
 
-	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true)
+	@Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true)
 	@RequiredArgsConstructor
 	public static final class ListValueOfOptional implements Entity {
 		Identifier id;
@@ -601,7 +600,7 @@ class TypeValidationTest {
 		}
 	}
 
-	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true)
+	@Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true)
 	@RequiredArgsConstructor
 	public static final class ListValueInvalidSubclass implements Entity {
 		Identifier id;
@@ -619,7 +618,7 @@ class TypeValidationTest {
 		}
 	}
 
-	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true)
+	@Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true)
 	@RequiredArgsConstructor
 	public static final class ListValueMutableSubclass implements Entity {
 		Identifier id;
@@ -641,7 +640,7 @@ class TypeValidationTest {
 		}
 	}
 
-	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true)
+	@Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true)
 	@RequiredArgsConstructor
 	public static final class ListValueOfInvalidType implements Entity {
 		Identifier id;
@@ -652,13 +651,13 @@ class TypeValidationTest {
 		}
 	}
 
-	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true)
+	@Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true)
 	@RequiredArgsConstructor
 	public static final class ListValueSubclassWithMutableField implements Entity {
 		Identifier id;
 		Subclass badField;
 
-		@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE)
+		@Getter @FieldDefaults(level=AccessLevel.PRIVATE)
 		@EqualsAndHashCode(callSuper = true)
 		public static final class Subclass extends ListValue<String> {
 			int mutableField;
@@ -674,13 +673,13 @@ class TypeValidationTest {
 		}
 	}
 
-	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true)
+	@Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true)
 	@RequiredArgsConstructor
 	public static final class ListValueSubclassWithTwoConstructors implements Entity {
 		Identifier id;
 		Subclass badField;
 
-		@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE)
+		@Getter @FieldDefaults(level=AccessLevel.PRIVATE)
 		@EqualsAndHashCode(callSuper = true)
 		public static final class Subclass extends ListValue<String> {
 			Subclass(String[] entries) {
@@ -698,13 +697,13 @@ class TypeValidationTest {
 		}
 	}
 
-	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true)
+	@Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true)
 	@RequiredArgsConstructor
 	public static final class ListValueSubclassWithWrongConstructor implements Entity {
 		Identifier id;
 		Subclass badField;
 
-		@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE)
+		@Getter @FieldDefaults(level=AccessLevel.PRIVATE)
 		@EqualsAndHashCode(callSuper = true)
 		public static final class Subclass extends ListValue<String> {
 			Subclass() {
@@ -719,7 +718,7 @@ class TypeValidationTest {
 		}
 	}
 
-	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true)
+	@Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true)
 	@RequiredArgsConstructor
 	@DerivedRecord
 	public static final class DerivedRecordType implements Entity {
@@ -730,7 +729,7 @@ class TypeValidationTest {
 		}
 	}
 
-	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true)
+	@Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true)
 	@RequiredArgsConstructor
 	public static final class DerivedRecordField implements Entity {
 		Identifier id;
@@ -742,7 +741,7 @@ class TypeValidationTest {
 		}
 	}
 
-	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true)
+	@Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true)
 	@RequiredArgsConstructor
 	public static final class ReferenceToReference implements Entity {
 		Identifier id;
@@ -753,7 +752,7 @@ class TypeValidationTest {
 		}
 	}
 
-	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true)
+	@Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true)
 	@RequiredArgsConstructor
 	public static final class ReferenceWithMutableField implements Entity {
 		Identifier id;
@@ -775,7 +774,7 @@ class TypeValidationTest {
 	 *
 	 * @author Patrick Doyle
 	 */
-	@Accessors(fluent=true) @Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true)
+	@Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true)
 	@RequiredArgsConstructor
 	public static final class ValidThenInvalidOfTheSameClass implements Entity {
 		Identifier id;
