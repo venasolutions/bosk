@@ -23,7 +23,6 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import lombok.EqualsAndHashCode;
 import lombok.Value;
-import lombok.experimental.Accessors;
 
 import static io.vena.bosk.ReferenceUtils.parameterType;
 import static io.vena.bosk.ReferenceUtils.rawClass;
@@ -133,7 +132,6 @@ public abstract class SerializationPlugin {
 
 	@Value
 	@EqualsAndHashCode(callSuper = false)
-	@Accessors(fluent = true)
 	private class NestedDeserializationScope extends DeserializationScope {
 		DeserializationScope outer;
 		Path path;
@@ -191,15 +189,15 @@ public abstract class SerializationPlugin {
 	}
 
 	public static boolean isSelfReference(Class<?> nodeClass, Parameter parameter) {
-		return infoFor(nodeClass).getAnnotatedParameters_Self().contains(parameter.getName());
+		return infoFor(nodeClass).annotatedParameters_Self().contains(parameter.getName());
 	}
 
 	public static boolean isEnclosingReference(Class<?> nodeClass, Parameter parameter) {
-		return infoFor(nodeClass).getAnnotatedParameters_Enclosing().contains(parameter.getName());
+		return infoFor(nodeClass).annotatedParameters_Enclosing().contains(parameter.getName());
 	}
 
 	public static boolean hasDeserializationPath(Class<?> nodeClass, Parameter parameter) {
-		return infoFor(nodeClass).getAnnotatedParameters_DeserializationPath().containsKey(parameter.getName());
+		return infoFor(nodeClass).annotatedParameters_DeserializationPath().containsKey(parameter.getName());
 	}
 
 	private Reference<?> findImplicitReferenceIfAny(Class<?> nodeClass, Parameter parameter, Bosk<?> bosk) {

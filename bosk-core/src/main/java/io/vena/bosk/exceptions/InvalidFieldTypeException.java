@@ -1,10 +1,8 @@
 package io.vena.bosk.exceptions;
 
 import lombok.Getter;
-import lombok.experimental.Accessors;
 
 @Getter
-@Accessors(fluent = true)
 public class InvalidFieldTypeException extends InvalidTypeException {
 	private final Class<?> containingClass;
 	private final String fieldName;

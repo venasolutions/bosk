@@ -9,11 +9,9 @@ import io.vena.bosk.SideTable;
 import java.util.Optional;
 import lombok.Value;
 import lombok.With;
-import lombok.experimental.Accessors;
 import lombok.experimental.FieldNameConstants;
 
 @Value
-@Accessors(fluent = true)
 @With
 @FieldNameConstants
 public class TestEntity implements Entity {

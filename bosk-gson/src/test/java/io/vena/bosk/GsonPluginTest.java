@@ -25,7 +25,6 @@ import java.util.stream.Stream;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Value;
-import lombok.experimental.Accessors;
 import lombok.experimental.FieldNameConstants;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -251,7 +250,7 @@ class GsonPluginTest extends AbstractBoskTest {
 	/**
 	 * Exercise the type-parameter handling a bit
 	 */
-	@Value @Accessors(fluent = true)
+	@Value
 	private static class NodeWithGenerics<A,B> implements StateTreeNode {
 		ListValue<A> listOfA;
 		ListValue<B> listOfB;
@@ -301,7 +300,7 @@ class GsonPluginTest extends AbstractBoskTest {
 	/**
 	 * Should be serialized the same as {@link ActualBasic}.
 	 */
-	@RequiredArgsConstructor @Getter @Accessors(fluent = true)
+	@RequiredArgsConstructor @Getter
 	public static class ExpectedBasic implements StateTreeNode {
 		final Reference<ImplicitRefs> entity;
 		final String nonEntity;
@@ -309,7 +308,7 @@ class GsonPluginTest extends AbstractBoskTest {
 		final String optionalNonEntity;
 	}
 
-	@RequiredArgsConstructor @Getter @Accessors(fluent = true)
+	@RequiredArgsConstructor @Getter
 	@DerivedRecord
 	public static class ActualBasic {
 		final ImplicitRefs entity;
@@ -342,7 +341,7 @@ class GsonPluginTest extends AbstractBoskTest {
 		assertEquals(expected, deserialized);
 	}
 
-	@Getter @Accessors(fluent = true)
+	@Getter
 	@DerivedRecord
 	private static class ActualList extends ListValue<ReflectiveEntity<?>> {
 		protected ActualList(ReflectiveEntity<?>... entries) {
@@ -382,7 +381,6 @@ class GsonPluginTest extends AbstractBoskTest {
 	}
 
 	@Value
-	@Accessors(fluent = true)
 	@FieldNameConstants
 	public static class DeserializationPathContainer implements StateTreeNode {
 		@DeserializationPath("/entities/-entity1-/implicitRefs")
@@ -537,7 +535,6 @@ class GsonPluginTest extends AbstractBoskTest {
 	}
 
 	@Value
-	@Accessors(fluent = true)
 	public static class WrongType implements StateTreeNode {
 		@DeserializationPath("/entities/123/string")
 		ImplicitRefs notAString;
@@ -551,7 +548,6 @@ class GsonPluginTest extends AbstractBoskTest {
 	}
 
 	@Value
-	@Accessors(fluent = true)
 	public static class EntityParameter implements StateTreeNode {
 		@DeserializationPath("/entities/-entity-")
 		ImplicitRefs field;
@@ -565,7 +561,6 @@ class GsonPluginTest extends AbstractBoskTest {
 	}
 
 	@Value
-	@Accessors(fluent = true)
 	public static class MalformedPath implements StateTreeNode {
 		@DeserializationPath("/malformed////path")
 		ImplicitRefs field;
@@ -579,7 +574,6 @@ class GsonPluginTest extends AbstractBoskTest {
 	}
 
 	@Value
-	@Accessors(fluent = true)
 	public static class NonexistentPath implements StateTreeNode {
 		@DeserializationPath("/nonexistent/path")
 		ImplicitRefs field;

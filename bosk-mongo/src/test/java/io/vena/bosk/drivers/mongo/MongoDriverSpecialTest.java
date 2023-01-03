@@ -27,7 +27,6 @@ import java.util.Optional;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingDeque;
 import lombok.Value;
-import lombok.experimental.Accessors;
 import org.bson.BsonDocument;
 import org.bson.BsonNull;
 import org.bson.BsonString;
@@ -448,7 +447,6 @@ class MongoDriverSpecialTest {
 	}
 
 	@Value
-	@Accessors(fluent = true)
 	public static class OldEntity implements Entity {
 		Identifier id;
 		String string;
@@ -459,7 +457,6 @@ class MongoDriverSpecialTest {
 	 * field has a default (and some other fields have been deleted).
 	 */
 	@Value
-	@Accessors(fluent = true)
 	public static class UpgradeableEntity implements Entity {
 		Identifier id;
 		String string;

@@ -27,7 +27,6 @@ import java.util.WeakHashMap;
 import java.util.concurrent.ConcurrentHashMap;
 import lombok.RequiredArgsConstructor;
 import lombok.Value;
-import lombok.experimental.Accessors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -386,7 +385,6 @@ public final class PathCompiler {
 		//
 
 		@Value
-		@Accessors(fluent = true)
 		public class FieldStep implements Step {
 			String name;
 			Map<String, Method> gettersByName;
@@ -426,7 +424,6 @@ public final class PathCompiler {
 		}
 
 		@Value
-		@Accessors(fluent = true)
 		public class CatalogEntryStep implements DeletableStep {
 			Type targetType;
 			int segmentNum;
@@ -439,7 +436,6 @@ public final class PathCompiler {
 		}
 
 		@Value
-		@Accessors(fluent = true)
 		public class ListingEntryStep implements DeletableStep {
 			Type entryType;
 			int segmentNum;
@@ -460,7 +456,6 @@ public final class PathCompiler {
 		}
 
 		@Value
-		@Accessors(fluent = true)
 		public class SideTableEntryStep implements DeletableStep {
 			Type keyType;
 			Type targetType;
@@ -474,7 +469,6 @@ public final class PathCompiler {
 		}
 
 		@Value
-		@Accessors(fluent = true)
 		public class OptionalValueStep implements DeletableStep {
 			Type targetType;
 			FieldStep fieldStep;
@@ -487,7 +481,6 @@ public final class PathCompiler {
 		}
 
 		@Value
-		@Accessors(fluent = true)
 		public class PhantomValueStep implements DeletableStep {
 			Type targetType;
 			String name;

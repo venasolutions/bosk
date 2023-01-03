@@ -19,7 +19,6 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.ToString;
 import lombok.With;
-import lombok.experimental.Accessors;
 import lombok.experimental.Delegate;
 import lombok.experimental.FieldDefaults;
 import lombok.experimental.FieldNameConstants;
@@ -83,7 +82,7 @@ class BoskLocalReferenceTest {
 		root = bosk.currentRoot();
 	}
 
-	@Accessors(fluent=true) @Getter @With @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
+	@Getter @With @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
 	@EqualsAndHashCode(callSuper = false) @ToString @FieldNameConstants
 	public static class Root implements Entity {
 		Identifier id;
@@ -91,7 +90,7 @@ class BoskLocalReferenceTest {
 		Catalog<TestEntity> entities;
 	}
 
-	@Accessors(fluent=true) @Getter @With @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
+	@Getter @With @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
 	@EqualsAndHashCode(callSuper = false) @ToString @FieldNameConstants
 	public static class TestEntity implements Entity {
 		Identifier id;

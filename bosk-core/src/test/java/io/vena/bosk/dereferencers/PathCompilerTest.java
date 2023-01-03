@@ -25,7 +25,6 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Stream;
 import lombok.Value;
-import lombok.experimental.Accessors;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.Test;
@@ -357,7 +356,6 @@ public class PathCompilerTest extends AbstractBoskTest {
 	}
 
 	@Value
-	@Accessors(fluent = true)
 	public static class SimpleEntity implements Entity {
 		Identifier id;
 	}
