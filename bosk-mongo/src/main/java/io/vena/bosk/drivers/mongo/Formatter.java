@@ -19,6 +19,7 @@ import java.util.function.UnaryOperator;
 import java.util.regex.Pattern;
 import org.bson.BsonDocument;
 import org.bson.BsonDocumentWriter;
+import org.bson.BsonInt64;
 import org.bson.BsonReader;
 import org.bson.BsonValue;
 import org.bson.Document;
@@ -50,14 +51,30 @@ final class Formatter {
 	}
 
 	/**
+	 * Revision number zero is reserved for two cases:
+	 *
+	 * <ol><li>
+	 *     Initialization: There is no state information yet because the document doesn't exist
+	 * </li></li>
+	 *     Legacy: The database collection pre-dates revision numbers and doesn't have one
+	 * </li></ol>
+	 *
+	 */
+	static final BsonInt64 REVISION_ZERO = new BsonInt64(0);
+
+	static final BsonInt64 REVISION_ONE = new BsonInt64(1);
+
+	/**
 	 * The fields of the main MongoDB document.  Case-sensitive.
 	 *
+	 * <p>
 	 * No field name should be a prefix of any other.
 	 */
 	enum DocumentFields {
 		path,
 		state,
 		echo,
+		revision,
 	}
 
 	//

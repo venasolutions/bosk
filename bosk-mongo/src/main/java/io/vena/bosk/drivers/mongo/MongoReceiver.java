@@ -38,9 +38,10 @@ interface MongoReceiver<R extends Entity> extends Closeable {
 
 	// Proxied methods for downstream driver
 	R initialRoot(Type rootType) throws InvalidTypeException, IOException, InterruptedException;
-	void flushDownstream() throws InterruptedException, IOException;
+	void flushUsingRevisionField() throws InterruptedException, IOException;
 
 	// Echo functionality to implement flush()
+	void flushDownstream() throws InterruptedException, IOException;
 	void putEchoListener(String echoToken, BlockingQueue<BsonDocument> listener);
 	BlockingQueue<BsonDocument> removeEchoListener(String echoToken);
 }
