@@ -96,10 +96,7 @@ final class SingleDocumentMongoDriver<R extends Entity> implements MongoDriver<R
 	public R initialRoot(Type rootType) throws InvalidTypeException, IOException, InterruptedException {
 		LOGGER.debug("+ initialRoot");
 
-		// Ensure at least one change stream update is seen by the receiver before we
-		// read the current state. This makes the receiver's recovery logic solid because
-		// there's always a resume token that pre-dates the read.
-		flushToChangeStreamReceiver();
+//		flushToChangeStreamReceiver();
 
 		try (MongoCursor<Document> cursor = collection.find(documentFilter()).limit(1).cursor()) {
 			Document newDocument = cursor.next();
@@ -108,6 +105,7 @@ final class SingleDocumentMongoDriver<R extends Entity> implements MongoDriver<R
 				LOGGER.debug("| No existing state; delegating downstream");
 			} else {
 				LOGGER.debug("| From database: {}", newState);
+				bumpUpdateSeq();
 				return formatter.document2object(newState, rootRef);
 			}
 		} catch (NoSuchElementException e) {
@@ -116,7 +114,16 @@ final class SingleDocumentMongoDriver<R extends Entity> implements MongoDriver<R
 
 		R root = receiver.initialRoot(rootType);
 		ensureDocumentExists(formatter.object2bsonValue(root, rootType), "$setOnInsert");
+		bumpUpdateSeq();
 		return root;
+	}
+
+	private void bumpUpdateSeq() {
+		// Ensure at least one change stream update is seen by the receiver before we
+		// read the current state. This makes the receiver's recovery logic solid because
+		// there's always a resume token that pre-dates the read.
+		BsonDocument noPreconditions = documentFilter();
+		doUpdate(updateDoc(), noPreconditions);
 	}
 
 	@Override
