@@ -10,7 +10,7 @@
 	</root>
 
 	<!-- How to add more tracing during unit tests
-	<logger name="io.vena.bosk" level="INFO"/>
+	<logger name="io.vena.bosk.drivers.mongo" level="DEBUG"/>
 	 -->
 
 </configuration>
