@@ -11,30 +11,42 @@ import io.vena.bosk.BoskDriver;
 import io.vena.bosk.Entity;
 import io.vena.bosk.Reference;
 import io.vena.bosk.drivers.mongo.Formatter.DocumentFields;
+import io.vena.bosk.exceptions.FlushFailureException;
 import io.vena.bosk.exceptions.InvalidTypeException;
 import io.vena.bosk.exceptions.NotYetImplementedException;
 import java.io.IOException;
 import java.lang.reflect.Type;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.bson.BsonDocument;
+import org.bson.BsonInt64;
+import org.bson.BsonString;
 import org.bson.BsonValue;
 import org.bson.Document;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static com.mongodb.client.model.Projections.fields;
+import static com.mongodb.client.model.Projections.include;
+import static io.vena.bosk.drivers.mongo.Formatter.DocumentFields.updateSeq;
+import static io.vena.bosk.drivers.mongo.Formatter.UPDATE_SEQ_ZERO;
 import static io.vena.bosk.drivers.mongo.Formatter.referenceTo;
 import static java.lang.String.format;
 import static java.lang.System.identityHashCode;
 import static java.lang.Thread.currentThread;
 import static java.util.Collections.synchronizedSet;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 /**
@@ -46,21 +58,25 @@ final class SingleDocumentMongoChangeStreamReceiver<R extends Entity> implements
 	private final Formatter formatter;
 	private final BoskDriver<R> downstream;
 	private final Reference<R> rootRef;
+	private final MongoDriverSettings settings;
 
 	private final ExecutorService ex = Executors.newFixedThreadPool(1);
 	private final ConcurrentHashMap<String, BlockingQueue<BsonDocument>> echoListeners = new ConcurrentHashMap<>();
+	private final Map<BsonInt64, Runnable> updateListeners = new TreeMap<>();
 	private final MongoCollection<Document> collection;
 
 	private final String identityString = format("%08x", identityHashCode(this));
 
 	private volatile MongoCursor<ChangeStreamDocument<Document>> eventCursor;
 	private volatile BsonDocument lastProcessedResumeToken = null;
+	private volatile BsonInt64 lastProcessedUpdateSeq = null;
 	private final AtomicBoolean isClosed = new AtomicBoolean(false);
 
-	SingleDocumentMongoChangeStreamReceiver(BoskDriver<R> downstream, Reference<R> rootRef, MongoCollection<Document> collection, Formatter formatter) {
+	SingleDocumentMongoChangeStreamReceiver(BoskDriver<R> downstream, Reference<R> rootRef, MongoCollection<Document> collection, Formatter formatter, MongoDriverSettings settings) {
 		this.downstream = downstream;
 		this.rootRef = rootRef;
 		this.formatter = formatter;
+		this.settings = settings;
 
 		this.collection = collection;
 		eventCursor = collection.watch().iterator();
@@ -77,6 +93,72 @@ final class SingleDocumentMongoChangeStreamReceiver<R extends Entity> implements
 	@Override
 	public R initialRoot(Type rootType) throws InvalidTypeException, IOException, InterruptedException {
 		return downstream.initialRoot(rootType);
+	}
+
+	@Override
+	public void flush2() throws InterruptedException, IOException {
+		BsonInt64 requiredUpdateSeq = readUpdateSeq();
+
+		// If we haven't already seen requiredUpdateSeq, set up a Semaphore
+		// to block until it arrives.
+		Semaphore finished = new Semaphore(0);
+		synchronized (updateListeners) {
+			BsonInt64 actualUpdateSeq = lastProcessedUpdateSeq;
+			if (actualUpdateSeq == null || actualUpdateSeq.compareTo(requiredUpdateSeq) < 0) {
+				updateListeners.compute(requiredUpdateSeq, (seq, nextListener) -> () -> {
+					finished.release();
+					if (nextListener != null) {
+						nextListener.run();
+					}
+				});
+			} else {
+				// No need for a listener: we've already seen the update
+				finished.release();
+			}
+		}
+
+		if (finished.tryAcquire(settings.flushTimeoutMS(), MILLISECONDS)) {
+			downstream.flush();
+		} else {
+			throw new FlushFailureException("Flush time out after " + settings.flushTimeoutMS() + "ms");
+		}
+	}
+
+	private BsonInt64 readUpdateSeq() {
+		try {
+			try (MongoCursor<Document> cursor = collection
+				.find(DOCUMENT_FILTER).limit(1)
+				.projection(fields(include(updateSeq.name())))
+				.cursor()
+			) {
+				Document doc = cursor.next();
+				Long result = doc.get(updateSeq.name(), Long.class);
+				if (result == null) {
+					// Document exists but has no updateSeq field.
+					// In that case, newer servers (including this one) will create the
+					// the field upon initialization, and we're ok to wait for any old
+					// sequence number at all.
+					return UPDATE_SEQ_ZERO;
+				} else {
+					return new BsonInt64(result);
+				}
+			}
+		} catch (NoSuchElementException e) {
+			// Document doesn't exist at all yet. We're ok to wait for any update at all.
+			return UPDATE_SEQ_ZERO;
+		}
+	}
+
+	private void runUpdateListeners() {
+		BsonInt64 lastProcessedUpdateSeq = this.lastProcessedUpdateSeq;
+		Iterator<Map.Entry<BsonInt64, Runnable>> iter = updateListeners.entrySet().iterator();
+		while (iter.hasNext()) {
+			Map.Entry<BsonInt64, Runnable> entry = iter.next();
+			if (entry.getKey().compareTo(lastProcessedUpdateSeq) <= 0) {
+				entry.getValue().run();
+				iter.remove();
+			}
+		}
 	}
 
 	@Override
@@ -229,6 +311,11 @@ final class SingleDocumentMongoChangeStreamReceiver<R extends Entity> implements
 					LOGGER.debug("| Replace {}", ref);
 					Object replacement = formatter.bsonValue2object(entry.getValue(), ref);
 					downstream.submitReplacement(ref, replacement);
+				} else if (dottedName.equals(updateSeq.name())) {
+					synchronized (updateListeners) {
+						lastProcessedUpdateSeq = entry.getValue().asInt64();
+						runUpdateListeners();
+					}
 				}
 			}
 		}
@@ -276,6 +363,7 @@ final class SingleDocumentMongoChangeStreamReceiver<R extends Entity> implements
 	}
 
 	private static final Set<String> ALREADY_WARNED = synchronizedSet(new HashSet<>());
+	private static final BsonDocument DOCUMENT_FILTER = new BsonDocument("_id", new BsonString("boskDocument"));
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(SingleDocumentMongoChangeStreamReceiver.class);
 }
