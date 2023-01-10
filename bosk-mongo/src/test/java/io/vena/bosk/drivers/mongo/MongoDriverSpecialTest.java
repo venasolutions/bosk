@@ -40,6 +40,7 @@ import org.junit.jupiter.api.Test;
 
 import static io.vena.bosk.ListingEntry.LISTING_ENTRY;
 import static io.vena.bosk.drivers.mongo.Formatter.DocumentFields.path;
+import static io.vena.bosk.drivers.mongo.Formatter.DocumentFields.revision;
 import static io.vena.bosk.drivers.mongo.SingleDocumentMongoDriver.COLLECTION_NAME;
 import static java.lang.Long.max;
 import static java.lang.System.currentTimeMillis;
@@ -408,7 +409,7 @@ class MongoDriverSpecialTest {
 		MongoCollection<Document> collection = mongoService.client()
 			.getDatabase(driverSettings.database())
 			.getCollection(COLLECTION_NAME);
-		deleteFields(collection, path);
+		deleteFields(collection, path, revision);
 
 		// Make the bosk whose refurbish operation we want to test
 		Bosk<TestEntity> bosk = new Bosk<TestEntity>(
@@ -421,11 +422,16 @@ class MongoDriverSpecialTest {
 		// Get the new bosk reconnected
 		bosk.driver().flush();
 
+		// Simply connecting a new bosk repairs certain fields.
+		// To test those, delete them again.
+		deleteFields(collection, revision);
+
 		// Verify that the fields are indeed gone
 		BsonDocument filterDoc = new BsonDocument("_id", new BsonString("boskDocument"));
 		try (MongoCursor<Document> cursor = collection.find(filterDoc).cursor()) {
 			Document doc = cursor.next();
 			assertNull(doc.get(path.name()));
+			assertNull(doc.get(revision.name()));
 		}
 
 		// Refurbish
@@ -435,6 +441,7 @@ class MongoDriverSpecialTest {
 		try (MongoCursor<Document> cursor = collection.find(filterDoc).cursor()) {
 			Document doc = cursor.next();
 			assertEquals("/", doc.get(path.name()));
+			assertEquals(1L, doc.getLong(revision.name()));
 		}
 
 	}
