@@ -17,6 +17,7 @@ import io.vena.bosk.Path;
 import io.vena.bosk.Reference;
 import io.vena.bosk.SideTable;
 import io.vena.bosk.drivers.BufferingDriver;
+import io.vena.bosk.drivers.mongo.Formatter.DocumentFields;
 import io.vena.bosk.drivers.state.TestEntity;
 import io.vena.bosk.drivers.state.TestValues;
 import io.vena.bosk.exceptions.InvalidTypeException;
@@ -403,15 +404,13 @@ class MongoDriverSpecialTest {
 		// (Close this so it doesn't crash when we delete the "path" field)
 		((MongoDriver<TestEntity>)initialBosk.driver()).close();
 
-		// Remove the `path` metadata field
+		// Delete some metadata fields
 		MongoCollection<Document> collection = mongoService.client()
 			.getDatabase(driverSettings.database())
 			.getCollection(COLLECTION_NAME);
-		BsonDocument filterDoc = new BsonDocument("_id", new BsonString("boskDocument"));
-		BsonDocument deletionDoc = new BsonDocument("$unset", new BsonDocument(path.name(), new BsonNull())); // Value is ignored
-		collection.updateOne(filterDoc, deletionDoc);
+		deleteFields(collection, path);
 
-		// Make the bosk we want to test
+		// Make the bosk whose refurbish operation we want to test
 		Bosk<TestEntity> bosk = new Bosk<TestEntity>(
 			"bosk",
 			TestEntity.class,
@@ -419,8 +418,11 @@ class MongoDriverSpecialTest {
 			createDriverFactory()
 		);
 
-		// Verify that the path field is indeed missing
+		// Get the new bosk reconnected
 		bosk.driver().flush();
+
+		// Verify that the fields are indeed gone
+		BsonDocument filterDoc = new BsonDocument("_id", new BsonString("boskDocument"));
 		try (MongoCursor<Document> cursor = collection.find(filterDoc).cursor()) {
 			Document doc = cursor.next();
 			assertNull(doc.get(path.name()));
@@ -429,12 +431,31 @@ class MongoDriverSpecialTest {
 		// Refurbish
 		((MongoDriver<?>)bosk.driver()).refurbish();
 
-		// Verify that it's there now
+		// Verify the fields are all now there
 		try (MongoCursor<Document> cursor = collection.find(filterDoc).cursor()) {
 			Document doc = cursor.next();
 			assertEquals("/", doc.get(path.name()));
 		}
 
+	}
+
+	private static void deleteFields(MongoCollection<Document> collection, DocumentFields... fields) {
+		BsonDocument fieldsToUnset = new BsonDocument();
+		for (DocumentFields field: fields) {
+			fieldsToUnset.append(field.name(), new BsonNull()); // Value is ignored
+		}
+		BsonDocument filterDoc = new BsonDocument("_id", new BsonString("boskDocument"));
+		collection.updateOne(
+			filterDoc,
+			new BsonDocument("$unset", fieldsToUnset));
+
+		// Let's just make sure they're gone
+		try (MongoCursor<Document> cursor = collection.find(filterDoc).cursor()) {
+			Document doc = cursor.next();
+			for (DocumentFields field: fields) {
+				assertNull(doc.get(field.name()));
+			}
+		}
 	}
 
 	private <E extends Entity> DriverFactory<E> createDriverFactory() {
