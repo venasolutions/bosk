@@ -42,6 +42,9 @@ class MongoDriverConformanceTest extends DriverConformanceTest {
 	private <E extends Entity> DriverFactory<E> createDriverFactory() {
 		MongoDriverSettings driverSettings = MongoDriverSettings.builder()
 			.database(TEST_DB)
+			.testing(MongoDriverSettings.Testing.builder()
+				.eventDelayMS(20)
+				.build())
 			.build();
 		return (bosk, downstream) -> {
 			MongoDriver<E> driver = MongoDriver.<E>factory(

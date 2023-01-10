@@ -196,6 +196,14 @@ final class SingleDocumentMongoChangeStreamReceiver<R extends Entity> implements
 			while (!ex.isShutdown()) {
 				ChangeStreamDocument<Document> event;
 				try {
+					if (settings.testing().eventDelayMS() > 0) {
+						LOGGER.debug("- Sleeping");
+						try {
+							Thread.sleep(settings.testing().eventDelayMS());
+						} catch (InterruptedException e) {
+							LOGGER.debug("| Interrupted");
+						}
+					}
 					LOGGER.debug("- Awaiting event");
 					event = eventCursor.next();
 				} catch (MongoException e) {
