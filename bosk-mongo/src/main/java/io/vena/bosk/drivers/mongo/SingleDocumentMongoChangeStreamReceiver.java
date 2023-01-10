@@ -166,17 +166,24 @@ final class SingleDocumentMongoChangeStreamReceiver<R extends Entity> implements
 			LOGGER.debug("Closing {}", identityString);
 			try {
 				eventCursor.close();
-				ex.shutdown();
-				try {
-					LOGGER.debug("Awaiting termination of {}", identityString);
-					boolean success = ex.awaitTermination(10, SECONDS);
-					if (!success) {
-						LOGGER.warn("Timeout during shutdown of {}", identityString);
-					}
-				} catch (InterruptedException e) {
-					Thread.currentThread().interrupt();
-					LOGGER.warn("Interrupted during shutdown of {}", identityString, e);
-				}
+				ex.shutdownNow();
+				/*
+				NOTE: The logic below was added to try to play nice with JUnit, but
+				it seems to add about a second to the execution of every test case
+				with no discernible	benefit, so let's remove it for now until we
+				can understand it better. This shaves a couple of minutes off our
+				build.
+				 */
+//				try {
+//					LOGGER.debug("Awaiting termination of {}", identityString);
+//					boolean success = ex.awaitTermination(10, SECONDS);
+//					if (!success) {
+//						LOGGER.warn("Timeout during shutdown of {}", identityString);
+//					}
+//				} catch (InterruptedException e) {
+//					Thread.currentThread().interrupt();
+//					LOGGER.warn("Interrupted during shutdown of {}", identityString, e);
+//				}
 			} catch (Throwable t) {
 				LOGGER.error("Exception attempting to close {}", identityString, t);
 				throw t;
