@@ -98,7 +98,7 @@ final class SingleDocumentMongoChangeStreamReceiver<R extends Entity> implements
 	}
 
 	@Override
-	public void flushUsingRevisionField() throws InterruptedException, IOException {
+	public void awaitLatestRevision() throws InterruptedException, IOException {
 		BsonInt64 requiredRevision = readRevisionNumber();
 
 		// If we haven't already seen requiredRevision, set up a Semaphore
@@ -122,10 +122,7 @@ final class SingleDocumentMongoChangeStreamReceiver<R extends Entity> implements
 			}
 		}
 
-		if (finished.tryAcquire(settings.flushTimeoutMS(), MILLISECONDS)) {
-			LOGGER.debug("| Downstream flush");
-			downstream.flush();
-		} else {
+		if (!finished.tryAcquire(settings.flushTimeoutMS(), MILLISECONDS)) {
 			throw new FlushFailureException("Flush time out after " + settings.flushTimeoutMS() + "ms");
 		}
 	}
@@ -169,6 +166,7 @@ final class SingleDocumentMongoChangeStreamReceiver<R extends Entity> implements
 
 	@Override
 	public void flushDownstream() throws InterruptedException, IOException {
+		LOGGER.debug("| Downstream flush");
 		downstream.flush();
 	}
 

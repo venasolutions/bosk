@@ -38,10 +38,13 @@ interface MongoReceiver<R extends Entity> extends Closeable {
 
 	// Proxied methods for downstream driver
 	R initialRoot(Type rootType) throws InvalidTypeException, IOException, InterruptedException;
-	void flushUsingRevisionField() throws InterruptedException, IOException;
-
-	// Echo functionality to implement flush()
 	void flushDownstream() throws InterruptedException, IOException;
+
+	/**
+	 * Blocks until we've received and processed the revision corresponding to the
+	 * current <code>revision</code> field in the database. Used to implement {@link BoskDriver#flush()}.
+	 */
+	void awaitLatestRevision() throws InterruptedException, IOException;
 
 	/**
 	 * Causes <code>listener.add(resumeToken)</code> to be called at a future time

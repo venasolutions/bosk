@@ -96,9 +96,12 @@ final class SingleDocumentMongoDriver<R extends Entity> implements MongoDriver<R
 	public R initialRoot(Type rootType) throws InvalidTypeException, IOException, InterruptedException {
 		LOGGER.debug("+ initialRoot");
 
-		// Ensure at least one change stream update is seen by the receiver before we
-		// read the current state. This makes the receiver's recovery logic solid because
-		// there's always a resume token that pre-dates the read.
+		// The calls to bumpRevision() here need some explaining. We need to do it twice:
+		// 1. Before we read the current state. This makes the receiver's recovery logic
+		//    solid because there's always a resume token that pre-dates the recovery read.
+		// 2. After we know the bosk document exists. This makes sure the current value
+		//    of the revision field was set by an UPDATE event, so the receiver will see it.
+
 		bumpRevision();
 
 		try (MongoCursor<Document> cursor = collection.find(documentFilter()).limit(1).cursor()) {
@@ -156,9 +159,18 @@ final class SingleDocumentMongoDriver<R extends Entity> implements MongoDriver<R
 	@Override
 	public void flush() throws IOException, InterruptedException {
 		LOGGER.debug("+ flush");
-		receiver.flushUsingRevisionField();
-//		flushToChangeStreamReceiver();
-//		receiver.flushDownstream();
+		switch (settings.flushMode()) {
+			default:
+				// wtf yo
+			case ECHO:
+				performEcho();
+				receiver.flushDownstream();
+				break;
+			case REVISION_FIELD:
+				receiver.awaitLatestRevision();
+				break;
+		}
+		receiver.flushDownstream();
 	}
 
 	@Override
@@ -365,16 +377,6 @@ final class SingleDocumentMongoDriver<R extends Entity> implements MongoDriver<R
 	}
 
 	/**
-	 * Ensures that all prior updates have been received and processed by the {@link #receiver},
-	 * which means they've been sent to the downstream driver.
-	 *
-	 * @throws MongoException if something goes wrong with MongoDB
-	 */
-	private void flushToChangeStreamReceiver() throws InterruptedException, FlushFailureException {
-		flushUsingEcho();
-	}
-
-	/**
 	 * To flush, we submit a "marker" MongoDB update that doesn't affect the bosk state,
 	 * and then wait for that update to arrive back via the change stream.
 	 * Because all updates are totally ordered, this means all prior updates have also arrived,
@@ -383,7 +385,7 @@ final class SingleDocumentMongoDriver<R extends Entity> implements MongoDriver<R
 	 *
 	 * @throws MongoException if something goes wrong with MongoDB
 	 */
-	private void flushUsingEcho() throws InterruptedException, FlushFailureException {
+	private void performEcho() throws InterruptedException, FlushFailureException {
 		String echoToken = uniqueEchoToken();
 		BlockingQueue<BsonDocument> listener = new ArrayBlockingQueue<>(1);
 		try {
