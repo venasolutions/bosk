@@ -61,7 +61,13 @@ class MongoDriverSpecialTest {
 	private static MongoService mongoService;
 
 	private DriverFactory<TestEntity> driverFactory;
-	private MongoDriverSettings driverSettings;
+	private final MongoDriverSettings driverSettings;
+
+	public MongoDriverSpecialTest() {
+		driverSettings = MongoDriverSettings.builder()
+			.database(MongoDriverSpecialTest.class.getSimpleName() + "_DB")
+			.build();
+	}
 
 	@BeforeAll
 	static void setupMongoConnection() {
@@ -70,10 +76,6 @@ class MongoDriverSpecialTest {
 
 	@BeforeEach
 	void setupDriverFactory() {
-		driverSettings = MongoDriverSettings.builder()
-			.database(MongoDriverSpecialTest.class.getSimpleName() + "_DB")
-			.build();
-
 		driverFactory = createDriverFactory();
 
 		// Start with a clean slate
