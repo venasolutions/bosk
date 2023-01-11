@@ -13,8 +13,6 @@ import static io.vena.bosk.drivers.mongo.SingleDocumentMongoDriver.COLLECTION_NA
 
 @UsesMongoService
 class MongoDriverConformanceTest extends DriverConformanceTest {
-	public static final String TEST_DB = MongoDriverConformanceTest.class.getSimpleName() + "_DB";
-
 	private final Deque<Runnable> tearDownActions = new ArrayDeque<>();
 	private static MongoService mongoService;
 
@@ -35,7 +33,7 @@ class MongoDriverConformanceTest extends DriverConformanceTest {
 
 	private <E extends Entity> DriverFactory<E> createDriverFactory() {
 		MongoDriverSettings driverSettings = MongoDriverSettings.builder()
-			.database(TEST_DB)
+			.database(MongoDriverConformanceTest.class.getSimpleName() + "_DB")
 			.build();
 		return (bosk, downstream) -> {
 			MongoDriver<E> driver = MongoDriver.<E>factory(
