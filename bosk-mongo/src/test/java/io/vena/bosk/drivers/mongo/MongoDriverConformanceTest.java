@@ -33,12 +33,6 @@ class MongoDriverConformanceTest extends DriverConformanceTest {
 		tearDownActions.forEach(Runnable::run);
 	}
 
-	//@AfterAll
-	static void deleteDatabase() {
-		mongoService.client().getDatabase(TEST_DB).drop();
-		mongoService.close();
-	}
-
 	private <E extends Entity> DriverFactory<E> createDriverFactory() {
 		MongoDriverSettings driverSettings = MongoDriverSettings.builder()
 			.database(TEST_DB)
