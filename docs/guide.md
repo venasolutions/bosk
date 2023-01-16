@@ -216,7 +216,9 @@ try (var __ = inheritedContext.adopt()) {
 A path can contain placeholders, called _parameters_, that can later be bound to `Identifier` values.
 A reference whose path contains one or more parameters is referred to as a _parameterized reference_ (or sometimes an _indefinite_ reference);
 a reference with no parameters is a _concrete_ (or sometimes _definite_) reference.
-Parameters are delimited by a hyphen character `-`:
+Parameters are delimited by a hyphen character `-`, chosen because it survives URL encoding, meaning paths retain their readability even when URL-encoded.
+
+An example:
 
 ``` java
 Reference<City> anyCity = bosk.reference(City.class, Path.parseParameterized(
