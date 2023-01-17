@@ -8,7 +8,7 @@ plugins {
 
 dependencies {
 	api 'com.google.code.gson:gson:2.10'
-	implementation project(":bosk-core")
+	api project(":bosk-core")
 
 	testImplementation project(":lib-testing")
 }

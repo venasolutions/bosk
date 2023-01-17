@@ -8,7 +8,7 @@ plugins {
 
 dependencies {
 	api 'com.fasterxml.jackson.core:jackson-databind:2.14.1'
-	implementation project(":bosk-core")
+	api project(":bosk-core")
 
 	testImplementation project(":lib-testing")
 }
