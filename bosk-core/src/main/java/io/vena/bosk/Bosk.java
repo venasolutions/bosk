@@ -34,8 +34,10 @@ import org.slf4j.LoggerFactory;
 import static io.vena.bosk.Path.parameterNameFromSegment;
 import static io.vena.bosk.ReferenceUtils.rawClass;
 import static io.vena.bosk.TypeValidation.validateType;
+import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
+import static lombok.AccessLevel.NONE;
 
 /**
  * A mutable container for an immutable object tree with cross-tree {@link Reference}s,
@@ -470,11 +472,15 @@ public class Bosk<R extends Entity> {
 		localDriver.triggerEverywhere(reg);
 	}
 
+	public Iterable<HookRegistration<?>> allRegisteredHooks() {
+		return unmodifiableList(hooks);
+	}
+
 	@Value
-	private class HookRegistration<S> {
+	public class HookRegistration<S> {
 		String name;
 		Reference<S> scope;
-		BoskHook<S> hook;
+		@Getter(NONE) BoskHook<S> hook;
 
 		/**
 		 * Calls <code>action</code> for every object whose path matches <code>scope</code> that
