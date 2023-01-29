@@ -351,8 +351,10 @@ public class Bosk<R extends Entity> {
 				LOGGER.debug("Hook: queue {}({}) due to {}", reg.name, changedRef, target);
 				hookExecutionQueue.addLast(() -> {
 					try (@SuppressWarnings("unused") ReadContext executionContext = new ReadContext(rootForHook)) {
-						LOGGER.debug("Hook: RUN {}({}) in {}", reg.name, changedRef, executionContext);
+						LOGGER.debug("Hook: RUN {}({})", reg.name, changedRef);
 						reg.hook.onChanged(changedRef);
+					} finally {
+						LOGGER.debug("Hook: end {}({})", reg.name, changedRef);
 					}
 				});
 			});
