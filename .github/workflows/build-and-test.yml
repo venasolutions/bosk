@@ -1,6 +1,7 @@
 # Based on:
 # - https://github.com/assertj/assertj/blob/f08f94806675ccaaa347e4cbc56cf02efa8cd3be/.github/workflows/release.yml#L1
 # - https://github.com/testcontainers/testcontainers-java/blob/de20484e53eb8d1f580b74ff9df31261b596ab5c/.github/workflows/release.yml#L1
+# - https://github.com/gradle/gradle-build-action#caching
 
 name: "Build and test"
 
@@ -16,16 +17,17 @@ jobs:
       - uses: actions/checkout@v3
         with:
           fetch-depth: 0
-      - name: Set up Maven Central
-        uses: actions/setup-java@v3
+
+      - uses: actions/setup-java@v3
         with:
           java-version: '17'
           distribution: temurin
 
       - name: Run Gradle Test
-        run: |
-          ./gradlew spotlessCheck spotBugsMain test \
-            --no-daemon -i
+        uses: gradle/gradle-build-action@v2
+        with:
+          gradle-version: wrapper
+          arguments: spotlessCheck spotBugsMain test
         env:
           ORG_GRADLE_PROJECT_ossrhUsername: ${{secrets.OSSRH_USERNAME}}
           ORG_GRADLE_PROJECT_ossrhPassword: ${{secrets.OSSRH_TOKEN}}
