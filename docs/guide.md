@@ -10,7 +10,7 @@ though it actually does several more things:
 - it provides a `BoskDriver` interface, through which you can modify the immutable state tree, and
 - it can execute _hook_ callback functions when part of the tree changes.
 
-It's typically a singleton.
+The `Bosk` object is typically a singleton.
 
 #### Initialization
 
@@ -38,8 +38,8 @@ The return value of this function is stored, and becomes the object returned by 
 
 Note that the factory accepts the `Bosk` object itself, even though this object is still under construction.
 The reason for this is to allow drivers to create `Reference` objects, which requires the `Bosk` (which behaves as a `Reference` factory).
-During the `DriverFactory`, the bosk object can be used for anything that doesn't involve accessing the driver or the state tree, because neither of these is ready yet at the time the factory is called.
-Other functionality, like creating references, or `Bosk.instanceID()`, works as expected.
+During the execution of `DriverFactory`, the bosk object can be used for anything that doesn't involve accessing the driver or the state tree, because neither of these is ready yet at the time the factory is called.
+Other operations, like creating references, or `Bosk.instanceID()`, work as expected.
 
 ##### State tree initialization
 
@@ -638,9 +638,14 @@ Some specific changes are allowed. A driver may:
 4. omit any contiguous sequence of updates having no overall effect
 5. combine a contiguous sequence of updates into a single update with the same overall effect
 
-These rules require that the driver maintains an awareness of the current bosk state, which _most drivers do not_,
+(These rules require that the driver maintains an awareness of the current bosk state, which _most drivers do not_,
 and so most drivers are rarely able to take advantage of these options,
-because they can't generally determine what effect an update will have.
+because they can't generally determine what effect an update will have.)
+
+Drivers sometimes break these rules judiciously,
+on the understanding that developers ought not to be taken by surprise.
+For example, `MongoDriver.refurbish` breaks the "no completely novel states" rule,
+but does so in a desirable way that users are expecting.
 
 ### Serialization: `bosk-jackson` and `bosk-gson`
 
