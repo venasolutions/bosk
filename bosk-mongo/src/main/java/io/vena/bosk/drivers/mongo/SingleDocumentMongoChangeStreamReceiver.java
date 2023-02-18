@@ -278,9 +278,9 @@ final class SingleDocumentMongoChangeStreamReceiver<R extends Entity> implements
 	}
 
 	private void logNonexistentField(String dottedName, InvalidTypeException e) {
-		LOGGER.trace("Nonexistent field \"" + dottedName + "\"", e);
+		LOGGER.trace("Nonexistent field {}",  dottedName, e);
 		if (LOGGER.isWarnEnabled() && ALREADY_WARNED.add(dottedName)) {
-			LOGGER.warn("Ignoring update of nonexistent field \"" + dottedName + "\"");
+			LOGGER.warn("Ignoring updates of nonexistent field {}", dottedName);
 		}
 	}
 
