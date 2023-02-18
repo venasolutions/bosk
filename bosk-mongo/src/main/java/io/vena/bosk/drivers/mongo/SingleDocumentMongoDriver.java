@@ -345,8 +345,10 @@ final class SingleDocumentMongoDriver<R extends Entity> implements MongoDriver<R
 	 * To do this, we submit a "marker" MongoDB update that doesn't affect the bosk state,
 	 * and then wait for that update to arrive back via the change stream.
 	 * Because all updates are totally ordered, this means all prior updates have also arrived,
-	 * even from other servers; and because our event processing submits them downstream
-	 * as they arrive, this means all prior updates are submitted downstream, QED.
+	 * even from other servers;
+	 * and because {@link SingleDocumentMongoChangeStreamReceiver the receiver}
+	 * submits them downstream as they arrive,
+	 * this means all prior updates are submitted downstream, QED.
 	 *
 	 * @throws MongoException if something goes wrong with MongoDB
 	 */
@@ -355,7 +357,10 @@ final class SingleDocumentMongoDriver<R extends Entity> implements MongoDriver<R
 		BlockingQueue<BsonDocument> listener = new ArrayBlockingQueue<>(1);
 		try {
 			receiver.putEchoListener(echoToken, listener);
-			BsonDocument updateDoc = new BsonDocument("$set", new BsonDocument(echo.name(), new BsonString(echoToken)));
+			BsonDocument updateDoc = new BsonDocument("$set", new BsonDocument(
+				echo.name(),
+				new BsonString(echoToken)
+			));
 			LOGGER.debug("| Update: {}", updateDoc);
 			UpdateResult result = collection.updateOne(documentFilter(), updateDoc);
 			if (result.getModifiedCount() == 0) {
