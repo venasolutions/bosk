@@ -14,6 +14,9 @@
 		<Bug code="RCN"/>
 	</Match>
 	<Match>
+		<Bug code="DP"/> <!-- doPrivileged is deprecated for removal -->
+	</Match>
+	<Match>
 		<Class name="io.vena.bosk.Path"/>
 		<Method name="empty"/>
 		<Bug code="MS"/>
