@@ -404,7 +404,7 @@ final class SingleDocumentMongoDriver<R extends Entity> implements MongoDriver<R
 		BlockingQueue<BsonDocument> listener = new ArrayBlockingQueue<>(1);
 		try {
 			receiver.putEchoListener(echoToken, listener);
-			BsonDocument updateDoc = new BsonDocument("$set", new BsonDocument(
+			BsonDocument updateDoc = updateDoc().append("$set", new BsonDocument(
 				echo.name(),
 				new BsonString(echoToken)
 			));
