@@ -206,21 +206,21 @@ final class SingleDocumentMongoDriver<R extends Entity> implements MongoDriver<R
 			try {
 				session.startTransaction();
 
-				Document newState;
+				Document stateFromDB;
 				try (MongoCursor<Document> cursor = collection.find(documentFilter()).limit(1).cursor()) {
-					Document newDocument = cursor.next();
-					newState = newDocument.get(state.name(), Document.class);
+					Document documentFromDB = cursor.next();
+					stateFromDB = documentFromDB.get(state.name(), Document.class);
 				} catch (NoSuchElementException e) {
 					LOGGER.debug("No document to refurbish", e);
 					return;
 				}
-				if (newState == null) {
+				if (stateFromDB == null) {
 					LOGGER.debug("No state to refurbish");
 					return;
 				}
 
 				// Round trip via state tree nodes
-				R root = formatter.document2object(newState, rootRef);
+				R root = formatter.document2object(stateFromDB, rootRef);
 				BsonValue initialState = formatter.object2bsonValue(root, rootRef.targetType());
 
 				// Start with a blank document so subsequent changes become update events instead of inserts
