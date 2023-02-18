@@ -395,15 +395,17 @@ final class SingleDocumentMongoChangeStreamReceiver<R extends Entity> implements
 	private void deleteRemovedFields(@Nullable List<String> removedFields) {
 		if (removedFields != null) {
 			for (String dottedName : removedFields) {
-				Reference<Object> ref;
-				try {
-					ref = referenceTo(dottedName, rootRef);
-				} catch (InvalidTypeException e) {
-					logNonexistentField(dottedName, e);
-					continue;
+				if (dottedName.startsWith(DocumentFields.state.name())) {
+					Reference<Object> ref;
+					try {
+						ref = referenceTo(dottedName, rootRef);
+					} catch (InvalidTypeException e) {
+						logNonexistentField(dottedName, e);
+						continue;
+					}
+					LOGGER.debug("| Delete {}", ref);
+					downstream.submitDeletion(ref);
 				}
-				LOGGER.debug("| Delete {}", ref);
-				downstream.submitDeletion(ref);
 			}
 		}
 	}
