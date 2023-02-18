@@ -10,6 +10,8 @@ import com.google.gson.GsonBuilder;
 import io.vena.bosk.SerializationPlugin.DeserializationScope;
 import io.vena.bosk.drivers.mongo.BsonPlugin;
 import io.vena.bosk.exceptions.InvalidTypeException;
+import io.vena.bosk.gson.GsonPlugin;
+import io.vena.bosk.jackson.JacksonPlugin;
 import java.io.IOException;
 import java.lang.reflect.Parameter;
 import java.lang.reflect.Type;

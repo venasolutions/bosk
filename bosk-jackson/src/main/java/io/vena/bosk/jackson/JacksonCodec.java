@@ -1,4 +1,4 @@
-package io.vena.bosk;
+package io.vena.bosk.jackson;
 
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;

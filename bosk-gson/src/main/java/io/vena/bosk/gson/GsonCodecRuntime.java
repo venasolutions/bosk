@@ -1,10 +1,10 @@
-package io.vena.bosk;
+package io.vena.bosk.gson;
 
 import com.google.gson.Gson;
 import com.google.gson.TypeAdapter;
 import com.google.gson.reflect.TypeToken;
 import com.google.gson.stream.JsonWriter;
-import io.vena.bosk.GsonAdapterCompiler.Codec;
+import io.vena.bosk.gson.GsonAdapterCompiler.Codec;
 import java.io.IOException;
 
 /**

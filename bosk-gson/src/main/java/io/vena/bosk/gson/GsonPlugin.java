@@ -1,4 +1,4 @@
-package io.vena.bosk;
+package io.vena.bosk.gson;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonParseException;
@@ -7,6 +7,22 @@ import com.google.gson.TypeAdapterFactory;
 import com.google.gson.reflect.TypeToken;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
+import io.vena.bosk.Bosk;
+import io.vena.bosk.Catalog;
+import io.vena.bosk.Entity;
+import io.vena.bosk.Identifier;
+import io.vena.bosk.ListValue;
+import io.vena.bosk.Listing;
+import io.vena.bosk.ListingEntry;
+import io.vena.bosk.MapValue;
+import io.vena.bosk.Path;
+import io.vena.bosk.Phantom;
+import io.vena.bosk.Reference;
+import io.vena.bosk.ReferenceUtils;
+import io.vena.bosk.ReflectiveEntity;
+import io.vena.bosk.SerializationPlugin;
+import io.vena.bosk.SideTable;
+import io.vena.bosk.StateTreeNode;
 import io.vena.bosk.annotations.DerivedRecord;
 import io.vena.bosk.exceptions.InvalidTypeException;
 import io.vena.bosk.exceptions.TunneledCheckedException;

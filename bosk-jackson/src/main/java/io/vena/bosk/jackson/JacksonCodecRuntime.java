@@ -1,10 +1,10 @@
-package io.vena.bosk;
+package io.vena.bosk.jackson;
 
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.databind.JsonSerializer;
 import com.fasterxml.jackson.databind.SerializerProvider;
-import io.vena.bosk.JacksonCompiler.Codec;
+import io.vena.bosk.jackson.JacksonCompiler.Codec;
 import java.io.IOException;
 
 /**

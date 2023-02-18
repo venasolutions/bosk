@@ -1,4 +1,4 @@
-package io.vena.bosk;
+package io.vena.bosk.jackson;
 
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParseException;
@@ -23,6 +23,21 @@ import com.fasterxml.jackson.databind.ser.Serializers;
 import com.fasterxml.jackson.databind.type.CollectionType;
 import com.fasterxml.jackson.databind.type.MapType;
 import com.fasterxml.jackson.databind.type.TypeFactory;
+import io.vena.bosk.Bosk;
+import io.vena.bosk.Catalog;
+import io.vena.bosk.Entity;
+import io.vena.bosk.Identifier;
+import io.vena.bosk.ListValue;
+import io.vena.bosk.Listing;
+import io.vena.bosk.ListingEntry;
+import io.vena.bosk.MapValue;
+import io.vena.bosk.Path;
+import io.vena.bosk.Phantom;
+import io.vena.bosk.Reference;
+import io.vena.bosk.ReflectiveEntity;
+import io.vena.bosk.SerializationPlugin;
+import io.vena.bosk.SideTable;
+import io.vena.bosk.StateTreeNode;
 import io.vena.bosk.annotations.DerivedRecord;
 import io.vena.bosk.exceptions.InvalidTypeException;
 import io.vena.bosk.exceptions.TunneledCheckedException;
