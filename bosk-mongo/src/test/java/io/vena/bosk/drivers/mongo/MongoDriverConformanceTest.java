@@ -3,6 +3,8 @@ package io.vena.bosk.drivers.mongo;
 import io.vena.bosk.DriverFactory;
 import io.vena.bosk.Entity;
 import io.vena.bosk.drivers.DriverConformanceTest;
+import io.vena.bosk.drivers.mongo.MongoDriverSettings.MongoDriverSettingsBuilder;
+import io.vena.bosk.junit.ParametersByName;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import org.junit.jupiter.api.AfterEach;
@@ -12,15 +14,14 @@ import org.junit.jupiter.api.BeforeEach;
 import static io.vena.bosk.drivers.mongo.SingleDocumentMongoDriver.COLLECTION_NAME;
 
 @UsesMongoService
-class MongoDriverConformanceTest extends DriverConformanceTest {
+class MongoDriverConformanceTest extends DriverConformanceTest implements TestParameters {
 	private final Deque<Runnable> tearDownActions = new ArrayDeque<>();
 	private static MongoService mongoService;
 	private final MongoDriverSettings driverSettings;
 
-	public MongoDriverConformanceTest() {
-		driverSettings = MongoDriverSettings.builder()
-			.database(MongoDriverConformanceTest.class.getSimpleName() + "_DB")
-			.build();
+	@ParametersByName
+	public MongoDriverConformanceTest(MongoDriverSettingsBuilder driverSettings) {
+		this.driverSettings = driverSettings.build();
 	}
 
 	@BeforeAll

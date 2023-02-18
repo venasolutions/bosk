@@ -11,30 +11,41 @@ import io.vena.bosk.BoskDriver;
 import io.vena.bosk.Entity;
 import io.vena.bosk.Reference;
 import io.vena.bosk.drivers.mongo.Formatter.DocumentFields;
+import io.vena.bosk.exceptions.FlushFailureException;
 import io.vena.bosk.exceptions.InvalidTypeException;
 import io.vena.bosk.exceptions.NotYetImplementedException;
 import java.io.IOException;
 import java.lang.reflect.Type;
-import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.bson.BsonDocument;
+import org.bson.BsonInt64;
+import org.bson.BsonString;
 import org.bson.BsonValue;
 import org.bson.Document;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static com.mongodb.client.model.Projections.fields;
+import static com.mongodb.client.model.Projections.include;
+import static io.vena.bosk.drivers.mongo.Formatter.DocumentFields.revision;
+import static io.vena.bosk.drivers.mongo.Formatter.REVISION_ZERO;
 import static io.vena.bosk.drivers.mongo.Formatter.referenceTo;
 import static java.lang.String.format;
 import static java.lang.System.identityHashCode;
 import static java.lang.Thread.currentThread;
-import static java.util.Collections.synchronizedSet;
+import static java.util.Collections.newSetFromMap;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 /**
  * Implementation of {@link MongoReceiver} using a MongoDB change stream cursor.
@@ -45,21 +56,25 @@ final class SingleDocumentMongoChangeStreamReceiver<R extends Entity> implements
 	private final Formatter formatter;
 	private final BoskDriver<R> downstream;
 	private final Reference<R> rootRef;
+	private final MongoDriverSettings settings;
 
 	private final ExecutorService ex = Executors.newFixedThreadPool(1);
 	private final ConcurrentHashMap<String, BlockingQueue<BsonDocument>> echoListeners = new ConcurrentHashMap<>();
+	private final Map<BsonInt64, Runnable> updateListeners = new TreeMap<>();
 	private final MongoCollection<Document> collection;
 
 	private final String identityString = format("%08x", identityHashCode(this));
 
 	private volatile MongoCursor<ChangeStreamDocument<Document>> eventCursor;
 	private volatile BsonDocument lastProcessedResumeToken = null;
+	private volatile BsonInt64 lastProcessedRevision = null;
 	private final AtomicBoolean isClosed = new AtomicBoolean(false);
 
-	SingleDocumentMongoChangeStreamReceiver(BoskDriver<R> downstream, Reference<R> rootRef, MongoCollection<Document> collection, Formatter formatter) {
+	SingleDocumentMongoChangeStreamReceiver(BoskDriver<R> downstream, Reference<R> rootRef, MongoCollection<Document> collection, Formatter formatter, MongoDriverSettings settings) {
 		this.downstream = downstream;
 		this.rootRef = rootRef;
 		this.formatter = formatter;
+		this.settings = settings;
 
 		this.collection = collection;
 		eventCursor = collection.watch().iterator();
@@ -82,7 +97,126 @@ final class SingleDocumentMongoChangeStreamReceiver<R extends Entity> implements
 	}
 
 	@Override
+	public void awaitLatestRevision() throws InterruptedException, IOException {
+		BsonInt64 requiredRevision = readRevisionNumber();
+		BsonInt64 actualRevision = lastProcessedRevision;
+
+		if (actualRevision != null && actualRevision.compareTo(requiredRevision) >= 0) {
+			LOGGER.debug("| Already seen {}", requiredRevision);
+			return;
+		}
+
+		Semaphore finished = new Semaphore(0);
+		LOGGER.debug("| Waiting for {}", requiredRevision);
+		synchronized (updateListeners) {
+			// Add ourselves to the chain of listeners waiting for requiredRevision
+			updateListeners.compute(requiredRevision, (seq, nextListener) -> () -> {
+				finished.release();
+				if (nextListener == null) {
+					LOGGER.debug("| Done waiting for {}", requiredRevision);
+				} else {
+					nextListener.run();
+				}
+			});
+		}
+
+		// Race: now that we've got our listener registered, re-check lastProcessedRevision
+		// in case it got bumped while we were registering.
+		// - If the revision arrived before registration finished, we'll see it now and run the listener
+		// - If the revision arrives after registration finished, the event loop will run the listener
+		//   while we're blocked on the semaphore
+		runUpdateListeners();
+
+		if (!finished.tryAcquire(settings.flushTimeoutMS(), MILLISECONDS)) {
+			LOGGER.debug("| Flush timeout on mcsr-{} awaiting revision {}", identityString, requiredRevision);
+			throw new FlushFailureException("Flush timeout on after " + settings.flushTimeoutMS() + "ms on receiver " + identityString + " awaiting revision " + requiredRevision);
+		}
+	}
+
+	/**
+	 * @return Non-null revision number as per the database.
+	 * If the database contains no revision number, returns {@link Formatter#REVISION_ZERO}.
+	 */
+	private BsonInt64 readRevisionNumber() {
+		try {
+			try (MongoCursor<Document> cursor = collection
+				.find(DOCUMENT_FILTER).limit(1)
+				.projection(fields(include(revision.name())))
+				.cursor()
+			) {
+				Document doc = cursor.next();
+				Long result = doc.get(revision.name(), Long.class);
+				if (result == null) {
+					// Document exists but has no revision field.
+					// In that case, newer servers (including this one) will create the
+					// the field upon initialization, and we're ok to wait for any old
+					// revision number at all.
+					return REVISION_ZERO;
+				} else {
+					return new BsonInt64(result);
+				}
+			}
+		} catch (NoSuchElementException e) {
+			// Document doesn't exist at all yet. We're ok to wait for any update at all.
+			return REVISION_ZERO;
+		}
+	}
+
+	/**
+	 * Update {@link #lastProcessedRevision}
+	 */
+	private void bumpLastProcessedRevision(@Nullable BsonDocument updatedFields) {
+		if (updatedFields != null) {
+			BsonInt64 newValue = updatedFields.getInt64(revision.name(), null);
+			if (newValue == null) {
+				LOGGER.warn("| No revision field");
+			} else {
+				LOGGER.debug("| Revision {}", newValue);
+				lastProcessedRevision = newValue;
+				runUpdateListeners();
+			}
+		}
+	}
+
+	/**
+	 * Executes any {@link #updateListeners} that are waiting for a revision that
+	 * has already been processed according to {@link #lastProcessedRevision}.
+	 */
+	private void runUpdateListeners() {
+		BsonInt64 lastProcessedRevision = this.lastProcessedRevision;
+		if (lastProcessedRevision == null) {
+			// We haven't seen any revisions yet. There can't be any listeners waiting for nothing.
+			return;
+		}
+
+		// Note: this is why we don't use Collections.synchronizedMap.
+		// We need to be able to iterate over updateListeners without worrying about another
+		// thread adding new entries while we're doing it, causing ConcurrentModificationException.
+		// synchronizedMap doesn't use the map itself as the locked object, so we have no way
+		// to get mutual exclusion for this operation.
+		synchronized (updateListeners) {
+			Iterator<Map.Entry<BsonInt64, Runnable>> iter = updateListeners.entrySet().iterator();
+			// This looks like a linear-time walk, but because updateListeners is
+			// ordered by revision number, this loop stops immediately as soon as
+			// there are no listeners ready to run. Getting the first element from
+			// the iterator is only log(n) in the number of listeners.
+			while (iter.hasNext()) {
+				Map.Entry<BsonInt64, Runnable> entry = iter.next();
+				if (entry.getKey().compareTo(lastProcessedRevision) <= 0) {
+					entry.getValue().run();
+					iter.remove();
+				} else {
+					// All entries from this point onward are waiting for a revision that
+					// has not yet arrived.
+					break;
+				}
+			}
+		}
+	}
+
+	@Override
 	public void flushDownstream() throws InterruptedException, IOException {
+		LOGGER.debug("| Downstream flush");
 		downstream.flush();
 	}
 
@@ -110,6 +244,14 @@ final class SingleDocumentMongoChangeStreamReceiver<R extends Entity> implements
 			while (!ex.isShutdown()) {
 				ChangeStreamDocument<Document> event;
 				try {
+					if (settings.testing().eventDelayMS() > 0) {
+						LOGGER.debug("- Sleeping");
+						try {
+							Thread.sleep(settings.testing().eventDelayMS());
+						} catch (InterruptedException e) {
+							LOGGER.debug("| Interrupted");
+						}
+					}
 					LOGGER.debug("- Awaiting event");
 					event = eventCursor.next();
 				} catch (MongoException e) {
@@ -211,6 +353,9 @@ final class SingleDocumentMongoChangeStreamReceiver<R extends Entity> implements
 					replaceUpdatedFields(updateDescription.getUpdatedFields());
 					deleteRemovedFields(updateDescription.getRemovedFields());
 					notifyIfEcho(updateDescription.getUpdatedFields(), event.getResumeToken());
+
+					// Now that we've done everything else, we can report that we've processed the event
+					bumpLastProcessedRevision(updateDescription.getUpdatedFields());
 				}
 				break;
 			default:
@@ -284,7 +429,9 @@ final class SingleDocumentMongoChangeStreamReceiver<R extends Entity> implements
 		}
 	}
 
-	private static final Set<String> ALREADY_WARNED = synchronizedSet(new HashSet<>());
+	private static final Set<String> ALREADY_WARNED = newSetFromMap(new ConcurrentHashMap<>());
+	private static final BsonDocument DOCUMENT_FILTER = new BsonDocument("_id", new BsonString("boskDocument"));
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(SingleDocumentMongoChangeStreamReceiver.class);
+
 }

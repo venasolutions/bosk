@@ -12,6 +12,7 @@ import io.vena.bosk.drivers.state.TestEntity;
 import io.vena.bosk.drivers.state.TestValues;
 import io.vena.bosk.exceptions.InvalidTypeException;
 import io.vena.bosk.junit.ParametersByName;
+import java.io.IOException;
 import java.time.temporal.ChronoUnit;
 import java.util.stream.Stream;
 
@@ -282,6 +283,14 @@ public abstract class DriverConformanceTest extends AbstractDriverTest {
 		assertThrows(NullPointerException.class, ()->driver.submitReplacement(mapRef, null));
 		assertCorrectBoskContents();
 		assertThrows(IllegalArgumentException.class, ()->driver.submitDeletion(mapRef));
+		assertCorrectBoskContents();
+	}
+
+	@ParametersByName
+	void testFlushNothing() throws IOException, InterruptedException {
+		setupBosksAndReferences(driverFactory);
+		// Flush before any writes should work
+		driver.flush();
 		assertCorrectBoskContents();
 	}
 

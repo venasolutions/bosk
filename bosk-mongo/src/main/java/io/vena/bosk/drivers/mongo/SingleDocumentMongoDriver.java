@@ -31,6 +31,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.atomic.AtomicLong;
 import lombok.Value;
 import org.bson.BsonDocument;
+import org.bson.BsonInt64;
 import org.bson.BsonNull;
 import org.bson.BsonString;
 import org.bson.BsonValue;
@@ -41,7 +42,10 @@ import org.slf4j.LoggerFactory;
 import static com.mongodb.ErrorCategory.DUPLICATE_KEY;
 import static io.vena.bosk.drivers.mongo.Formatter.DocumentFields.echo;
 import static io.vena.bosk.drivers.mongo.Formatter.DocumentFields.path;
+import static io.vena.bosk.drivers.mongo.Formatter.DocumentFields.revision;
 import static io.vena.bosk.drivers.mongo.Formatter.DocumentFields.state;
+import static io.vena.bosk.drivers.mongo.Formatter.REVISION_ONE;
+import static io.vena.bosk.drivers.mongo.Formatter.REVISION_ZERO;
 import static io.vena.bosk.drivers.mongo.Formatter.dottedFieldNameOf;
 import static io.vena.bosk.drivers.mongo.Formatter.enclosingReference;
 import static java.lang.String.format;
@@ -71,7 +75,7 @@ final class SingleDocumentMongoDriver<R extends Entity> implements MongoDriver<R
 		this.collection = mongoClient
 			.getDatabase(driverSettings.database())
 			.getCollection(COLLECTION_NAME);
-		this.receiver = new SingleDocumentMongoChangeStreamReceiver<>(downstream, bosk.rootReference(), collection, formatter);
+		this.receiver = new SingleDocumentMongoChangeStreamReceiver<>(downstream, bosk.rootReference(), collection, formatter, settings);
 		this.echoPrefix = bosk.instanceID().toString();
 		this.documentID = new BsonString("boskDocument");
 		this.rootRef = bosk.rootReference();
@@ -94,10 +98,13 @@ final class SingleDocumentMongoDriver<R extends Entity> implements MongoDriver<R
 	public R initialRoot(Type rootType) throws InvalidTypeException, IOException, InterruptedException {
 		LOGGER.debug("+ initialRoot");
 
-		// Ensure at least one change stream update is seen by the receiver before we
-		// read the current state. This makes the receiver's recovery logic solid because
-		// there's always a resume token that pre-dates the read.
-		flushToChangeStreamReceiver();
+		// The calls to bumpRevision() here need some explaining. We need to do it twice:
+		// 1. Before we read the current state. This makes the receiver's recovery logic
+		//    solid because there's always at least one resume token that pre-dates the recovery read.
+		// 2. After we know the bosk document exists. This ensures that the latest value
+		//    of the revision field was set by an UPDATE event, so the receiver will see it.
+
+		bumpRevision();
 
 		try (MongoCursor<Document> cursor = collection.find(documentFilter()).limit(1).cursor()) {
 			Document newDocument = cursor.next();
@@ -106,6 +113,7 @@ final class SingleDocumentMongoDriver<R extends Entity> implements MongoDriver<R
 				LOGGER.debug("| No existing state; delegating downstream");
 			} else {
 				LOGGER.debug("| From database: {}", newState);
+				bumpRevision();
 				return formatter.document2object(newState, rootRef);
 			}
 		} catch (NoSuchElementException e) {
@@ -114,7 +122,12 @@ final class SingleDocumentMongoDriver<R extends Entity> implements MongoDriver<R
 
 		R root = receiver.initialRoot(rootType);
 		ensureDocumentExists(formatter.object2bsonValue(root, rootType), "$setOnInsert");
+		bumpRevision();
 		return root;
+	}
+
+	private void bumpRevision() {
+		doUpdate(updateDoc(), documentFilter());
 	}
 
 	@Override
@@ -148,7 +161,17 @@ final class SingleDocumentMongoDriver<R extends Entity> implements MongoDriver<R
 	@Override
 	public void flush() throws IOException, InterruptedException {
 		LOGGER.debug("+ flush");
-		flushToChangeStreamReceiver();
+		switch (settings.flushMode()) {
+			case REVISION_FIELD_ONLY:
+				receiver.awaitLatestRevision();
+				break;
+			default:
+				LOGGER.warn("Unrecognized flush mode {}; defaulting to ECHO", settings.flushMode());
+				// fall through
+			case ECHO:
+				performEcho();
+				break;
+		}
 		receiver.flushDownstream();
 	}
 
@@ -206,9 +229,10 @@ final class SingleDocumentMongoDriver<R extends Entity> implements MongoDriver<R
 			try {
 				session.startTransaction();
 
+				Document documentFromDB;
 				Document stateFromDB;
 				try (MongoCursor<Document> cursor = collection.find(documentFilter()).limit(1).cursor()) {
-					Document documentFromDB = cursor.next();
+					documentFromDB = cursor.next();
 					stateFromDB = documentFromDB.get(state.name(), Document.class);
 				} catch (NoSuchElementException e) {
 					LOGGER.debug("No document to refurbish", e);
@@ -229,6 +253,15 @@ final class SingleDocumentMongoDriver<R extends Entity> implements MongoDriver<R
 
 				// Set all the same fields we set on initialization
 				ensureDocumentExists(initialState, "$set");
+
+				// Set the revision number to its highest value ever.
+				// We use a $set for this so all bosks receive a change stream update event for it.
+				long newValue = 1 + documentFromDB.get(revision.name(), REVISION_ZERO.longValue());
+				doUpdate(
+					new BsonDocument("$set", new BsonDocument(
+						revision.name(),
+						new BsonInt64(newValue))),
+					documentFilter());
 
 				session.commitTransaction();
 			} finally {
@@ -269,13 +302,18 @@ final class SingleDocumentMongoDriver<R extends Entity> implements MongoDriver<R
 		String key = dottedFieldNameOf(target, rootRef);
 		BsonValue value = formatter.object2bsonValue(newValue, target.targetType());
 		LOGGER.debug("| Set field {}: {}", key, value);
-		return new BsonDocument("$set", new BsonDocument(key, value));
+		return updateDoc()
+			.append("$set", new BsonDocument(key, value));
 	}
 
 	private <T> BsonDocument deletionDoc(Reference<T> target) {
 		String key = dottedFieldNameOf(target, rootRef);
 		LOGGER.debug("| Unset field {}", key);
-		return new BsonDocument("$unset", new BsonDocument(key, new BsonNull())); // Value is ignored
+		return updateDoc().append("$unset", new BsonDocument(key, new BsonNull())); // Value is ignored
+	}
+
+	private BsonDocument updateDoc() {
+		return new BsonDocument("$inc", new BsonDocument(revision.name(), REVISION_ONE));
 	}
 
 	private void ensureDocumentExists(BsonValue initialState, String updateCommand) {
@@ -311,6 +349,9 @@ final class SingleDocumentMongoDriver<R extends Entity> implements MongoDriver<R
 		fieldValues.put(path.name(), new BsonString("/"));
 		fieldValues.put(state.name(), initialState);
 		fieldValues.put(echo.name(), new BsonString(uniqueEchoToken()));
+
+		fieldValues.put(revision.name(), REVISION_ONE);
+
 		return fieldValues;
 	}
 
@@ -319,6 +360,14 @@ final class SingleDocumentMongoDriver<R extends Entity> implements MongoDriver<R
 	 */
 	private boolean doUpdate(BsonDocument updateDoc, BsonDocument filter) {
 		LOGGER.debug("| Update: {}", updateDoc);
+		if (settings.testing().eventDelayMS() < 0) {
+			LOGGER.debug("| Sleeping");
+			try {
+				Thread.sleep(-settings.testing().eventDelayMS());
+			} catch (InterruptedException e) {
+				LOGGER.debug("| Interrupted");
+			}
+		}
 		LOGGER.debug("| Filter: {}", filter);
 		UpdateResult result = collection.updateOne(filter, updateDoc);
 		LOGGER.debug("| Update result: {}", result);
@@ -340,9 +389,7 @@ final class SingleDocumentMongoDriver<R extends Entity> implements MongoDriver<R
 	}
 
 	/**
-	 * Ensures that all prior updates have been received and processed by the {@link #receiver},
-	 * which means they've been sent to the downstream driver.
-	 * To do this, we submit a "marker" MongoDB update that doesn't affect the bosk state,
+	 * To flush, we submit a "marker" MongoDB update that doesn't affect the bosk state,
 	 * and then wait for that update to arrive back via the change stream.
 	 * Because all updates are totally ordered, this means all prior updates have also arrived,
 	 * even from other servers;
@@ -352,7 +399,7 @@ final class SingleDocumentMongoDriver<R extends Entity> implements MongoDriver<R
 	 *
 	 * @throws MongoException if something goes wrong with MongoDB
 	 */
-	private void flushToChangeStreamReceiver() throws InterruptedException, FlushFailureException {
+	private void performEcho() throws InterruptedException, FlushFailureException {
 		String echoToken = uniqueEchoToken();
 		BlockingQueue<BsonDocument> listener = new ArrayBlockingQueue<>(1);
 		try {
