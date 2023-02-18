@@ -11,7 +11,6 @@ import com.fasterxml.jackson.databind.DeserializationConfig;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.databind.JsonDeserializer;
-import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.JsonSerializer;
 import com.fasterxml.jackson.databind.KeyDeserializer;
 import com.fasterxml.jackson.databind.Module;
@@ -25,7 +24,6 @@ import com.fasterxml.jackson.databind.type.CollectionType;
 import com.fasterxml.jackson.databind.type.MapType;
 import com.fasterxml.jackson.databind.type.TypeFactory;
 import io.vena.bosk.annotations.DerivedRecord;
-import io.vena.bosk.codecs.JacksonCompiler;
 import io.vena.bosk.exceptions.InvalidTypeException;
 import io.vena.bosk.exceptions.TunneledCheckedException;
 import io.vena.bosk.exceptions.UnexpectedPathException;
@@ -54,6 +52,10 @@ import static io.vena.bosk.ReferenceUtils.rawClass;
 import static io.vena.bosk.ReferenceUtils.theOnlyConstructorFor;
 import static java.util.Objects.requireNonNull;
 
+/**
+ * Provides JSON serialization/deserialization using Jackson.
+ * @see SerializationPlugin
+ */
 public final class JacksonPlugin extends SerializationPlugin {
 	private final JacksonCompiler compiler = new JacksonCompiler(this);
 
@@ -175,12 +177,12 @@ public final class JacksonPlugin extends SerializationPlugin {
 		// Thanks but no thanks, Jackson. We don't need your help.
 
 		@Override
-		public JsonDeserializer<?> findCollectionDeserializer(CollectionType type, DeserializationConfig config, BeanDescription beanDesc, TypeDeserializer elementTypeDeserializer, JsonDeserializer<?> elementDeserializer) throws JsonMappingException {
+		public JsonDeserializer<?> findCollectionDeserializer(CollectionType type, DeserializationConfig config, BeanDescription beanDesc, TypeDeserializer elementTypeDeserializer, JsonDeserializer<?> elementDeserializer) {
 			return findBeanDeserializer(type, config, beanDesc);
 		}
 
 		@Override
-		public JsonDeserializer<?> findMapDeserializer(MapType type, DeserializationConfig config, BeanDescription beanDesc, KeyDeserializer keyDeserializer, TypeDeserializer elementTypeDeserializer, JsonDeserializer<?> elementDeserializer) throws JsonMappingException {
+		public JsonDeserializer<?> findMapDeserializer(MapType type, DeserializationConfig config, BeanDescription beanDesc, KeyDeserializer keyDeserializer, TypeDeserializer elementTypeDeserializer, JsonDeserializer<?> elementDeserializer) {
 			return findBeanDeserializer(type, config, beanDesc);
 		}
 	}
@@ -193,7 +195,7 @@ public final class JacksonPlugin extends SerializationPlugin {
 	/**
 	 * Common properties all our deserializers have.
 	 */
-	private abstract class BoskDeserializer<T> extends JsonDeserializer<T> {
+	private abstract static class BoskDeserializer<T> extends JsonDeserializer<T> {
 		@Override public boolean isCachable() { return true; }
 	}
 

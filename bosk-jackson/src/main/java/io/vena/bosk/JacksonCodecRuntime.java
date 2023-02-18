@@ -1,12 +1,17 @@
-package io.vena.bosk.codecs;
+package io.vena.bosk;
 
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.databind.JsonSerializer;
 import com.fasterxml.jackson.databind.SerializerProvider;
-import io.vena.bosk.codecs.JacksonCompiler.Codec;
+import io.vena.bosk.JacksonCompiler.Codec;
 import java.io.IOException;
 
+/**
+ * <strong>This is not part of the public API.</strong>
+ * This class must be public so it can be the superclass of our dynamically
+ * generated classes.
+ */
 public abstract class JacksonCodecRuntime implements Codec {
 	/**
 	 * Looks up a {@link JsonSerializer} at serialization time, and uses it to {@link JsonSerializer#serialize} serialize} the given field.

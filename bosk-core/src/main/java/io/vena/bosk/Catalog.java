@@ -55,10 +55,18 @@ public final class Catalog<E extends Entity> implements Iterable<E>, EnumerableB
 		return unmodifiableList(new ArrayList<>(contents.keySet()));
 	}
 
+	/**
+	 * @return an unmodifiable {@link Collection} containing all the entries
+	 * of this catalog, in order
+	 */
 	public Collection<E> asCollection() {
 		return unmodifiableCollection(contents.values());
 	}
 
+	/**
+	 * @return an unmodifiable {@link Map} containing all the entries
+	 * of this catalog, in order
+	 */
 	public Map<Identifier, E> asMap() {
 		return unmodifiableMap(contents);
 	}

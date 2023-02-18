@@ -1,9 +1,9 @@
-package io.vena.bosk.codecs;
+package io.vena.bosk;
 
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
 
-public interface JacksonCodec<T> {
+interface JacksonCodec<T> {
 	T read(JsonParser parser);
 	void write(T object, JsonGenerator generator);
 }

@@ -149,7 +149,7 @@ public abstract class SerializationPlugin {
 	 * <code>parametersByName</code>.
 	 *
 	 *
-	 * @param parameterValuesByName values read from the input. <em>Modified by this method.<em>
+	 * @param parameterValuesByName values read from the input. <em>Modified by this method.</em>
 	 * @param parametersByName ordered map of constructor {@link Parameter}s.
 	 * @return {@link List} of parameter values to pass to the constructor, in
 	 * the same order as in <code>parametersByName</code>. Missing values are

@@ -27,11 +27,11 @@ import static java.util.stream.Collectors.toList;
 
 /**
  * An immutable ordered collection of references to {@link Entity entities}
- * housed in a particular {@link #domain()} {@link Catalog}.
+ * housed in a particular {@link #domain} {@link Catalog}.
  *
  * @author pdoyle
  *
- * @param <E>
+ * @param <E> the type of {@link Entity} to which this listing's entries refer.
  */
 @EqualsAndHashCode(callSuper = false)
 @RequiredArgsConstructor(access=AccessLevel.PACKAGE)
@@ -146,7 +146,7 @@ public final class Listing<E extends Entity> extends AbstractCollection<Referenc
 	 * then}(id).{@link Reference#value() value}()</code> if <code>this.{@link
 	 * #containsID(Identifier) containsID}(id)</code>, or <code>null</code>
 	 * otherwise.
-	 * @throws NonexistentReferenceException if {@link #domain()} is nonexistent
+	 * @throws NonexistentReferenceException if {@link #domain} is nonexistent
 	 * or does not contain an entity of the given <code>id</code>
 	 */
 	public E getValue(Identifier id) {

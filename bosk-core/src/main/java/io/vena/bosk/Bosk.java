@@ -94,7 +94,7 @@ public class Bosk<R extends Entity> {
 	 *    other state.
 	 * @param driverFactory Will be applied to this Bosk's local driver during
 	 * the Bosk's constructor, and the resulting {@link BoskDriver} will be the
-	 * one returned by {@link #driver()}.
+	 * one returned by {@link #driver}.
 	 *
 	 * @see DriverStack
 	 */

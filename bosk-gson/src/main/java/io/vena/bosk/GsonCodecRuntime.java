@@ -1,12 +1,17 @@
-package io.vena.bosk.codecs;
+package io.vena.bosk;
 
 import com.google.gson.Gson;
 import com.google.gson.TypeAdapter;
 import com.google.gson.reflect.TypeToken;
 import com.google.gson.stream.JsonWriter;
-import io.vena.bosk.codecs.GsonAdapterCompiler.Codec;
+import io.vena.bosk.GsonAdapterCompiler.Codec;
 import java.io.IOException;
 
+/**
+ * <strong>This is not part of the public API.</strong>
+ * This class must be public so it can be the superclass of our dynamically
+ * generated classes.
+ */
 public abstract class GsonCodecRuntime implements Codec {
 	/**
 	 * Looks up a {@link TypeAdapter} at serialization time, and uses it to {@link TypeAdapter#write write} the given field.

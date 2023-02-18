@@ -58,18 +58,18 @@ public interface BoskDriver<R extends Entity> {
 	<T> void submitReplacement(Reference<T> target, T newValue);
 
 	/**
-	 * Like {@link #submitReplacement(Reference, T)}, but has no effect unless
+	 * Like {@link #submitReplacement}, but has no effect unless
 	 * <code>precondition.valueIfExists()</code> is equal to <code>requiredValue</code>
 	 * immediately before the deletion.  <code>requiredValue</code> must not be null.
 	 *
-	 * @see #submitReplacement(Reference, T)
+	 * @see #submitReplacement
 	 */
 	<T> void submitConditionalReplacement(Reference<T> target, T newValue, Reference<Identifier> precondition, Identifier requiredValue);
 
 	/**
-	 * Like {@link #submitReplacement(Reference, T)}, but has no effect if the target object already exists.
+	 * Like {@link #submitReplacement}, but has no effect if the target object already exists.
 	 *
-	 * @see #submitReplacement(Reference, T)
+	 * @see #submitReplacement
 	 */
 	<T> void submitInitialization(Reference<T> target, T newValue);
 

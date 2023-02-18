@@ -1,30 +1,15 @@
-package io.vena.bosk.codecs;
+package io.vena.bosk;
 
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.databind.DeserializationConfig;
-import com.fasterxml.jackson.databind.DeserializationContext;
-import com.fasterxml.jackson.databind.JavaType;
-import com.fasterxml.jackson.databind.JsonDeserializer;
-import com.fasterxml.jackson.databind.JsonMappingException;
-import com.fasterxml.jackson.databind.JsonSerializer;
-import com.fasterxml.jackson.databind.SerializationConfig;
-import com.fasterxml.jackson.databind.SerializerProvider;
-import com.fasterxml.jackson.databind.type.TypeFactory;
-import io.vena.bosk.Bosk;
-import io.vena.bosk.Catalog;
-import io.vena.bosk.Entity;
-import io.vena.bosk.JacksonPlugin;
-import io.vena.bosk.JacksonPlugin.FieldModerator;
-import io.vena.bosk.JacksonPlugin.SerDes;
-import io.vena.bosk.Phantom;
-import io.vena.bosk.Reference;
-import io.vena.bosk.ReflectiveEntity;
+import com.google.gson.Gson;
+import com.google.gson.TypeAdapter;
+import com.google.gson.reflect.TypeToken;
+import com.google.gson.stream.JsonReader;
+import com.google.gson.stream.JsonWriter;
+import io.vena.bosk.GsonPlugin.FieldModerator;
 import io.vena.bosk.annotations.DerivedRecord;
 import io.vena.bosk.bytecode.ClassBuilder;
 import io.vena.bosk.bytecode.LocalVariable;
 import io.vena.bosk.exceptions.InvalidTypeException;
-import io.vena.bosk.exceptions.NotYetImplementedException;
 import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
@@ -42,48 +27,50 @@ import lombok.Value;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static io.vena.bosk.JacksonPlugin.javaParameterType;
 import static io.vena.bosk.ReferenceUtils.getterMethod;
+import static io.vena.bosk.ReferenceUtils.parameterType;
+import static io.vena.bosk.ReferenceUtils.rawClass;
 import static io.vena.bosk.ReferenceUtils.theOnlyConstructorFor;
 import static io.vena.bosk.SerializationPlugin.isImplicitParameter;
 import static io.vena.bosk.bytecode.ClassBuilder.here;
+import static io.vena.bosk.util.Types.parameterizedType;
 import static java.util.Arrays.asList;
 
 @RequiredArgsConstructor
-public final class JacksonCompiler {
-	private final JacksonPlugin jacksonPlugin;
+final class GsonAdapterCompiler {
+	private final GsonPlugin gsonPlugin;
 
 	/**
-	 * A stack of types for which we are in the midst of compiling a {@link SerDes}.
+	 * A stack of types for which we are in the midst of compiling a {@link TypeAdapter}.
 	 *
 	 * <p>
 	 * Compiling for a particular node type recursively triggers compilations for the
 	 * node's fields. This stack tracks those compilations to avoid infinite recursion
 	 * for recursive datatypes.
 	 */
-	private final ThreadLocal<Deque<JavaType>> compilationsInProgress = ThreadLocal.withInitial(ArrayDeque::new);
+	private final ThreadLocal<Deque<Type>> compilationsInProgress = ThreadLocal.withInitial(ArrayDeque::new);
 
 	/**
 	 * The main entry point to the compiler.
 	 *
-	 * @return a newly compiled {@link SerDes} for values of the given <code>nodeType</code>.
+	 * @return a newly compiled {@link TypeAdapter} for values of the given <code>nodeType</code>.
 	 */
-	public <T> SerDes<T> compiled(JavaType nodeType, Bosk<?> bosk, FieldModerator moderator) {
+	public <T> TypeAdapter<T> compiled(TypeToken<T> nodeTypeToken, Bosk<?> bosk, Gson gson, FieldModerator moderator) {
 		try {
 			// Record that we're compiling this one to avoid infinite recursion
-			compilationsInProgress.get().addLast(nodeType);
+			compilationsInProgress.get().addLast(nodeTypeToken.getType());
 
 			// Grab some required info about the node class
 			@SuppressWarnings("unchecked")
-			Class<T> nodeClass = (Class<T>) nodeType.getRawClass();
+			Class<T> nodeClass = (Class<T>) nodeTypeToken.getRawType();
 			Constructor<?> constructor = theOnlyConstructorFor(nodeClass);
 			List<Parameter> parameters = asList(constructor.getParameters());
 
 			// Generate the Codec class and instantiate it
-			ClassBuilder<Codec> cb = new ClassBuilder<>("BOSK_JACKSON_" + nodeClass.getSimpleName(), JacksonCodecRuntime.class, nodeClass.getClassLoader(), here());
+			ClassBuilder<Codec> cb = new ClassBuilder<>("GSON_CODEC_" + nodeClass.getSimpleName(), GsonCodecRuntime.class, nodeClass.getClassLoader(), here());
 			cb.beginClass();
 
-			generate_writeFields(nodeClass, parameters, cb);
+			generate_writeFields(nodeClass, gson, parameters, cb);
 			generate_instantiateFrom(constructor, parameters, cb);
 
 			Codec codec = cb.buildInstance();
@@ -91,10 +78,10 @@ public final class JacksonCompiler {
 			// Return a CodecWrapper for the codec
 			LinkedHashMap<String, Parameter> parametersByName = new LinkedHashMap<>();
 			parameters.forEach(p -> parametersByName.put(p.getName(), p));
-			return new CodecWrapper<>(codec, bosk, nodeClass, parametersByName, moderator);
+			return new CodecWrapper<>(codec, gson, bosk, nodeClass, parametersByName, moderator);
 		} finally {
 			Type removed = compilationsInProgress.get().removeLast();
-			assert removed.equals(nodeType);
+			assert removed.equals(nodeTypeToken.getType());
 		}
 	}
 
@@ -108,7 +95,7 @@ public final class JacksonCompiler {
 		 *
 		 * @return Nothing. {@link ClassBuilder} does not yet support void methods.
 		 */
-		Object writeFields(Object node, JsonGenerator jsonGenerator, SerializerProvider serializers) throws IOException;
+		Object writeFields(Object node, JsonWriter jsonWriter) throws IOException;
 
 		/**
 		 * A faster version of {@link Constructor#newInstance} without the overhead
@@ -120,12 +107,11 @@ public final class JacksonCompiler {
 	/**
 	 * Generates the body of the {@link Codec#writeFields} method.
 	 */
-	private void generate_writeFields(Class<?> nodeClass, List<Parameter> parameters, ClassBuilder<Codec> cb) {
+	private void generate_writeFields(Class<?> nodeClass, Gson gson, List<Parameter> parameters, ClassBuilder<Codec> cb) {
 		cb.beginMethod(CODEC_WRITE_FIELDS);
 		// Incoming arguments
 		final LocalVariable node = cb.parameter(1);
-		final LocalVariable jsonGenerator = cb.parameter(2);
-		final LocalVariable serializers = cb.parameter(3);
+		final LocalVariable jsonWriter = cb.parameter(2);
 
 		for (Parameter parameter : parameters) {
 			if (isImplicitParameter(nodeClass, parameter)) {
@@ -142,15 +128,13 @@ public final class JacksonCompiler {
 			// building the plan. The plan should be straightforward and "obviously
 			// correct". The execution of the plan should contain the sophistication.
 			FieldWritePlan plan;
-			JavaType parameterType = TypeFactory.defaultInstance().constructType(parameter.getParameterizedType());
-			// TODO: Is the static optimization possible??
-//			if (compilationsInProgress.get().contains(parameterType)) {
-//				// Avoid infinite recursion - look up this field's adapter dynamically
-//				plan = new OrdinaryFieldWritePlan();
-//			} else {
-//				plan = new StaticallyBoundFieldWritePlan();
-//			}
-			plan = new OrdinaryFieldWritePlan();
+			Type parameterType = parameter.getParameterizedType();
+			if (compilationsInProgress.get().contains(parameterType)) {
+				// Avoid infinite recursion - look up this field's adapter dynamically
+				plan = new OrdinaryFieldWritePlan();
+			} else {
+				plan = new StaticallyBoundFieldWritePlan();
+			}
 			if (nodeClass.isAnnotationPresent(DerivedRecord.class)) {
 				plan = new ReferencingFieldWritePlan(plan, nodeClass.getSimpleName());
 			}
@@ -170,8 +154,7 @@ public final class JacksonCompiler {
 			}
 
 			// Execute the plan
-			SerializerProvider serializerProvider = null; // static optimization not yet implemented
-			plan.generateFieldWrite(name, cb, jsonGenerator, serializers, serializerProvider, parameterType);
+			plan.generateFieldWrite(name, cb, gson, jsonWriter, parameterType);
 		}
 		// TODO: Support void methods
 		cb.pushLocal(node);
@@ -205,7 +188,7 @@ public final class JacksonCompiler {
 
 	/**
 	 * This is the building block of compiler's "intermediate form" describing
-	 * how to write a single field to Jackson.
+	 * how to write a single field to Gson.
 	 *
 	 * <p>
 	 * There is a wide variety of ways that fields might need to be written,
@@ -220,7 +203,7 @@ public final class JacksonCompiler {
 	 */
 	private interface FieldWritePlan {
 		/**
-		 * Emit code that writes the given field's name and value to a {@link JsonGenerator}.
+		 * Emit code that writes the given field's name and value to a {@link JsonWriter}.
 		 * The value is required to be on the operand stack at the start of the generated sequence.
 		 *
 		 * <p>
@@ -228,13 +211,7 @@ public final class JacksonCompiler {
 		 * then delegate to some downstream <code>generateFieldWrite</code> method, possibly
 		 * with modified parameters.
 		 */
-		void generateFieldWrite(
-			String name,
-			ClassBuilder<Codec> cb,
-			LocalVariable jsonGenerator,
-			LocalVariable serializers,
-			SerializerProvider serializerProvider,
-			JavaType type);
+		void generateFieldWrite(String name, ClassBuilder<Codec> cb, Gson gson, LocalVariable jsonWriter, Type type);
 	}
 
 	/**
@@ -246,17 +223,17 @@ public final class JacksonCompiler {
 		 * {@inheritDoc}
 		 */
 		@Override
-		public void generateFieldWrite(String name, ClassBuilder<Codec> cb, LocalVariable jsonGenerator, LocalVariable serializers, SerializerProvider serializerProvider, JavaType type) {
+		public void generateFieldWrite(String name, ClassBuilder<Codec> cb, Gson gson, LocalVariable jsonWriter, Type type) {
 			cb.pushString(name);
-			cb.pushObject(type);
-			cb.pushLocal(jsonGenerator);
-			cb.pushLocal(serializers);
+			cb.pushObject(TypeToken.get(type));
+			cb.pushObject(gson);
+			cb.pushLocal(jsonWriter);
 			cb.invoke(DYNAMIC_WRITE_FIELD);
 		}
 	}
 
 	/**
-	 * An optimized way to write a field that looks up the {@link JsonSerializer} at
+	 * An optimized way to write a field that looks up the {@link TypeAdapter} at
 	 * compile time to avoid the runtime overhead.
 	 *
 	 * <p>
@@ -271,33 +248,26 @@ public final class JacksonCompiler {
 		 * {@inheritDoc}
 		 */
 		@Override
-		public void generateFieldWrite(String name, ClassBuilder<Codec> cb, LocalVariable jsonGenerator, LocalVariable serializers, SerializerProvider serializerProvider, JavaType type) {
+		public void generateFieldWrite(String name, ClassBuilder<Codec> cb, Gson gson, LocalVariable jsonWriter, Type type) {
 			// Find or create the TypeAdapter for the given type.
 			// If the TypeAdapter doesn't already exist, we will attempt to compile one,
 			// so this is where our compiler's recursion happens.
-
-			JsonSerializer<Object> serializer;
-			try {
-				serializer = serializerProvider.findValueSerializer(type);
-			} catch (JsonMappingException e) {
-				throw new NotYetImplementedException(e);
-			}
+			TypeAdapter<?> typeAdapter = gson.getAdapter(TypeToken.get(type));
 
 			// Save incoming operand to local variable
 			LocalVariable fieldValue = cb.popToLocal();
 
 			// Write the field name
-			cb.pushLocal(jsonGenerator);
+			cb.pushLocal(jsonWriter);
 			cb.pushString(name);
-			cb.invoke(JSON_GENERATOR_WRITE_FIELD_NAME);
+			cb.invoke(JSON_WRITER_NAME);
 			cb.pop();
 
-			// Write the field value using the statically bound serializer
-			cb.pushObject(serializer);
+			// Write the field value using the statically bound TypeAdapter
+			cb.pushObject(typeAdapter);
+			cb.pushLocal(jsonWriter);
 			cb.pushLocal(fieldValue);
-			cb.pushLocal(jsonGenerator);
-			cb.pushLocal(serializers);
-			cb.invoke(JSON_SERIALIZER_SERIALIZE);
+			cb.invoke(TYPE_ADAPTER_WRITE);
 		}
 	}
 
@@ -316,7 +286,7 @@ public final class JacksonCompiler {
 		 * {@inheritDoc}
 		 */
 		@Override
-		public void generateFieldWrite(String name, ClassBuilder<Codec> cb, LocalVariable jsonGenerator, LocalVariable serializers, SerializerProvider serializerProvider, JavaType type) {
+		public void generateFieldWrite(String name, ClassBuilder<Codec> cb, Gson gson, LocalVariable jsonWriter, Type type) {
 			cb.castTo(Optional.class);
 			LocalVariable optional = cb.popToLocal();
 			cb.pushLocal(optional);
@@ -327,8 +297,8 @@ public final class JacksonCompiler {
 				cb.invoke(OPTIONAL_GET);
 
 				// Write the value
-				valueWriter.generateFieldWrite(name, cb, jsonGenerator, serializers, serializerProvider,
-					javaParameterType(type, Optional.class, 0));
+				valueWriter.generateFieldWrite(name, cb, gson, jsonWriter,
+					parameterType(type, Optional.class, 0));
 			});
 		}
 	}
@@ -347,71 +317,64 @@ public final class JacksonCompiler {
 		 * {@inheritDoc}
 		 */
 		@Override
-		public void generateFieldWrite(String name, ClassBuilder<Codec> cb, LocalVariable jsonGenerator, LocalVariable serializers, SerializerProvider serializerProvider, JavaType type) {
-			Class<?> parameterClass = type.getRawClass();
+		public void generateFieldWrite(String name, ClassBuilder<Codec> cb, Gson gson, LocalVariable jsonWriter, Type type) {
+			Class<?> parameterClass = rawClass(type);
 			boolean isEntity = Entity.class.isAssignableFrom(parameterClass);
 			if (isEntity) {
 				if (ReflectiveEntity.class.isAssignableFrom(parameterClass)) {
 					cb.castTo(ReflectiveEntity.class);
 					cb.invoke(REFLECTIVE_ENTITY_REFERENCE);
 					// Recurse to write the Reference
-					JavaType referenceType = TypeFactory.defaultInstance().constructParametricType(Reference.class, type);
-					generateFieldWrite(name, cb, jsonGenerator, serializers, serializerProvider, referenceType);
+					generateFieldWrite(name, cb, gson, jsonWriter, parameterizedType(Reference.class, type));
 				} else {
 					throw new IllegalArgumentException(String.format("%s %s cannot contain Entity that is not a ReflectiveEntity: \"%s\"", DerivedRecord.class.getSimpleName(), nodeClassName, name));
 				}
 			} else if (Catalog.class.isAssignableFrom(parameterClass)) {
 				throw new IllegalArgumentException(String.format("%s %s cannot contain Catalog \"%s\" (try Listing?)", DerivedRecord.class.getSimpleName(), nodeClassName, name));
 			} else {
-				nonEntityWriter.generateFieldWrite(name, cb, jsonGenerator, serializers, serializerProvider, type);
+				nonEntityWriter.generateFieldWrite(name, cb, gson, jsonWriter, type);
 			}
 		}
 	}
 
 	/**
-	 * Implements the {@link SerDes} interface using a {@link Codec} object.
+	 * Implements the Gson {@link TypeAdapter} interface using a {@link Codec} object.
 	 * Putting boilerplate code in this wrapper is much easier than generating it
 	 * in the compiler, and allows us to keep the {@link Codec} interface focused
 	 * on just the highly-customized code that we do want to generate.
 	 */
 	@Value
 	@EqualsAndHashCode(callSuper = false)
-	private class CodecWrapper<T> implements SerDes<T> {
+	private class CodecWrapper<T> extends TypeAdapter<T> {
 		Codec codec;
+		Gson gson;
 		Bosk<?> bosk;
 		Class<T> nodeClass;
 		LinkedHashMap<String, Parameter> parametersByName;
 		FieldModerator moderator;
 
 		@Override
-		public JsonSerializer<T> serializer(SerializationConfig config) {
-			return new JsonSerializer<T>() {
-				@Override
-				public void serialize(T value, JsonGenerator gen, SerializerProvider serializers) throws IOException {
-					gen.writeStartObject();
-					codec.writeFields(value, gen, serializers);
-					gen.writeEndObject();
-				}
-			};
+		public void write(JsonWriter out, T value) throws IOException {
+			// Performance-critical. Pre-compute as much as possible outside this method.
+			out.beginObject();
+			codec.writeFields(value, out);
+			out.endObject();
 		}
 
 		@Override
-		public JsonDeserializer<T> deserializer(DeserializationConfig config) {
-			return new JsonDeserializer<T>() {
-				@Override
-				public T deserialize(JsonParser p, DeserializationContext ctxt) throws IOException {
-					// Performance-critical. Pre-compute as much as possible outside this method.
-					// Note: the reading side can't be as efficient as the writing side
-					// because we need to tolerate the fields arriving in arbitrary order.
-					Map<String, Object> valueMap = jacksonPlugin.gatherParameterValuesByName(nodeClass, parametersByName, moderator, p, ctxt);
+		public T read(JsonReader in) throws IOException {
+			// Performance-critical. Pre-compute as much as possible outside this method.
+			// Note: the reading side can't be as efficient as the writing side
+			// because we need to tolerate the fields arriving in arbitrary order.
+			in.beginObject();
+			Map<String, Object> valueMap = gsonPlugin.gatherParameterValuesByName(nodeClass, parametersByName, moderator, in, gson);
+			in.endObject();
 
-					List<Object> parameterValues = jacksonPlugin.parameterValueList(nodeClass, valueMap, parametersByName, bosk);
+			List<Object> parameterValues = gsonPlugin.parameterValueList(nodeClass, valueMap, parametersByName, bosk);
 
-					@SuppressWarnings("unchecked")
-					T result = (T)codec.instantiateFrom(parameterValues);
-					return result;
-				}
-			};
+			@SuppressWarnings("unchecked")
+			T result = (T)codec.instantiateFrom(parameterValues);
+			return result;
 		}
 	}
 
@@ -420,24 +383,24 @@ public final class JacksonCompiler {
 	private static final Method LIST_GET;
 	private static final Method OPTIONAL_IS_PRESENT, OPTIONAL_GET;
 	private static final Method REFLECTIVE_ENTITY_REFERENCE;
-	private static final Method JSON_GENERATOR_WRITE_FIELD_NAME, JSON_SERIALIZER_SERIALIZE;
+	private static final Method JSON_WRITER_NAME, TYPE_ADAPTER_WRITE;
 
 	static {
 		try {
-			CODEC_WRITE_FIELDS = Codec.class.getDeclaredMethod("writeFields", Object.class, JsonGenerator.class, SerializerProvider.class);
+			CODEC_WRITE_FIELDS = Codec.class.getDeclaredMethod("writeFields", Object.class, JsonWriter.class);
 			CODEC_INSTANTIATE_FROM = Codec.class.getDeclaredMethod("instantiateFrom", List.class);
-			DYNAMIC_WRITE_FIELD = JacksonCodecRuntime.class.getDeclaredMethod("dynamicWriteField", Object.class, String.class, JavaType.class, JsonGenerator.class, SerializerProvider.class);
+			DYNAMIC_WRITE_FIELD = GsonCodecRuntime.class.getDeclaredMethod("dynamicWriteField", Object.class, String.class, TypeToken.class, Gson.class, JsonWriter.class);
 			LIST_GET = List.class.getDeclaredMethod("get", int.class);
 			OPTIONAL_IS_PRESENT = Optional.class.getDeclaredMethod("isPresent");
 			OPTIONAL_GET = Optional.class.getDeclaredMethod("get");
 			REFLECTIVE_ENTITY_REFERENCE = ReflectiveEntity.class.getDeclaredMethod("reference");
-			JSON_GENERATOR_WRITE_FIELD_NAME = JsonGenerator.class.getDeclaredMethod("writeFieldName", String.class);
-			JSON_SERIALIZER_SERIALIZE = JsonSerializer.class.getDeclaredMethod("serialize", Object.class, JsonGenerator.class, SerializerProvider.class);
+			JSON_WRITER_NAME = JsonWriter.class.getDeclaredMethod("name", String.class);
+			TYPE_ADAPTER_WRITE = TypeAdapter.class.getDeclaredMethod("write", JsonWriter.class, Object.class);
 		} catch (NoSuchMethodException e) {
 			throw new AssertionError(e);
 		}
 	}
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(JacksonCompiler.class);
+	private static final Logger LOGGER = LoggerFactory.getLogger(GsonAdapterCompiler.class);
 
 }

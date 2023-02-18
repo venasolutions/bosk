@@ -1,7 +1,7 @@
 package io.vena.bosk;
 
 /**
- * Used to create a thing that can be referenced (eg. as the {@link Listing#domain() domain}
+ * Used to create a thing that can be referenced (eg. as the domain
  * of a {@link Listing}) but that is not actually serialized or instantiated.
  *
  * <p>

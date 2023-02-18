@@ -159,7 +159,7 @@ public final class ReferenceUtils {
 	 * <pre>
 interface S&lt;A,B> {}
 interface I&lt;C,D> implements S&lt;A,B> {}
-class C&lt;T> implements I<T,Integer> {}
+class C&lt;T> implements I&lt;T,Integer> {}
 ...
 C&lt;String> someField;
 	 * </pre>

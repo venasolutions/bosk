@@ -8,7 +8,6 @@ import com.google.gson.reflect.TypeToken;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
 import io.vena.bosk.annotations.DerivedRecord;
-import io.vena.bosk.codecs.GsonAdapterCompiler;
 import io.vena.bosk.exceptions.InvalidTypeException;
 import io.vena.bosk.exceptions.TunneledCheckedException;
 import io.vena.bosk.exceptions.UnexpectedPathException;
@@ -33,6 +32,10 @@ import static io.vena.bosk.ReferenceUtils.rawClass;
 import static io.vena.bosk.ReferenceUtils.theOnlyConstructorFor;
 import static java.util.Objects.requireNonNull;
 
+/**
+ * Provides JSON serialization/deserialization using Gson.
+ * @see SerializationPlugin
+ */
 public final class GsonPlugin extends SerializationPlugin {
 	private final GsonAdapterCompiler compiler = new GsonAdapterCompiler(this);
 

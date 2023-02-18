@@ -56,7 +56,7 @@ public interface Reference<T> {
 	/**
 	 * @return false iff {@link #path()} refers to a nonexistent object
 	 * @throws IllegalStateException if there is no open {@link ReadContext} on this thread
-	 * @see #valueIfExists().
+	 * @see #valueIfExists()
 	 */
 	default boolean exists() {
 		return valueIfExists() != null;
@@ -103,8 +103,21 @@ public interface Reference<T> {
 
 	default Identifier idAt(int segmentNum) { return Identifier.from(path().segment(segmentNum)); }
 
+	/**
+	 * Any parameters bound in <code>bindings</code> are replaced by their values.
+	 * Any parameters not bound in <code>bindings</code> are left as parameters.
+	 * Any additional <code>bindings</code> are ignored.
+	 * @return a reference like this one, but with any parameters bound in <code>bindings</code>
+	 * replaced by their values
+	 */
 	Reference<T> boundBy(BindingEnvironment bindings);
 
+	/**
+	 * @return a reference like this one, but with the first N parameters bound to
+	 * the given values, where N is the number of <code>ids</code>
+	 * @throws IllegalArgumentException if this reference has fewer parameters than
+	 * the number of <code>ids</code>
+	 */
 	default Reference<T> boundTo(Identifier... ids) {
 		return this.boundBy(path().parametersFrom(asList(ids)));
 	}
@@ -119,6 +132,9 @@ public interface Reference<T> {
 		return this.boundBy(parametersFrom(definitePath));
 	}
 
+	/**
+	 * @return <code>path().{@link Path#parametersFrom parametersFrom}(definitePath)</code>
+	 */
 	default BindingEnvironment parametersFrom(Path definitePath) {
 		return path().parametersFrom(definitePath);
 	}
@@ -148,6 +164,9 @@ public interface Reference<T> {
 	 */
 	<TT> Reference<TT> enclosingReference(Class<TT> targetClass) throws InvalidTypeException;
 
+	/**
+	 * @return <code>this.path().{@link Path#isPrefixOf isPrefixOf}(other.path())</code>
+	 */
 	default boolean encloses(Reference<?> other) {
 		return this.path().isPrefixOf(other.path());
 	}

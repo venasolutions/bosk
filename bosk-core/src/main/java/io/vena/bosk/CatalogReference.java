@@ -23,8 +23,8 @@ public interface CatalogReference<E extends Entity> extends Reference<Catalog<E>
 	@Override default CatalogReference<E> boundTo(Identifier... ids) { return this.boundBy(path().parametersFrom(asList(ids))); }
 
 	/**
-	 * <code>CatalogReference<TT></code> has extra special superpowers that
-	 * <code>Reference<Catalog<TT>></code> doesn't possess.
+	 * <code>CatalogReference&lt;TT></code> has extra special superpowers that
+	 * <code>Reference&lt;Catalog&lt;TT>></code> doesn't possess.
 	 */
 	static <TT extends Entity> CatalogReference<TT> from(Reference<Catalog<TT>> plainReference) {
 		@SuppressWarnings("unchecked")
