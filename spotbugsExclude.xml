@@ -23,4 +23,9 @@
 		<Method name="dereferencer"/>
 		<Bug code="JLM"/>
 	</Match>
+	<Match>
+		<Class name="io.vena.bosk.drivers.mongo.SingleDocumentMongoDriver"/>
+		<Method name="flush"/>
+		<Bug pattern="SF_SWITCH_FALLTHROUGH"/>
+	</Match>
 </FindBugsFilter>

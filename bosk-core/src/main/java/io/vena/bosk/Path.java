@@ -577,7 +577,7 @@ public abstract class Path implements Iterable<String> {
 					if (existing == null) {
 						logMapContents(this::isPathOfLength1, "Empty entry for {}", key);
 					} else {
-						LOGGER.trace("Path interner has entry for {}", key);
+//						LOGGER.trace("Path interner has entry for {}", key);
 						return existing;
 					}
 				}
@@ -605,27 +605,27 @@ public abstract class Path implements Iterable<String> {
 		}
 
 		private void logMapContents(Predicate<V> filter, String titleFormat, Object... args) {
-			if (LOGGER.isTraceEnabled()) {
-				LOGGER.debug(titleFormat + ": intern map contents {", args);
-				LOGGER.trace("\tINTERNED {");
-				INTERNED.forEach((k,ref) -> {
-					V v = ref.get();
-					if (filter.test(v)) {
-						LOGGER.trace("\t\t{}->{} ; {}", identityHashCode(k), identityHashCode(v), k);
-					}
-				});
-				LOGGER.trace("\t}");
-				LOGGER.trace("\tKEEP_ALIVE {");
-				KEEP_ALIVE.forEach((k,v) -> {
-					if (filter.test(k)) {
-						LOGGER.trace("\t\t{}->{} ; {}", identityHashCode(k), identityHashCode(v), v);
-					}
-				});
-				LOGGER.trace("\t}");
-				LOGGER.debug("}");
-			} else {
-				LOGGER.debug(titleFormat, args);
-			}
+//			if (LOGGER.isTraceEnabled()) {
+//				LOGGER.debug(titleFormat + ": intern map contents {", args);
+//				LOGGER.trace("\tINTERNED {");
+//				INTERNED.forEach((k,ref) -> {
+//					V v = ref.get();
+//					if (filter.test(v)) {
+//						LOGGER.trace("\t\t{}->{} ; {}", identityHashCode(k), identityHashCode(v), k);
+//					}
+//				});
+//				LOGGER.trace("\t}");
+//				LOGGER.trace("\tKEEP_ALIVE {");
+//				KEEP_ALIVE.forEach((k,v) -> {
+//					if (filter.test(k)) {
+//						LOGGER.trace("\t\t{}->{} ; {}", identityHashCode(k), identityHashCode(v), v);
+//					}
+//				});
+//				LOGGER.trace("\t}");
+//				LOGGER.debug("}");
+//			} else {
+//				LOGGER.debug(titleFormat, args);
+//			}
 		}
 
 		private final Map<K, WeakReference<V>> INTERNED = new WeakHashMap<>();

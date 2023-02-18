@@ -40,7 +40,22 @@ interface MongoReceiver<R extends Entity> extends Closeable {
 	R initialRoot(Type rootType) throws InvalidTypeException, IOException, InterruptedException;
 	void flushDownstream() throws InterruptedException, IOException;
 
-	// Echo functionality to implement flush()
+	/**
+	 * Blocks until we've received and processed the change event corresponding to the
+	 * current <code>revision</code> field in the database. Used to implement {@link BoskDriver#flush()}.
+	 */
+	void awaitLatestRevision() throws InterruptedException, IOException;
+
+	/**
+	 * Causes <code>listener.add(resumeToken)</code> to be called at a future time
+	 * when a change stream event arrives that sets the <code>echo</code> field to the given value.
+	 * @throws IllegalStateException if there's already a listener for <code>echoToken</code>.
+	 */
 	void putEchoListener(String echoToken, BlockingQueue<BsonDocument> listener);
+
+	/**
+	 * Under normal circumstances, this is unnecessary but harmless.
+	 * Call it from a <code>finally</code> clause to make sure you don't leave a mess behind.
+	 */
 	BlockingQueue<BsonDocument> removeEchoListener(String echoToken);
 }
