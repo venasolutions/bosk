@@ -61,7 +61,7 @@ Fields:
 #### Document `root`
 
 Fields:
-- `path`: always contains the string `/`
+- `_id`: percent-encoded "BSON path" - pipe-separated list of BSON fields describing how this document fits into the overall BSON document. Starts with '|'
 - `state`: the bosk state
 - Any separate collections (Catalogs or SideTables) map IDs to the value `true` (rather than containing the actual tree node)
 - `echo`: used to implement `flush`
