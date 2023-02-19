@@ -105,6 +105,25 @@ final class Formatter {
 		}
 	}
 
+	/**
+	 * Handy for testing. Doesn't work for generic types.
+	 */
+	public CodecRegistry codecRegistry() {
+		return new CodecRegistry() {
+			@Override
+			public <T> Codec<T> get(Class<T> clazz, CodecRegistry registry) {
+				// Huh? What even is this?
+				return get(clazz);
+			}
+
+			@Override
+			@SuppressWarnings("unchecked")
+			public <T> Codec<T> get(Class<T> clazz) {
+				return (Codec<T>) codecFor(clazz);
+			}
+		};
+	}
+
 	@SuppressWarnings("unchecked")
 	<T> T document2object(Document document, Reference<T> target) {
 		BsonDocument doc = document.toBsonDocument(BsonDocument.class, simpleCodecs);
