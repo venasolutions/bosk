@@ -155,11 +155,16 @@ final class Formatter {
 	 * @see #referenceTo(String, Reference)
 	 */
 	static <T> String dottedFieldNameOf(Reference<T> ref, Reference<?> startingRef) {
+		ArrayList<String> segments = dottedFieldNameSegments(ref, startingRef);
+		return String.join(".", segments.toArray(new String[0]));
+	}
+
+	static <T> ArrayList<String> dottedFieldNameSegments(Reference<T> ref, Reference<?> startingRef) {
 		assert startingRef.path().isPrefixOf(ref.path()): "'" + ref + "' must be under '" + startingRef + "'";
 		ArrayList<String> segments = new ArrayList<>();
 		segments.add(DocumentFields.state.name());
 		buildDottedFieldNameOf(ref, startingRef.path().length(), segments);
-		return String.join(".", segments.toArray(new String[0]));
+		return segments;
 	}
 
 	private static <T> void buildDottedFieldNameOf(Reference<T> ref, int startingRefLength, ArrayList<String> segments) {
