@@ -176,8 +176,16 @@ final class Formatter {
 			} else if (SideTable.class.isAssignableFrom(enclosingReference.targetClass())) {
 				segments.add("valuesById");
 			}
-			segments.add(ENCODER.apply(ref.path().lastSegment()));
+			segments.add(dottedFieldNameSegment(ref.path().lastSegment()));
 		}
+	}
+
+	static String dottedFieldNameSegment(String segment) {
+		return ENCODER.apply(segment);
+	}
+
+	static String undottedFieldNameSegment(String dottedSegment) {
+		return DECODER.apply(dottedSegment);
 	}
 
 	/**
@@ -196,7 +204,7 @@ final class Formatter {
 				skipField(ref, iter, "valuesById");
 			}
 			if (iter.hasNext()) {
-				String segment = DECODER.apply(iter.next());
+				String segment = undottedFieldNameSegment(iter.next());
 				ref = ref.then(Object.class, segment);
 			}
 		}
