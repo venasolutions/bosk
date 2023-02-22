@@ -319,13 +319,19 @@ public abstract class DriverConformanceTest extends AbstractDriverTest {
 		}
 	}
 
+	/**
+	 * Note that we don't use this in every test. The idea is that some of them are
+	 * not worth the time to run multiple times with different enclosing catalogs,
+	 * because it's not really credible that the test would fail with one of these
+	 * and pass with another.
+	 */
 	@SuppressWarnings("unused")
 	static Stream<Path> enclosingCatalogPath() {
 		return Stream.of(
 			Path.just(TestEntity.Fields.catalog),
-			Path.of(TestEntity.Fields.catalog, "parent", TestEntity.Fields.catalog),
-			Path.of(TestEntity.Fields.sideTable, "key1", TestEntity.Fields.catalog),
-			Path.of(TestEntity.Fields.sideTable, "key1", TestEntity.Fields.catalog, "parent", TestEntity.Fields.catalog)
+			Path.of(TestEntity.Fields.catalog, AWKWARD_ID, TestEntity.Fields.catalog),
+			Path.of(TestEntity.Fields.sideTable, AWKWARD_ID, TestEntity.Fields.catalog),
+			Path.of(TestEntity.Fields.sideTable, AWKWARD_ID, TestEntity.Fields.catalog, "parent", TestEntity.Fields.catalog)
 		);
 	}
 
@@ -338,10 +344,15 @@ public abstract class DriverConformanceTest extends AbstractDriverTest {
 			"id.with.dots",
 			"id/with/slashes",
 			"$id$with$dollars$",
-			"$id.with%everything\uD83D\uDE09",
+			AWKWARD_ID,
 			"idWithEmojis\uD83C\uDF33\uD83E\uDDCA"
 		).map(Identifier::from);
 	}
+
+	/**
+	 * Contains all kinds of special characters
+	 */
+	public static final String AWKWARD_ID = "$id.with%everything/\uD83D\uDE09";
 
 	@SuppressWarnings("unused")
 	static Stream<String> testEntityField() {
