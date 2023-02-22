@@ -5,9 +5,12 @@ import io.vena.bosk.CatalogReference;
 import io.vena.bosk.DriverFactory;
 import io.vena.bosk.Identifier;
 import io.vena.bosk.ListValue;
+import io.vena.bosk.Listing;
+import io.vena.bosk.ListingEntry;
 import io.vena.bosk.MapValue;
 import io.vena.bosk.Path;
 import io.vena.bosk.Reference;
+import io.vena.bosk.SideTable;
 import io.vena.bosk.drivers.state.TestEntity;
 import io.vena.bosk.drivers.state.TestValues;
 import io.vena.bosk.exceptions.InvalidTypeException;
@@ -16,6 +19,7 @@ import java.io.IOException;
 import java.time.temporal.ChronoUnit;
 import java.util.stream.Stream;
 
+import static io.vena.bosk.ListingEntry.LISTING_ENTRY;
 import static io.vena.bosk.util.Classes.listValue;
 import static io.vena.bosk.util.Classes.mapValue;
 import static java.time.temporal.ChronoUnit.MINUTES;
@@ -45,6 +49,41 @@ public abstract class DriverConformanceTest extends AbstractDriverTest {
 		CatalogReference<TestEntity> ref = initializeBoskWithCatalog(enclosingCatalogPath);
 		driver.submitReplacement(ref.then(childID), newEntity(childID, ref)
 			.withString("replaced"));
+		assertCorrectBoskContents();
+	}
+
+	@ParametersByName
+	void testReplaceWholeThenParts(Path enclosingCatalogPath, Identifier childID) throws InvalidTypeException {
+		CatalogReference<TestEntity> catalogRef = initializeBoskWithCatalog(enclosingCatalogPath);
+		Identifier awkwardID = Identifier.from(AWKWARD_ID);
+		Reference<TestEntity> wholeEntityRef = catalogRef.then(awkwardID);
+		CatalogReference<TestEntity> innerCatalogRef = wholeEntityRef.thenCatalog(TestEntity.class, "catalog");
+		Reference<TestEntity> part1EntityRef = innerCatalogRef.then(childID);
+		Reference<TestEntity> part2EntityRef = wholeEntityRef.thenSideTable(TestEntity.class, TestEntity.class, "sideTable").then(childID);
+		Reference<ListingEntry> listingEntryRef = wholeEntityRef.thenListing(TestEntity.class, "listing").then(childID);
+
+		driver.submitReplacement(wholeEntityRef,
+			newEntity(awkwardID, catalogRef)
+				.withCatalog(Catalog.of(
+					emptyEntityAt(part1EntityRef)
+						.withString("original-part1")
+				))
+				.withSideTable(SideTable.of(innerCatalogRef,
+					child1ID,
+					emptyEntityAt(part2EntityRef)
+						.withString("original-part2")
+				))
+				.withListing(Listing.of(innerCatalogRef,
+					child1ID
+				)));
+		driver.submitReplacement(part1EntityRef,
+			emptyEntityAt(part1EntityRef)
+				.withString("replaced-part1"));
+		driver.submitReplacement(part2EntityRef,
+			emptyEntityAt(part2EntityRef)
+				.withString("replaced-part2"));
+		driver.submitReplacement(listingEntryRef, LISTING_ENTRY);
+
 		assertCorrectBoskContents();
 	}
 
@@ -319,13 +358,19 @@ public abstract class DriverConformanceTest extends AbstractDriverTest {
 		}
 	}
 
+	/**
+	 * Note that we don't use this in every test. The idea is that some of them are
+	 * not worth the time to run multiple times with different enclosing catalogs,
+	 * because it's not really credible that the test would fail with one of these
+	 * and pass with another.
+	 */
 	@SuppressWarnings("unused")
 	static Stream<Path> enclosingCatalogPath() {
 		return Stream.of(
 			Path.just(TestEntity.Fields.catalog),
-			Path.of(TestEntity.Fields.catalog, "parent", TestEntity.Fields.catalog),
-			Path.of(TestEntity.Fields.sideTable, "key1", TestEntity.Fields.catalog),
-			Path.of(TestEntity.Fields.sideTable, "key1", TestEntity.Fields.catalog, "parent", TestEntity.Fields.catalog)
+			Path.of(TestEntity.Fields.catalog, AWKWARD_ID, TestEntity.Fields.catalog),
+			Path.of(TestEntity.Fields.sideTable, AWKWARD_ID, TestEntity.Fields.catalog),
+			Path.of(TestEntity.Fields.sideTable, AWKWARD_ID, TestEntity.Fields.catalog, "parent", TestEntity.Fields.catalog)
 		);
 	}
 
@@ -338,10 +383,15 @@ public abstract class DriverConformanceTest extends AbstractDriverTest {
 			"id.with.dots",
 			"id/with/slashes",
 			"$id$with$dollars$",
-			"$id.with%everything\uD83D\uDE09",
+			AWKWARD_ID,
 			"idWithEmojis\uD83C\uDF33\uD83E\uDDCA"
 		).map(Identifier::from);
 	}
+
+	/**
+	 * Contains all kinds of special characters
+	 */
+	public static final String AWKWARD_ID = "$id.with%everything/\uD83D\uDE09";
 
 	@SuppressWarnings("unused")
 	static Stream<String> testEntityField() {

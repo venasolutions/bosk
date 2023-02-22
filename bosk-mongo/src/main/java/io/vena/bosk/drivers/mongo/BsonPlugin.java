@@ -53,6 +53,8 @@ import static io.vena.bosk.ReferenceUtils.getterMethod;
 import static io.vena.bosk.ReferenceUtils.parameterType;
 import static io.vena.bosk.ReferenceUtils.rawClass;
 import static io.vena.bosk.ReferenceUtils.theOnlyConstructorFor;
+import static io.vena.bosk.drivers.mongo.Formatter.dottedFieldNameSegment;
+import static io.vena.bosk.drivers.mongo.Formatter.undottedFieldNameSegment;
 import static java.lang.invoke.MethodHandles.collectArguments;
 import static java.lang.invoke.MethodHandles.explicitCastArguments;
 import static java.lang.invoke.MethodHandles.filterArguments;
@@ -256,7 +258,7 @@ public final class BsonPlugin extends SerializationPlugin {
 				writer.writeName("ids");
 				writer.writeStartDocument();
 				for (Identifier id: value.ids()) {
-					writer.writeName(id.toString());
+					writer.writeName(dottedFieldNameSegment(id.toString()));
 					writer.writeBoolean(true);
 				}
 				writer.writeEndDocument();
@@ -277,7 +279,7 @@ public final class BsonPlugin extends SerializationPlugin {
 				List<Identifier> ids = new ArrayList<>();
 				reader.readStartDocument();
 				while (reader.readBsonType() != BsonType.END_OF_DOCUMENT) {
-					String id = reader.readName();
+					String id = undottedFieldNameSegment(reader.readName());
 					reader.readBoolean();
 					ids.add(Identifier.from(id));
 				}
@@ -461,7 +463,7 @@ public final class BsonPlugin extends SerializationPlugin {
 
 				List<E> entries = new ArrayList<>();
 				while (reader.readBsonType() != BsonType.END_OF_DOCUMENT) {
-					String fieldName = reader.readName();
+					String fieldName = undottedFieldNameSegment(reader.readName());
 					Identifier entryId = Identifier.from(fieldName);
 					E entry;
 					try (@SuppressWarnings("unused") DeserializationScope s = innerDeserializationScope(fieldName)) {
@@ -525,7 +527,7 @@ public final class BsonPlugin extends SerializationPlugin {
 				LinkedHashMap<Identifier, V> valuesById = new LinkedHashMap<>();
 				reader.readStartDocument();
 				while (reader.readBsonType() != BsonType.END_OF_DOCUMENT) {
-					String fieldName = reader.readName();
+					String fieldName = undottedFieldNameSegment(reader.readName());
 					Identifier id = Identifier.from(fieldName);
 					V value;
 					try (@SuppressWarnings("unused") DeserializationScope s = innerDeserializationScope(fieldName)) {
@@ -689,7 +691,7 @@ public final class BsonPlugin extends SerializationPlugin {
 		writer.writeStartDocument();
 
 		for (E entry: catalog) {
-			writer.writeName(entry.id().toString());
+			writer.writeName(dottedFieldNameSegment(entry.id().toString()));
 			entryCodec.encode(writer, entry, encoderContext);
 		}
 
@@ -709,7 +711,7 @@ public final class BsonPlugin extends SerializationPlugin {
 			writer.writeName("valuesById");
 			writer.writeStartDocument();
 			for (Entry<Identifier, V> entry: sideTable.idEntrySet()) {
-				writer.writeName(entry.getKey().toString());
+				writer.writeName(dottedFieldNameSegment(entry.getKey().toString()));
 				valueCodec.encode(writer, entry.getValue(), encoderContext);
 			}
 			writer.writeEndDocument();

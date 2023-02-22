@@ -200,22 +200,6 @@ final class SingleDocumentMongoDriver<R extends Entity> implements MongoDriver<R
 		}
 	}
 
-	/**
-	 * Deserializes and re-serializes the entire bosk contents,
-	 * thus updating the database to match the current serialized format.
-	 *
-	 * <p>
-	 * Used to "upgrade" the database contents for schema evolution.
-	 *
-	 * <p>
-	 * This method does not simply write the current in-memory bosk contents
-	 * back into the database, because that would lead to race conditions
-	 * with other update operations.
-	 * Instead, in a causally-consistent transaction, it reads the current
-	 * database state, deserializes it, re-serializes it, and writes it back.
-	 * This produces predictable results even if done concurrently with
-	 * other database updates.
-	 */
 	@Override
 	public void refurbish() {
 		ClientSessionOptions sessionOptions = ClientSessionOptions.builder()

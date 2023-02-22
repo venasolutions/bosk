@@ -56,7 +56,7 @@ public class AbstractDriverTest {
 		}
 	}
 
-	private TestEntity emptyEntityAt(Reference<TestEntity> ref) {
+	TestEntity emptyEntityAt(Reference<TestEntity> ref) {
 		CatalogReference<TestEntity> catalogRef;
 		try {
 			catalogRef = ref.thenCatalog(TestEntity.class, TestEntity.Fields.catalog);

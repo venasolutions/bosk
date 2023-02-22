@@ -577,6 +577,8 @@ class PathTest {
 	void testMatches(boolean expected, Path pattern, Path path) {
 		assertEquals(expected,
 			pattern.matches(path));
+		assertEquals(expected,
+			path.matches(pattern));
 	}
 
 	static Stream<Arguments> matchesCases() {
@@ -594,16 +596,22 @@ class PathTest {
 
 		// Set up a structure describing the expected results
 		Map<Path, List<Path>> matches = new HashMap<>();
-		definite.forEach(p -> matches.put(p, singletonList(p))); // Every path matches itself
-		matches.put(a_p1_b,  asList(a_p1_b, a_1_b));
-		matches.put(a_p1_b_p2, asList(a_p1_b_p2, a_1_b_p1, a_1_b_p2, a_p1_b_2, a_1_b_2));
-		matches.put(a_1_b_p1, asList(a_1_b_p1, a_1_b_p2, a_1_b_2));
-		matches.put(a_1_b_p2, asList(a_1_b_p1, a_1_b_p2, a_1_b_2));
-		matches.put(a_p1_b_2, asList(a_p1_b_2, a_1_b_2));
+		definite.forEach(p -> matches.put(p, singletonList(p))); // Every definite path matches itself
+		putEquivalenceClass(matches, a_1_b, a_p1_b);
+		putEquivalenceClass(matches, a_p1_b_2, a_p1_b_p2, a_1_b_p1, a_1_b_p2, a_1_b_2);
 
 		// Exhaustively test all pairs against the expected results
 		return all.stream().flatMap(pattern -> all.stream().map(path ->
 				Arguments.of(matches.get(pattern).contains(path), pattern, path)));
+	}
+
+	/**
+	 * Establishes that all the given paths mutually match each other
+	 */
+	private static void putEquivalenceClass(Map<Path, List<Path>> matches, Path... paths) {
+		for (Path key: paths) {
+			matches.put(key, asList(paths));
+		}
 	}
 
 	@Test
