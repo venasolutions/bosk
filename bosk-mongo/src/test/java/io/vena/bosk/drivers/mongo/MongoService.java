@@ -8,6 +8,8 @@ import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
 import java.io.Closeable;
 import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.ToxiproxyContainer;
@@ -35,6 +37,8 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
  *
  */
 public class MongoService implements Closeable {
+	private static final Logger LOGGER = LoggerFactory.getLogger(MongoService.class);
+
 	// Expensive stuff shared among instances as much as possible
 	private static final Network NETWORK = Network.newNetwork();
 	private static final GenericContainer<?> MONGO_CONTAINER = mongoContainer();
@@ -83,6 +87,7 @@ public class MongoService implements Closeable {
 
 	@NotNull
 	static MongoClientSettings mongoClientSettings(ServerAddress serverAddress) {
+		LOGGER.info("MongoDB: {}", serverAddress);
 		int initialTimeoutMS = 60_000;
 		int queryTimeoutMS = 5_000; // Don't wait an inordinately long time for network outage testing
 		return MongoClientSettings.builder()
@@ -99,4 +104,5 @@ public class MongoService implements Closeable {
 			})
 			.build();
 	}
+
 }
