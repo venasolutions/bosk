@@ -249,12 +249,42 @@ final class Formatter {
 		};
 
 		ENCODER = s->{
-			// Selective URLEncoding of characters MongoDB doesn't like
-			return s
-				.replace("%", "%25")
-				.replace("$", "%24")
-				.replace(".", "%2E");
+			// Selective percent-encoding of characters MongoDB doesn't like
+			StringBuilder sb = new StringBuilder();
+			for (int i = 0; i < s.length(); ) {
+				int cp = s.codePointAt(i);
+				switch (cp) {
+					case '%': // For percent-encoding
+					case '$': // MongoDB treats these specially
+					case '.': // MongoDB separator for dotted field names
+						appendPercentEncoded(sb, cp);
+						break;
+					default:
+						sb.appendCodePoint(cp);
+						break;
+				}
+				i += Character.charCount(cp);
+			}
+			return sb.toString();
 		};
 	}
 
+	private static void appendPercentEncoded(StringBuilder sb, int cp) {
+		assert 0 <= cp && cp <= 255;
+		sb
+			.append('%')
+			.append(hexCharForDigit(cp / 16))
+			.append(hexCharForDigit(cp % 16));
+	}
+
+	/**
+	 * An uppercase version of {@link Character#forDigit} with a radix of 16.
+	 */
+	private static char hexCharForDigit(int value) {
+		if (value < 10) {
+			return (char)('0' + value);
+		} else {
+			return (char)('A' + value - 10);
+		}
+	}
 }
