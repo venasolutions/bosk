@@ -249,7 +249,11 @@ final class Formatter {
 		};
 
 		ENCODER = s->{
-			// Selective percent-encoding of characters MongoDB doesn't like
+			// Selective percent-encoding of characters MongoDB doesn't like.
+			// Standard percent-encoding doesn't handle the period character, which
+			// we want, so if we're already diverging from the standard, we might
+			// as well do something that suits our needs.
+			// Good to stay compatible with standard percent-DEcoding, though.
 			StringBuilder sb = new StringBuilder();
 			for (int i = 0; i < s.length(); ) {
 				int cp = s.codePointAt(i);
@@ -257,6 +261,12 @@ final class Formatter {
 					case '%': // For percent-encoding
 					case '$': // MongoDB treats these specially
 					case '.': // MongoDB separator for dotted field names
+					case 0:   // Can MongoDB handle nulls? Probably. Do we want to find out? Not really.
+					case '|': // (These are reserved for internal use)
+					case '!':
+					case '~':
+					case '[':
+					case ']':
 						appendPercentEncoded(sb, cp);
 						break;
 					default:
