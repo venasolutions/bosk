@@ -391,7 +391,7 @@ public abstract class DriverConformanceTest extends AbstractDriverTest {
 	/**
 	 * Contains all kinds of special characters
 	 */
-	public static final String AWKWARD_ID = "$id.with%everything/\uD83D\uDE09";
+	public static final String AWKWARD_ID = "$id.with%everything/ +\uD83D\uDE09";
 
 	@SuppressWarnings("unused")
 	static Stream<String> testEntityField() {

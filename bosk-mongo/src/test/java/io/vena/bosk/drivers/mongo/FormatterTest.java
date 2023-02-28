@@ -11,11 +11,15 @@ import io.vena.bosk.exceptions.InvalidTypeException;
 import io.vena.bosk.util.Types;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.stream.Stream;
 import org.bson.BsonDocument;
 import org.bson.BsonString;
 import org.bson.BsonValue;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -72,4 +76,35 @@ class FormatterTest extends AbstractBoskTest {
 		assertEquals(expected, actual);
 	}
 
+	@ParameterizedTest
+	@MethodSource("dottedNameCases")
+	void dottedFieldNameSegment(String plain, String dotted) {
+		assertEquals(dotted, Formatter.dottedFieldNameSegment(plain));
+	}
+
+	@ParameterizedTest
+	@MethodSource("dottedNameCases")
+	void undottedFieldNameSegment(String plain, String dotted) {
+		assertEquals(plain, Formatter.undottedFieldNameSegment(dotted));
+	}
+
+	static Stream<Arguments> dottedNameCases() {
+		return Stream.of(
+			dottedNameCase("%", "%25"),
+			dottedNameCase("$", "%24"),
+			dottedNameCase(".", "%2E"),
+			dottedNameCase("\0", "%00"),
+			dottedNameCase("|", "%7C"),
+			dottedNameCase("!", "%21"),
+			dottedNameCase("~", "%7E"),
+			dottedNameCase("[", "%5B"),
+			dottedNameCase("]", "%5D"),
+			dottedNameCase("+", "%2B"),
+			dottedNameCase(" ", "%20")
+		);
+	}
+
+	static Arguments dottedNameCase(String plain, String dotted) {
+		return Arguments.of(plain, dotted);
+	}
 }

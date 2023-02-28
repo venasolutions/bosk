@@ -259,6 +259,7 @@ final class Formatter {
 				int cp = s.codePointAt(i);
 				switch (cp) {
 					case '%': // For percent-encoding
+					case '+': case ' ': // These two are affected by URLDecoder
 					case '$': // MongoDB treats these specially
 					case '.': // MongoDB separator for dotted field names
 					case 0:   // Can MongoDB handle nulls? Probably. Do we want to find out? Not really.
