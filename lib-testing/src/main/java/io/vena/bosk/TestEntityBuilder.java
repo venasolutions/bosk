@@ -23,6 +23,7 @@ public class TestEntityBuilder {
 	}
 
 	public CatalogReference<TestEntity> entitiesRef() { return entitiesRef; }
+	public Reference<TestEntity> anyEntity() { return anyEntity; }
 	public Reference<TestEntity> entityRef(Identifier id) { return anyEntity.boundTo(id); }
 	public CatalogReference<TestChild> childrenRef(Identifier entityID) { return anyChildren.boundTo(entityID); }
 	public Reference<ImplicitRefs> implicitRefsRef(Identifier entityID) { return anyImplicitRefs.boundTo(entityID); }

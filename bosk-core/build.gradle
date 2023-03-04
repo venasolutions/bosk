@@ -17,8 +17,8 @@ dependencies {
 pitest {
 	junit5PluginVersion = '0.15'
 	jvmArgs = ['-ea'] // Our unit tests check for assert statements
-	targetClasses = ['io.vena.bosk.Bosk*']  //by default "${project.group}.*"
-	targetTests   = ['io.vena.bosk.*']
+	targetClasses = ['io.vena.bosk.ReferenceBuilder*']  //by default "${project.group}.*"
+	targetTests   = ['io.vena.bosk.BuildReferences*Test']
 	//targetTests   = ['io.vena.bosk.OldBoskTest', 'io.vena.bosk.BoskTest', 'io.vena.bosk.BoskConstructorTest', 'io.vena.bosk.HooksTest', 'io.vena.bosk.ReferenceTest']
 	threads = 4
 	outputFormats = ['XML', 'HTML']

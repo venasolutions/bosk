@@ -967,12 +967,30 @@ try (ReadContext originalThReadContext = bosk.new ReadContext()) {
 		} else if (!requestedClass.isAssignableFrom(targetClass)) {
 			throw new InvalidTypeException("Path from " + rawClass(rootType).getSimpleName()
 				+ " returns " + targetClass.getSimpleName()
-				+ "; requested " + requestedClass.getSimpleName()
+				+ ", not " + requestedClass.getSimpleName()
 				+ ": " + path);
 		} else if (Reference.class.isAssignableFrom(requestedClass)) {
 			// TODO: Disallow references to implicit references {Self and Enclosing}
 		}
 		return newReference(path, targetType);
+	}
+
+	/**
+	 * Dynamically generates an object that can return {@link Reference}s to this bosk,
+	 * as specified by methods annotated with {@link io.vena.bosk.annotations.ReferencePath}.
+	 *
+	 * <p>
+	 * This method is slow and expensive (possibly tens of milliseconds)
+	 * but the returned object is efficient.
+	 * This is intended to be called during initialization, in order to (for example)
+	 * initialize singletons for dependency injection.
+	 *
+	 * @param refsClass an interface class whose methods are annotated with {@link io.vena.bosk.annotations.ReferencePath}.
+	 * @return an object implementing <code>refsClass</code> with methods that return the desired references.
+	 * @throws InvalidTypeException if any of the requested references are not valid
+	 */
+	public final <T> T buildReferences(Class<T> refsClass) throws InvalidTypeException {
+		return ReferenceBuilder.buildReferences(refsClass, this);
 	}
 
 	@SuppressWarnings("unchecked")
