@@ -1,5 +1,6 @@
 package io.vena.bosk;
 
+import io.vena.bosk.annotations.ReferencePath;
 import io.vena.bosk.exceptions.InvalidTypeException;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
@@ -22,24 +23,23 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SideTableTest extends AbstractBoskTest {
 	Bosk<TestRoot> bosk;
-	CatalogReference<TestEntity> entitiesRef;
-	CatalogReference<TestChild> childrenRef;
-	SideTableReference<TestChild, String> sideTableRef;
+	Refs refs;
 	Bosk<TestRoot>.ReadContext readContext;
 	TestEntity firstEntity;
+
+	public interface Refs {
+		@ReferencePath("/entities") CatalogReference<TestEntity> entities();
+		@ReferencePath("/entities/parent/children") CatalogReference<TestChild> children();
+		@ReferencePath("/entities/parent/stringSideTable") SideTableReference<TestChild, String> sideTable();
+	}
 
 	@BeforeEach
 	void setup() throws InvalidTypeException {
 		bosk = setUpBosk(Bosk::simpleDriver);
-		entitiesRef = bosk.catalogReference(TestEntity.class, Path.just(
-			TestRoot.Fields.entities));
-		childrenRef = bosk.catalogReference(TestChild.class, Path.of(
-			TestRoot.Fields.entities, "parent", TestEntity.Fields.children));
-		sideTableRef = bosk.sideTableReference(TestChild.class, String.class, Path.of(
-			TestRoot.Fields.entities, "parent", TestEntity.Fields.stringSideTable));
+		refs = bosk.buildReferences(Refs.class);
 
 		readContext = bosk.readContext();
-		firstEntity = entitiesRef.value().iterator().next();
+		firstEntity = refs.entities().value().iterator().next();
 	}
 
 	@AfterEach
@@ -49,19 +49,19 @@ class SideTableTest extends AbstractBoskTest {
 
 	@Test
 	void empty_matchesEmptyMap() {
-		assertEqualsOrderedMap(emptyMap(), SideTable.empty(entitiesRef));
+		assertEqualsOrderedMap(emptyMap(), SideTable.empty(refs.entities()));
 	}
 
 	@Test
 	void singleton_matchesSingletonMap() {
 		Identifier id = Identifier.from("x");
-		assertEqualsOrderedMap(singletonMap(id, "value"), SideTable.of(entitiesRef, id, "value"));
-		assertEqualsOrderedMap(singletonMap(firstEntity.id(), "value"), SideTable.of(entitiesRef, firstEntity, "value"));
+		assertEqualsOrderedMap(singletonMap(id, "value"), SideTable.of(refs.entities(), id, "value"));
+		assertEqualsOrderedMap(singletonMap(firstEntity.id(), "value"), SideTable.of(refs.entities(), firstEntity, "value"));
 	}
 
 	@Test
 	void has() {
-		SideTable<TestEntity, String> table = SideTable.of(entitiesRef, firstEntity, "value");
+		SideTable<TestEntity, String> table = SideTable.of(refs.entities(), firstEntity, "value");
 		assertTrue(table.hasID(firstEntity.id()));
 		assertTrue(table.hasKey(firstEntity));
 
@@ -83,18 +83,18 @@ class SideTableTest extends AbstractBoskTest {
 		expected.put(id3, "value3");
 		expected.put(id4, "value4");
 
-		assertEqualsOrderedMap(expected, SideTable.fromOrderedMap(entitiesRef, expected));
-		assertEqualsOrderedMap(expected, SideTable.fromFunction(entitiesRef, expected.keySet().stream(), expected::get));
-		assertEqualsOrderedMap(expected, SideTable.fromEntries(entitiesRef, expected.entrySet().stream()));
+		assertEqualsOrderedMap(expected, SideTable.fromOrderedMap(refs.entities(), expected));
+		assertEqualsOrderedMap(expected, SideTable.fromFunction(refs.entities(), expected.keySet().stream(), expected::get));
+		assertEqualsOrderedMap(expected, SideTable.fromEntries(refs.entities(), expected.entrySet().stream()));
 	}
 
 	@Test
 	void duplicateEntries_throws() {
 		assertThrows(IllegalArgumentException.class, ()-> {
-			SideTable.fromFunction(entitiesRef, Stream.of("dup", "dup").map(Identifier::from), Identifier::toString);
+			SideTable.fromFunction(refs.entities(), Stream.of("dup", "dup").map(Identifier::from), Identifier::toString);
 		});
 		assertThrows(IllegalArgumentException.class, ()-> {
-			SideTable.fromEntries(entitiesRef, Stream.of("dup", "dup").map(v -> new SimpleEntry<>(Identifier.from(v), v)));
+			SideTable.fromEntries(refs.entities(), Stream.of("dup", "dup").map(v -> new SimpleEntry<>(Identifier.from(v), v)));
 		});
 	}
 
@@ -103,13 +103,13 @@ class SideTableTest extends AbstractBoskTest {
 		Map<TestChild, String> expected = new LinkedHashMap<>();
 		Map<TestChild, String> actual = new LinkedHashMap<>();
 		try (var __ = bosk.readContext()) {
-			SideTable<TestChild, String> sideTable = sideTableRef.value();
+			SideTable<TestChild, String> sideTable = refs.sideTable().value();
 
 			// Record everything that forEachValue produces
 			sideTable.forEachValue(actual::put);
 
 			// Compute what it ought to have produced
-			Catalog<TestChild> entities = childrenRef.value();
+			Catalog<TestChild> entities = refs.children().value();
 			expected.put(entities.get(Identifier.from("child2")), "I'm child 2");
 		}
 
@@ -122,7 +122,7 @@ class SideTableTest extends AbstractBoskTest {
 		assertEquals(expected.isEmpty(), actual.isEmpty());
 		assertEquals(expected.size(), actual.size());
 		assertEquals(new ArrayList<>(expected.keySet()), actual.ids());
-		assertEquals(Listing.of(entitiesRef, actual.ids()), actual.keys());
+		assertEquals(Listing.of(refs.entities(), actual.ids()), actual.keys());
 		assertEquals(new ArrayList<>(expected.values()), new ArrayList<>(actual.values()));
 		assertEquals(new ArrayList<>(expected.entrySet()), new ArrayList<>(actual.idEntrySet()));
 
@@ -147,6 +147,6 @@ class SideTableTest extends AbstractBoskTest {
 		assertEquals(expected, encounteredItems);
 
 		// Sundry checks
-		assertEquals(entitiesRef, actual.domain());
+		assertEquals(refs.entities(), actual.domain());
 	}
 }
