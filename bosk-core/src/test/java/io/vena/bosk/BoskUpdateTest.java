@@ -1,5 +1,6 @@
 package io.vena.bosk;
 
+import io.vena.bosk.annotations.ReferencePath;
 import io.vena.bosk.exceptions.InvalidTypeException;
 import java.io.IOException;
 import lombok.val;
@@ -20,10 +21,14 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 public class BoskUpdateTest extends AbstractBoskTest {
 	Bosk<TestRoot> bosk;
 
-	Reference<TestEntity> anyEntity;
-	Reference<String> anyEntityString;
-	Reference<TestChild> anyChild;
-	Reference<Identifier> anyEntityID;
+	Refs refs;
+
+	public interface Refs {
+		@ReferencePath("/entities/-entity-") Reference<TestEntity> entity(Identifier entity);
+		@ReferencePath("/entities/-entity-/string") Reference<String> entityString(Identifier entity);
+		@ReferencePath("/entities/-entity-/children/-child-") Reference<TestChild> child(Identifier entity, Identifier child);
+		@ReferencePath("/entities/-entity-/id") Reference<Identifier> entityID(Identifier entity);
+	}
 
 	TestRoot originalRoot;
 	TestEntity originalParent;
@@ -41,18 +46,11 @@ public class BoskUpdateTest extends AbstractBoskTest {
 			AbstractBoskTest::initialRoot,
 			Bosk::simpleDriver
 		);
-		anyEntity = bosk.reference(TestEntity.class, Path.of(
-			TestRoot.Fields.entities, "-entity-"));
-		anyEntityString = bosk.reference(String.class, Path.of(
-			TestRoot.Fields.entities, "-entity-", TestEntity.Fields.string));
-		anyEntityID = bosk.reference(Identifier.class, Path.of(
-			TestRoot.Fields.entities, "-entity-", TestEntity.Fields.id));
-		anyChild = bosk.reference(TestChild.class, Path.of(
-			TestRoot.Fields.entities, "-entity-", TestEntity.Fields.children, "-child-"));
+		refs = bosk.buildReferences(Refs.class);
 		try (val __ = bosk.readContext()) {
 			originalRoot = bosk.rootReference().value();
-			originalParent = anyEntity.boundTo(PARENT_ID).value();
-			originalChild1 = anyChild.boundTo(PARENT_ID, CHILD_1_ID).value();
+			originalParent = refs.entity(PARENT_ID).value();
+			originalChild1 = refs.child(PARENT_ID, CHILD_1_ID).value();
 		}
 	}
 
@@ -64,7 +62,7 @@ public class BoskUpdateTest extends AbstractBoskTest {
 	@Test
 	void replaceEntity_nodeChanged() throws IOException, InterruptedException {
 		TestEntity newValue = originalParent.withString(originalParent.string() + " - modified");
-		Reference<TestEntity> ref = anyEntity.boundTo(originalParent.id());
+		Reference<TestEntity> ref = refs.entity(originalParent.id());
 		bosk.driver().submitReplacement(ref, newValue);
 		assertValueEquals(newValue, ref);
 	}
@@ -72,7 +70,7 @@ public class BoskUpdateTest extends AbstractBoskTest {
 	@Test
 	void replaceField_valueChanged() throws IOException, InterruptedException {
 		String newValue = originalParent.string() + " - modified";
-		Reference<String> ref = anyEntityString.boundTo(originalParent.id());
+		Reference<String> ref = refs.entityString(originalParent.id());
 		bosk.driver().submitReplacement(ref, newValue);
 		assertValueEquals(newValue, ref);
 	}
@@ -80,7 +78,7 @@ public class BoskUpdateTest extends AbstractBoskTest {
 	@Test
 	void replaceNonexistentField_nothingChanged() throws IOException, InterruptedException {
 		String newValue = originalParent.string() + " - modified";
-		Reference<String> ref = anyEntityString.boundTo(Identifier.from("nonexistent"));
+		Reference<String> ref = refs.entityString(Identifier.from("nonexistent"));
 		bosk.driver().submitReplacement(ref, newValue);
 		assertValueEquals(originalRoot, bosk.rootReference());
 		assertValueEquals(null, ref);
@@ -89,7 +87,7 @@ public class BoskUpdateTest extends AbstractBoskTest {
 	@Test
 	void initializeNonexistent_nodeCreated() throws IOException, InterruptedException {
 		TestChild newValue = new TestChild(CHILD_4_ID, "string", OK, Catalog.empty());
-		Reference<TestChild> ref = anyChild.boundTo(PARENT_ID, CHILD_4_ID);
+		Reference<TestChild> ref = refs.child(PARENT_ID, CHILD_4_ID);
 		bosk.driver().submitInitialization(ref, newValue);
 		assertValueEquals(newValue, ref);
 	}
@@ -97,7 +95,7 @@ public class BoskUpdateTest extends AbstractBoskTest {
 	@Test
 	void initializeExisting_nothingChanged() throws IOException, InterruptedException {
 		TestChild newValue = new TestChild(CHILD_1_ID, "string", OK, Catalog.empty());
-		Reference<TestChild> ref = anyChild.boundTo(PARENT_ID, CHILD_1_ID);
+		Reference<TestChild> ref = refs.child(PARENT_ID, CHILD_1_ID);
 
 		// Child 1 already exists, so submitInitialization should have no effect
 		bosk.driver().submitInitialization(ref, newValue);
@@ -108,8 +106,8 @@ public class BoskUpdateTest extends AbstractBoskTest {
 	@Test
 	void conditionalReplaceIDMatches_valueChanged() throws IOException, InterruptedException {
 		String newValue = originalParent.string() + " - modified";
-		Reference<String> ref = anyEntityString.boundTo(originalParent.id());
-		Reference<Identifier> idRef = anyEntityID.boundTo(originalParent.id());
+		Reference<String> ref = refs.entityString(originalParent.id());
+		Reference<Identifier> idRef = refs.entityID(originalParent.id());
 		bosk.driver().submitConditionalReplacement(ref, newValue, idRef, originalParent.id());
 		assertValueEquals(newValue, ref);
 	}
@@ -117,8 +115,8 @@ public class BoskUpdateTest extends AbstractBoskTest {
 	@Test
 	void conditionalReplaceIDMismatches_nothingChanged() throws IOException, InterruptedException {
 		String newValue = originalParent.string() + " - modified";
-		Reference<String> ref = anyEntityString.boundTo(originalParent.id());
-		Reference<Identifier> idRef = anyEntityID.boundTo(originalParent.id());
+		Reference<String> ref = refs.entityString(originalParent.id());
+		Reference<Identifier> idRef = refs.entityID(originalParent.id());
 		bosk.driver().submitConditionalReplacement(ref, newValue, idRef, Identifier.from("nonexistent"));
 		assertValueEquals(originalRoot, bosk.rootReference());
 		assertValueEquals(originalParent.string(), ref);
@@ -127,8 +125,8 @@ public class BoskUpdateTest extends AbstractBoskTest {
 	@Test
 	void conditionalReplaceIDMismatchesNull_nothingChanged() throws IOException, InterruptedException {
 		String newValue = originalParent.string() + " - modified";
-		Reference<String> ref = anyEntityString.boundTo(originalParent.id());
-		Reference<Identifier> idRef = anyEntityID.boundTo(originalParent.id());
+		Reference<String> ref = refs.entityString(originalParent.id());
+		Reference<Identifier> idRef = refs.entityID(originalParent.id());
 		bosk.driver().submitConditionalReplacement(ref, newValue, idRef, null);
 		assertValueEquals(originalRoot, bosk.rootReference());
 		assertValueEquals(originalParent.string(), ref);
@@ -137,8 +135,8 @@ public class BoskUpdateTest extends AbstractBoskTest {
 	@Test
 	void conditionalReplaceIDMatchesNull_valueChanged() throws IOException, InterruptedException {
 		String newValue = originalParent.string() + " - modified";
-		Reference<String> ref = anyEntityString.boundTo(originalParent.id());
-		Reference<Identifier> idRef = anyEntityID.boundTo(Identifier.from("nonexistent"));
+		Reference<String> ref = refs.entityString(originalParent.id());
+		Reference<Identifier> idRef = refs.entityID(Identifier.from("nonexistent"));
 		bosk.driver().submitConditionalReplacement(ref, newValue, idRef, null);
 		assertValueEquals(newValue, ref);
 	}
@@ -146,8 +144,8 @@ public class BoskUpdateTest extends AbstractBoskTest {
 	@Test
 	void conditionalReplaceIDMismatchesNonNull_nothingChanged() throws IOException, InterruptedException {
 		String newValue = originalParent.string() + " - modified";
-		Reference<String> ref = anyEntityString.boundTo(originalParent.id());
-		Reference<Identifier> idRef = anyEntityID.boundTo(Identifier.from("nonexistent"));
+		Reference<String> ref = refs.entityString(originalParent.id());
+		Reference<Identifier> idRef = refs.entityID(Identifier.from("nonexistent"));
 		bosk.driver().submitConditionalReplacement(ref, newValue, idRef, Identifier.from("someValue"));
 		assertValueEquals(originalRoot, bosk.rootReference());
 		assertValueEquals(originalParent.string(), ref);
