@@ -160,6 +160,69 @@ It behaves just like an `Optional` field that is always empty.
 Phantom fields are primarily useful as the domain for a sparse `Listing` or `SideTable` in situations where there is no useful information to be stored about the key entities.
 If you don't already know what this means, you probably don't want to use `Phantom`.
 
+### Creating `Reference`s
+
+The `Bosk` object acts as a factory for `Reference` objects.
+You can call any of the `reference*` methods to generate references as desired.
+The methods are type-safe, in that they require the caller to pass type information that is checked against what is actually found in the state tree.
+
+The `Bosk` object also offers a method called `buildReferences`
+that can create a number of `Reference` objects all at once, in a declarative fashion.
+
+To use it, first declare a public interface class with methods annotated with `@ReferencePath`
+and returning references of the appropriate type.
+A simple example:
+
+```java
+public interface Refs {
+	@ReferencePath("/")
+	Reference<TestRoot> root();
+
+	@ReferencePath("/entities/-entity-")
+	Reference<TestEntity> anyEntity();
+}
+```
+
+The return type of each method must be one of
+`Reference`, `CatalogReference`, `ListingReference`, or `SideTableReference`.
+The path may be parameterized.
+
+Then instantiate your interface as follows:
+
+``` java
+Refs refs = bosk.buildReferences(Refs.class);
+```
+
+For parameterized paths, the method may also accept `Identifier` arguments
+for one or more of the parameters.
+It may also accept `Identifier[]` or `Identifier...` as its last argument.
+
+```java
+public interface Refs {
+	// Fully parameterized
+	@ReferencePath("/planets/-planet-/cities/-city-")
+	Reference<City> anyCity();
+
+	// Binds the -planet- parameter and leaves -city- unbound
+	@ReferencePath("/planets/-planet-/cities/-city-")
+	Reference<City> anyCity(Identifier planet);
+
+	// A concrete reference to a specified city
+	@ReferencePath("/planets/-planet-/cities/-city-")
+	Reference<City> city(Identifier planet, Identifier city);
+
+	// Varargs
+	@ReferencePath("/planets/-planet-/cities/-city-")
+	Reference<City> city(Identifier... ids);
+}
+```
+
+Calling `buildReferences` is costly, requiring perhaps tens of milliseconds,
+and performing reflection, class loading, and dynamic bytecode generation.
+In contrast, using the resulting object is efficient.
+The intent is for `buildReferences` to be called during initialization to build a singleton
+for dependency injection.
+
 ### Reads
 
 Bosk is designed to provide stable, deterministic, repeatable reads, using the `Reference` class.
