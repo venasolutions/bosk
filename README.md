@@ -1,4 +1,5 @@
 ![Release status](https://github.com/venasolutions/bosk/actions/workflows/release.yml/badge.svg)
+[![Maven Central](https://img.shields.io/maven-central/v/io.vena/bosk-core)](https://mvnrepository.com/artifact/io.vena/bosk-core)
 
 # Bosk
 
