@@ -825,9 +825,8 @@ A typical pattern is to create a `Bosk` subclass containing a long list of refer
 Larger apps might want to break up this list and put references into separate classes,
 but small apps can dump them all into the `Bosk` object itself.
 
-As a naming convention,
-- Definite references (with no parameters) end with `Ref`
-- Indefinite references (with parameters) start with `any` and do not end with `Ref`
+As a naming convention, indefinite references (with parameters) start with `any`,
+unless the method accepts enough arguments to bind all the parameters.
 
 Example:
 
@@ -836,24 +835,28 @@ import io.vena.bosk.Bosk;
 import io.vena.bosk.Identifier;
 import io.vena.bosk.Path;
 import io.vena.bosk.Reference;
+import io.vena.bosk.annotations.ReferencePath;
 import io.vena.bosk.exceptions.InvalidTypeException;
 
 @Singleton // You can use your framework's dependency injection for this
 public class ExampleBosk extends Bosk<ExampleState> {
+	public final Refs refs;
+	
 	public ExampleBosk() throws InvalidTypeException {
 		super(
 			"ExampleBosk",
 			ExampleState.class,
 			new ExampleState(Identifier.from("example"), "world"),
 			driverFactory());
+		this.refs = buildReferences(Refs.class);
 	}
 
-	// Typically, you add a bunch of useful references here, like this one:
-	public final Reference<String> nameRef = reference(String.class, Path.parse(
-		"/name"));
-
-	public final Reference<ExampleWidget> anyWidget = reference(ExampleWidget.class, Path.parseParameterized(
-		"/widgets/-widget-"));
+	public interface Refs {
+		@ReferencePath("/name") Reference<String> name();
+		@ReferencePath("/widgets") CatalogReference<ExampleWidget> widgets();
+		@ReferencePath("/widgets/-widget-") Reference<ExampleWidget> anyWidget();
+		@ReferencePath("/widgets/-widget-") Reference<ExampleWidget> widget(Identifier widget);
+	}
 
 	// Start off simple
 	private static DriverFactory<ExampleState> driverFactory() {
