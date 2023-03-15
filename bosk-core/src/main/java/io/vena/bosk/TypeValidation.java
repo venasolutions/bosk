@@ -245,7 +245,7 @@ public final class TypeValidation {
 			throw new InvalidFieldTypeException(nodeClass, fieldName, "Getter should have no arguments; actually has " + getter.getParameterCount() + " arguments");
 		}
 		if (!p.getType().equals(getter.getReturnType())) {
-			throw new InvalidFieldTypeException(nodeClass, fieldName, "Getter should return " + p.getType().getSimpleName() + "; actually returns " + getter.getReturnType().getSimpleName());
+			throw new InvalidFieldTypeException(nodeClass, fieldName, "Getter return type must match corresponding parameter type. Expected " + p.getType().getSimpleName() + "; actually returns " + getter.getReturnType().getSimpleName());
 		}
 	}
 

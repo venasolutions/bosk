@@ -280,7 +280,7 @@ class TypeValidationTest {
 		public int field() { return 123; }
 
 		public static void testException(InvalidTypeException e) {
-			assertThat(e.getMessage(), containsString("Getter should return"));
+			assertThat(e.getMessage(), containsString("Getter return type"));
 		}
 	}
 
@@ -293,7 +293,7 @@ class TypeValidationTest {
 		public Number field() { return field; }
 
 		public static void testException(InvalidTypeException e) {
-			assertThat(e.getMessage(), containsString("Getter should return"));
+			assertThat(e.getMessage(), containsString("Getter return type"));
 		}
 	}
 
@@ -306,7 +306,7 @@ class TypeValidationTest {
 		public Integer field() { return 123; }
 
 		public static void testException(InvalidTypeException e) {
-			assertThat(e.getMessage(), containsString("Getter should return"));
+			assertThat(e.getMessage(), containsString("Getter return type"));
 		}
 	}
 

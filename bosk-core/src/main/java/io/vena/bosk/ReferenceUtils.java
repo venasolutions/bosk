@@ -295,7 +295,14 @@ C&lt;String> someField;
 				// No prob; try the superclass
 			}
 		}
-		throw new InvalidTypeException("No method \"" + methodName + "()\" in type " + objectClass.getSimpleName());
+
+		// If the program is compiled without parameter info, we'll see the generated name "arg0".
+		// In that case, try to give a helpful error message.
+		if (methodName.equals("arg0")) {
+			throw new InvalidTypeException(objectClass.getSimpleName() + " was compiled without parameter info; see https://github.com/venasolutions/bosk#build-settings");
+		} else {
+			throw new InvalidTypeException("No method \"" + methodName + "()\" in type " + objectClass.getSimpleName());
+		}
 	}
 
 	public static <T> Constructor<T> theOnlyConstructorFor(Class<T> nodeClass) {
