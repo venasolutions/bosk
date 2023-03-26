@@ -1,5 +1,8 @@
 ## User's Guide
 
+Check out the Table of Contents to help you find what you're looking for.
+In particular, check out the [Recommendations](#recommendations) section.
+
 ### The Bosk Object
 
 The `Bosk` object is a container for your application state tree.
@@ -112,18 +115,29 @@ Certain objects in a bosk are required to be entities:
 A node's contents are defined by the names and types of its constructor's arguments.
 Each argument must have a corresponding getter method with the same name, taking no arguments, and returning the same type.
 (These conventions are compatible with `record` types, which are encouraged.)
+In the context of a bosk state tree, the constructor arguments and corresponding getters are referred to as "fields"
+regardless of whether they actually correspond to fields of the Java object (though they usually do).
+
+A node is considered to _contain_ its fields, creating a whole/part parent/child relationship between them.
+Removing a node removes all its descendant nodes.
+Diamond relationships, where two nodes have the same child, are not _prevented_, but they are also not _preserved_:
+Bosk will interpret these as two different nodes and will make no effort to preserve their shared object identity.
+
+To create a reference relationship instead of a containment relationship, use `Reference` or `Listing`.
 
 ##### `Catalog`
 
 A `Catalog` is an immutable ordered set of `Entity` objects of a particular type.
-A `Catalog` field establishes a one-to-many parent/child relationship between nodes.
+A `Catalog` field establishes a one-to-many parent/child containment relationship between nodes.
+The identity of each entry is established by `Entity.id()`.
 
 Outside of a state tree, `Catalog` also doubles as a handy immutable collection data structure.
 Entities can be added or removed by calling the `with` and `without` methods, respectively.
 The `with` operation is an "upsert" operation that replaces an entry if one already exists with a matching ID; otherwise, it adds the new entry to the end.
 The `without` operation removes the entry with a given ID, leaving the remaining objects in the same order; if there is no such entry, the operation has no effect.
+These operations take O(log n) time.
 
-Because `Ctalog` objects _contain_ their entries, the entries can be retrieved or iterated without a `ReadContext`.
+Because `Catalog` objects _contain_ their entries, the entries can be retrieved or iterated without a `ReadContext`.
 
 ##### `Listing`
 
@@ -144,7 +158,7 @@ it always has the value `LISTING_ENTRY`. (`ListingEntry` is a unit type.)
 ##### `SideTable`
 
 A `SideTable` is an ordered map from nodes in a particular `Catalog`, referred to as the `SideTable`'s _domain_,
-to some specified type of node.
+to some specified type of _value_ node.
 A `SideTable` allows you to associate additional information with entities without adding fields to those entities.
 
 The `SideTable` object does not contain its keys, but _does_ contain its values.
@@ -168,6 +182,7 @@ The methods are type-safe, in that they require the caller to pass type informat
 
 The `Bosk` object also offers a method called `buildReferences`
 that can create a number of `Reference` objects all at once, in a declarative fashion.
+This is usually the preferred way to create references.
 
 To use it, first declare a public interface class with methods annotated with `@ReferencePath`
 and returning references of the appropriate type.
@@ -260,8 +275,8 @@ Creating many brief read contexts opens your application up to race conditions d
 
 ##### Creation
 
-At any point in the code, a call to `bosk.readContext()` will establish a read context on the calling thread;
-if there is already an active read context on the calling thread, the call to `readContext` has no effect. 
+At any point in the code, a call to `bosk.readContext()` will establish a read context on the calling thread.
+If there is already an active read context on the calling thread, the call to `readContext` has no effect. 
 
 ##### Propagation
 
@@ -323,7 +338,7 @@ Because updates are applied asynchronously, it's possible that intervening updat
 for example, changing a field of an object that has been deleted.
 Updates that can't be applied due to the contents of the bosk state are silently ignored.
 
-In contrast, updates that are impossible to apply under any circumstances lead to exceptions thrown at submission time;
+In contrast, updates that are impossible to apply regardless of the state tree contents will throw an exception at submission time;
 examples include an attempt to modify a nonexistent field in an existing object,
 or an attempt to submit an update when an error has left the driver temporarily unable to accept updates.
 
@@ -714,22 +729,6 @@ but does so in a desirable way that users are expecting.
 
 The `bosk-jackson` and `bosk-gson` modules use the Jackson and Gson libraries to support JSON serialization and deserialization.
 
-#### Configuring Jackson
-
-To configure an `ObjectMapper` that is compatible with a particular `Bosk` object, use the `JacksonPlugin.moduleFor` method.
-Here is an example:
-
-``` java
-JacksonPlugin jacksonPlugin = new JacksonPlugin();
-boskMapper = new ObjectMapper()
-	.registerModule(jacksonPlugin.moduleFor(bosk))
-
-	// You can add whatever configuration suits your application:
-	.enable(INDENT_OUTPUT);
-```
-
-`JacksonPlugin` is compatible with many of the `ObjectMapper` configuration options, so you should be able to configure it as you want.
-
 #### Configuring Gson
 
 To configure a `Gson` object that is compatible with a particular `Bosk` object, use the `GsonPlugin.adaptersFor` method.
@@ -749,6 +748,24 @@ boskGson = new GsonBuilder()
 ```
 
 `GsonPlugin` is compatible with many of the Gson configuration options, so you should be able to configure it as you want.
+
+#### Configuring Jackson
+
+**Note:** Jackson support is considered experimental and is not recommended for production systems.
+
+To configure an `ObjectMapper` that is compatible with a particular `Bosk` object, use the `JacksonPlugin.moduleFor` method.
+Here is an example:
+
+``` java
+JacksonPlugin jacksonPlugin = new JacksonPlugin();
+boskMapper = new ObjectMapper()
+	.registerModule(jacksonPlugin.moduleFor(bosk))
+
+	// You can add whatever configuration suits your application:
+	.enable(INDENT_OUTPUT);
+```
+
+`JacksonPlugin` is compatible with many of the `ObjectMapper` configuration options, so you should be able to configure it as you want.
 
 #### Format
 
@@ -804,6 +821,9 @@ try (var __ = gsonPlugin.newDeserializationScope(ref)) {
 	newValue = gson.fromJson(exampleJson, ref.targetType());
 }
 ```
+
+For this to work, you will need access to the `GsonPlugin` object,
+typically from your dependency injection framework.
 
 #### DerivedRecord
 
@@ -890,18 +910,18 @@ You could imagine a `Worker` object like this:
 public record Worker (
 	Identifier id,
 	String baseURL,
-	Catalog<Shard> assignedShards,
-	Status status
+	Status status,
+	Catalog<Shard> assignedShards
 ) {}
 ```
 
 **Don't do this**. The trouble is, this puts state into the same object that is changed under three different circumstances:
-- `baseURL` is set by static configuration or by service discovery. This is _configuration_.
-- `assignedShards` is set by the data distribution algorithm. This is a _decision_.
-- `status` is set either by a polling mechanism, or when worker communications result in an error. This is an _observation_.
+- `baseURL` is set by static configuration or by service discovery. This is _configuration_: information supplied to your application to tell it how to behave.
+- `status` is set either by a polling mechanism, or when worker communications result in an error. This is an _observation_: information your application draws from external systems.
+- `assignedShards` is set by the data distribution algorithm. This is a _decision_: a choice made by your application, typically in response to _configuration_ and _observations_.
 
-You want to separate configuration from decisions from observations.
-The entity itself should contain only configuration; decisions and observations should be stored in `SideTable`s.
+You want to separate configuration from observations from decisions.
+The entity itself should contain only configuration; observations and decisions should be stored in `SideTable`s.
 
 A better arrangement of this state might look like this:
 
@@ -915,8 +935,8 @@ public record Worker (
 
 public record Cluster (
 	Catalog<Worker> workers,
-	SideTable<Worker, Shard> workerAssignments,
-	SideTable<Worker, Status> workerStatus
+	SideTable<Worker, Status> workerStatus,
+	SideTable<Worker, Shard> workerAssignments
 ) {}
 ```
 
@@ -936,7 +956,7 @@ In general, open one large `ReadContext` as early as possible in your applicatio
 #### Closed-loop control hooks
 
 Bosk is often used to control a server's _local state_.
-For example, a caching application could use bosk to control what's in the cache,
+For example, a caching application could use bosk to control what's in the cache in the server's memory,
 so that all servers have the same cache contents and therefore provide reliable response times across the cluster.
 The cache itself is _local state_ because it exists independently in each server instance.
 
