@@ -607,7 +607,7 @@ static DriverFactory<ExampleState> driverFactory() {
 
 ##### Database setup
 
-Bosk supports MongoDB 4.2 and up.
+Bosk supports MongoDB 4.4 and up.
 
 To support change streams, MongoDB must be deployed as a replica set.
 In production, this is a good practice anyway, so this requirement shouldn't cause any hardship:
@@ -618,7 +618,7 @@ To support `MongoDriver`, you must use a replica set, even if you are running ju
 This can be achieved using the following `Dockerfile`:
 
 ``` dockerfile
-FROM mongo:4.2 # ...but use a newer version if you can
+FROM mongo:4.4 # ...but use a newer version if you can
 RUN echo "rs.initiate()" > /docker-entrypoint-initdb.d/rs-initiate.js 
 CMD [ "mongod", "--replSet", "rsLonesome", "--port", "27017", "--bind_ip_all" ]
 ```
