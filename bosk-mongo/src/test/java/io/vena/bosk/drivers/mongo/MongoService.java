@@ -67,7 +67,7 @@ public class MongoService implements Closeable {
 	private static GenericContainer<?> mongoContainer() {
 		GenericContainer<?> result = new GenericContainer<>(
 			new ImageFromDockerfile().withDockerfileFromBuilder(builder -> builder
-				.from("mongo:4.2")
+				.from("mongo:4.4")
 				.run("echo \"rs.initiate()\" > /docker-entrypoint-initdb.d/rs-initiate.js")
 				.cmd("mongod", "--replSet", "rsLonesome", "--port", "27017", "--bind_ip_all")
 				.build()))
