@@ -330,7 +330,8 @@ final class SingleDocumentMongoChangeStreamReceiver<R extends Entity> implements
 //				}
 			} catch (Throwable t) {
 				LOGGER.error("Exception attempting to close {}", identityString, t);
-				throw t;
+//				No exception that happens while closing is worth terminating for
+//				throw t;
 			}
 		} else {
 			LOGGER.debug("Already closed: {}", identityString);
