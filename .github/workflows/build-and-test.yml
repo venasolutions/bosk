@@ -4,7 +4,12 @@
 
 name: "Build and test"
 
-on: [push]
+on:
+  push:
+    branches:
+      - '**'
+    tags-ignore: # already run when a commit is pushed; no need to also run when it's tagged
+      - '**'
 
 jobs:
   build_and_test:
