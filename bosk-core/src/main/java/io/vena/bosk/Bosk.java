@@ -70,7 +70,9 @@ import static lombok.AccessLevel.NONE;
  *
  * @author pdoyle
  *
- * @param <R> The type of the root {@link Entity}.
+ * @param <R> The type of the root {@link Entity}. <em>Maintenance note:</em> currently,
+ *           there is no need for the root to be an {@link Entity}, because its
+ *           {@link Entity#id() id} is unused. We're considering changing this type bound to be {@link StateTreeNode}.
  */
 public class Bosk<R extends Entity> {
 	@Getter private final String name;
