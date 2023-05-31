@@ -35,7 +35,7 @@ First, be sure you're compiling Java with the `-parameters` argument.
 
 In Gradle:
 
-```
+```groovy
 dependencies {
 	compileJava {
 		options.compilerArgs << '-parameters'
@@ -49,7 +49,7 @@ dependencies {
 
 In Maven:
 
-```
+```xml
 <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
@@ -68,7 +68,7 @@ The [bosk-core](bosk-core) library is enough to create a `Bosk` object and start
 The library works particularly well with Java records.
 You can define your state tree's root node as follows:
 
-```
+```java
 import io.vena.bosk.Entity;
 import io.vena.bosk.Identifier;
 
@@ -81,7 +81,7 @@ public record ExampleState (
 
 You can also use classes, especially if you're using Lombok:
 
-```
+```java
 @Value
 @Accessors(fluent = true)
 public class ExampleState implements Entity {
@@ -92,7 +92,7 @@ public class ExampleState implements Entity {
 
 Now declare your singleton `Bosk` class to house and manage your application state:
 
-```
+```java
 import io.vena.bosk.Bosk;
 import io.vena.bosk.Identifier;
 import io.vena.bosk.Path;
@@ -124,7 +124,7 @@ typically using your application framework's dependency injection system.
 
 To read state, acquire a `ReadContext`:
 
-```
+```java
 try (var __ = bosk.readContext()) {
 	System.out.println("Hello, " + bosk.nameRef.value());
 }
@@ -136,13 +136,13 @@ It is an antipattern to use many small read contexts during the course of a sing
 
 To modify state, use the `BoskDriver` interface:
 
-```
+```java
 bosk.driver().submitReplacement(bosk.nameRef, "everybody");
 ```
 
 During your application's initialization, register a hook to perform an action whenever state changes:
 
-```
+```java
 bosk.registerHook("Name update", bosk.nameRef, ref -> {
 	System.out.println("Name is now: " + ref.value());
 });
@@ -159,7 +159,7 @@ When you're ready to turn your standalone app into a replica set,
 add [bosk-mongo](bosk-mongo) as a dependency
 and change your Bosk `driverFactory` method to substitute `MongoDriver` in place of `Bosk::simpleDriver`:
 
-```
+```java
 import com.mongodb.MongoClientSettings;
 import com.mongodb.ReadConcern;
 import com.mongodb.WriteConcern;
@@ -194,7 +194,7 @@ private static DriverFactory<ExampleState> driverFactory() {
 To run this, you'll need a MongoDB replica set.
 You can run a single-node replica set using the following `Dockerfile`:
 
-```
+```dockerfile
 FROM mongo:4.4
 RUN echo "rs.initiate()" > /docker-entrypoint-initdb.d/rs-initiate.js 
 CMD [ "mongod", "--replSet", "rsLonesome", "--port", "27017", "--bind_ip_all" ]
@@ -220,7 +220,7 @@ This is required because,
 for each class you use to describe your Bosk state, the "system of record" for its structure is its constructor.
 For example, you might define a class with a constructor like this:
 
-```
+```java
 public Member(Identifier id, String name) {...}
 ```
 
