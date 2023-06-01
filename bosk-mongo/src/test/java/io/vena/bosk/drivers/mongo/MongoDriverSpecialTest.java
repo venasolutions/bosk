@@ -1,7 +1,6 @@
 package io.vena.bosk.drivers.mongo;
 
 import com.mongodb.MongoClientSettings;
-import com.mongodb.MongoException;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoCursor;
 import io.vena.bosk.Bosk;
@@ -22,6 +21,7 @@ import io.vena.bosk.drivers.mongo.Formatter.DocumentFields;
 import io.vena.bosk.drivers.mongo.MongoDriverSettings.MongoDriverSettingsBuilder;
 import io.vena.bosk.drivers.state.TestEntity;
 import io.vena.bosk.drivers.state.TestValues;
+import io.vena.bosk.exceptions.FlushFailureException;
 import io.vena.bosk.exceptions.InvalidTypeException;
 import io.vena.bosk.junit.ParametersByName;
 import java.io.IOException;
@@ -229,8 +229,8 @@ class MongoDriverSpecialTest implements TestParameters {
 
 		mongoService.proxy().setConnectionCut(true);
 
-		assertThrows(MongoException.class, driver::flush);
-		assertThrows(MongoException.class, latecomerBosk.driver()::flush);
+		assertThrows(FlushFailureException.class, driver::flush);
+		assertThrows(FlushFailureException.class, latecomerBosk.driver()::flush);
 
 		mongoService.proxy().setConnectionCut(false);
 
