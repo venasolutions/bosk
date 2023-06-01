@@ -1,7 +1,6 @@
 package io.vena.bosk.drivers.mongo;
 
 import com.mongodb.MongoClientSettings;
-import com.mongodb.MongoException;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoCursor;
 import io.vena.bosk.Bosk;
@@ -14,14 +13,15 @@ import io.vena.bosk.Identifier;
 import io.vena.bosk.Listing;
 import io.vena.bosk.ListingEntry;
 import io.vena.bosk.ListingReference;
-import io.vena.bosk.Path;
 import io.vena.bosk.Reference;
 import io.vena.bosk.SideTable;
+import io.vena.bosk.annotations.ReferencePath;
 import io.vena.bosk.drivers.BufferingDriver;
 import io.vena.bosk.drivers.mongo.Formatter.DocumentFields;
 import io.vena.bosk.drivers.mongo.MongoDriverSettings.MongoDriverSettingsBuilder;
 import io.vena.bosk.drivers.state.TestEntity;
 import io.vena.bosk.drivers.state.TestValues;
+import io.vena.bosk.exceptions.FlushFailureException;
 import io.vena.bosk.exceptions.InvalidTypeException;
 import io.vena.bosk.junit.ParametersByName;
 import java.io.IOException;
@@ -31,6 +31,7 @@ import java.util.Optional;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingDeque;
 import lombok.Value;
+import lombok.var;
 import org.bson.BsonDocument;
 import org.bson.BsonNull;
 import org.bson.BsonString;
@@ -38,6 +39,9 @@ import org.bson.Document;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import static io.vena.bosk.ListingEntry.LISTING_ENTRY;
 import static io.vena.bosk.drivers.mongo.Formatter.DocumentFields.path;
@@ -65,6 +69,12 @@ class MongoDriverSpecialTest implements TestParameters {
 
 	private DriverFactory<TestEntity> driverFactory;
 	private final MongoDriverSettings driverSettings;
+
+	public interface Refs {
+		@ReferencePath("/catalog") CatalogReference<TestEntity> catalog();
+		@ReferencePath("/listing/-entity-") Reference<ListingEntry> listingEntry(Identifier entity);
+		@ReferencePath("/catalog/-child-/catalog") CatalogReference<TestEntity> childCatalog(Identifier child);
+	}
 
 	@ParametersByName
 	public MongoDriverSpecialTest(MongoDriverSettingsBuilder driverSettings) {
@@ -96,14 +106,13 @@ class MongoDriverSpecialTest implements TestParameters {
 	@UsesMongoService
 	void warmStart_stateMatches() throws InvalidTypeException, InterruptedException, IOException {
 		Bosk<TestEntity> setupBosk = new Bosk<TestEntity>("Test bosk", TestEntity.class, this::initialRoot, driverFactory);
-		CatalogReference<TestEntity> catalogRef = setupBosk.catalogReference(TestEntity.class, Path.just(TestEntity.Fields.catalog));
-		ListingReference<TestEntity> listingRef = setupBosk.listingReference(TestEntity.class, Path.just(TestEntity.Fields.listing));
+		Refs refs = setupBosk.buildReferences(Refs.class);
 
 		// Make a change to the bosk so it's not just the initial root
-		setupBosk.driver().submitReplacement(listingRef.then(entity123), LISTING_ENTRY);
+		setupBosk.driver().submitReplacement(refs.listingEntry(entity123), LISTING_ENTRY);
 		setupBosk.driver().flush();
 		TestEntity expected = initialRoot(setupBosk)
-			.withListing(Listing.of(catalogRef, entity123));
+			.withListing(Listing.of(refs.catalog(), entity123));
 
 		Bosk<TestEntity> latecomerBosk = new Bosk<TestEntity>("Latecomer bosk", TestEntity.class, b->{
 			throw new AssertionError("Default root function should not be called");
@@ -212,28 +221,29 @@ class MongoDriverSpecialTest implements TestParameters {
 	@ParametersByName
 	@DisruptsMongoService
 	void networkOutage_boskRecovers() throws InvalidTypeException, InterruptedException, IOException {
-		Bosk<TestEntity> bosk = new Bosk<TestEntity>("Test bosk", TestEntity.class, this::initialRoot, driverFactory);
+		Bosk<TestEntity> bosk = new Bosk<TestEntity>("Main", TestEntity.class, this::initialRoot, driverFactory);
+		Refs refs = bosk.buildReferences(Refs.class);
 		BoskDriver<TestEntity> driver = bosk.driver();
-		CatalogReference<TestEntity> catalogRef = bosk.catalogReference(TestEntity.class, Path.just(TestEntity.Fields.catalog));
-		ListingReference<TestEntity> listingRef = bosk.listingReference(TestEntity.class, Path.just(TestEntity.Fields.listing));
 
-		// Wait till MongoDB is up and running
+		LOGGER.debug("Wait till MongoDB is up and running");
 		driver.flush();
 
-		// Make another bosk that doesn't witness any change stream events before the outage
-		Bosk<TestEntity> latecomerBosk = new Bosk<TestEntity>("Latecomer bosk", TestEntity.class, this::initialRoot, driverFactory);
+		LOGGER.debug("Make another bosk that doesn't witness any change stream events before the outage");
+		Bosk<TestEntity> latecomerBosk = new Bosk<TestEntity>("Latecomer", TestEntity.class, this::initialRoot, driverFactory);
 
+		LOGGER.debug("Cut connection");
 		mongoService.proxy().setConnectionCut(true);
 
-		assertThrows(MongoException.class, driver::flush);
-		assertThrows(MongoException.class, latecomerBosk.driver()::flush);
+		assertThrows(FlushFailureException.class, driver::flush);
+		assertThrows(FlushFailureException.class, latecomerBosk.driver()::flush);
 
+		LOGGER.debug("Reestablish connection");
 		mongoService.proxy().setConnectionCut(false);
 
-		// Make a change to the bosk and verify that it gets through
-		driver.submitReplacement(listingRef.then(entity123), LISTING_ENTRY);
+		LOGGER.debug("Make a change to the bosk and verify that it gets through");
+		driver.submitReplacement(refs.listingEntry(entity123), LISTING_ENTRY);
 		TestEntity expected = initialRoot(bosk)
-			.withListing(Listing.of(catalogRef, entity123));
+			.withListing(Listing.of(refs.catalog(), entity123));
 
 
 		driver.flush();
@@ -249,6 +259,59 @@ class MongoDriverSpecialTest implements TestParameters {
 			latecomerActual = latecomerBosk.rootReference().value();
 		}
 		assertEquals(expected, latecomerActual);
+	}
+
+	@ParametersByName
+	@DisruptsMongoService
+	@Disabled("Only supported for ImplementationKind = RESILIENT")
+	void initialOutage_boskRecovers() throws InvalidTypeException, InterruptedException, IOException {
+		// Set up the database contents to be different from initialRoot
+		Bosk<TestEntity> prepBosk = new Bosk<TestEntity>(
+			"Prep bosk",
+			TestEntity.class,
+			bosk -> initialRoot(bosk).withString("distinctive string"),
+			driverFactory);
+		prepBosk.driver().flush();
+		((MongoDriver<TestEntity>)prepBosk.driver()).close();
+
+		TestEntity defaultState = initialRoot(prepBosk);
+		TestEntity mongoState = defaultState.withString("distinctive string");
+
+		mongoService.proxy().setConnectionCut(true);
+
+		Bosk<TestEntity> bosk = new Bosk<TestEntity>("Test bosk", TestEntity.class, this::initialRoot, driverFactory);
+		Refs refs = bosk.buildReferences(Refs.class);
+		BoskDriver<TestEntity> driver = bosk.driver();
+
+		try (var __ = bosk.readContext()) {
+			assertEquals(defaultState, bosk.rootReference().value(),
+				"Uses default state if database is unavailable");
+		}
+
+		assertThrows(FlushFailureException.class, driver::flush,
+			"Flush disallowed during outage");
+		assertThrows(Exception.class, () -> driver.submitReplacement(bosk.rootReference(), initialRoot(bosk)),
+			"Updates disallowed during outage");
+
+		mongoService.proxy().setConnectionCut(false);
+
+		driver.flush();
+		try (var __ = bosk.readContext()) {
+			assertEquals(mongoState, bosk.rootReference().value(),
+				"Updates to database state once it reconnects");
+		}
+
+		// Make a change to the bosk and verify that it gets through
+		driver.submitReplacement(refs.listingEntry(entity123), LISTING_ENTRY);
+		TestEntity expected = initialRoot(bosk)
+			.withString("distinctive string")
+			.withListing(Listing.of(refs.catalog(), entity123));
+
+
+		driver.flush();
+		try (@SuppressWarnings("unused") Bosk<?>.ReadContext readContext = bosk.readContext()) {
+			assertEquals(expected, bosk.rootReference().value());
+		}
 	}
 
 	@ParametersByName
@@ -359,6 +422,7 @@ class MongoDriverSpecialTest implements TestParameters {
 	@UsesMongoService
 	void refurbish_createsField() throws IOException, InterruptedException {
 		// We'll use this as an honest observer of the actual state
+		LOGGER.debug("Create Original bosk");
 		Bosk<TestEntity> originalBosk = new Bosk<TestEntity>(
 			"Original",
 			TestEntity.class,
@@ -366,6 +430,7 @@ class MongoDriverSpecialTest implements TestParameters {
 			createDriverFactory()
 		);
 
+		LOGGER.debug("Create Upgradeable bosk");
 		Bosk<UpgradeableEntity> upgradeableBosk = new Bosk<UpgradeableEntity>(
 			"Upgradeable",
 			UpgradeableEntity.class,
@@ -373,15 +438,18 @@ class MongoDriverSpecialTest implements TestParameters {
 			createDriverFactory()
 		);
 
+		LOGGER.debug("Check state before");
 		Optional<TestValues> before;
 		try (@SuppressWarnings("unused") Bosk<?>.ReadContext readContext = originalBosk.readContext()) {
 			before = originalBosk.rootReference().value().values();
 		}
 		assertEquals(Optional.empty(), before); // Not there yet
 
+		LOGGER.debug("Call refurbish");
 		((MongoDriver<?>)upgradeableBosk.driver()).refurbish();
 		originalBosk.driver().flush(); // Not the bosk that did refurbish!
 
+		LOGGER.debug("Check state after");
 		Optional<TestValues> after;
 		try (@SuppressWarnings("unused") Bosk<?>.ReadContext readContext = originalBosk.readContext()) {
 			after = originalBosk.rootReference().value().values();
@@ -510,22 +578,18 @@ class MongoDriverSpecialTest implements TestParameters {
 	}
 
 	private TestEntity initialRoot(Bosk<TestEntity> testEntityBosk) throws InvalidTypeException {
-		Reference<Catalog<TestEntity>> catalogRef = testEntityBosk.catalogReference(TestEntity.class, Path.just(
-				TestEntity.Fields.catalog
-		));
-		Reference<Catalog<TestEntity>> anyChildCatalog = testEntityBosk.catalogReference(TestEntity.class, Path.of(
-			TestEntity.Fields.catalog, "-child-", TestEntity.Fields.catalog
-		));
+		Refs refs = testEntityBosk.buildReferences(Refs.class);
 		return new TestEntity(rootID,
 			rootID.toString(),
 			Catalog.of(
-				TestEntity.empty(entity123, anyChildCatalog.boundTo(entity123)),
-				TestEntity.empty(entity124, anyChildCatalog.boundTo(entity124))
+				TestEntity.empty(entity123, refs.childCatalog(entity123)),
+				TestEntity.empty(entity124, refs.childCatalog(entity124))
 			),
-			Listing.of(catalogRef, entity123),
-			SideTable.empty(catalogRef),
+			Listing.of(refs.catalog(), entity123),
+			SideTable.empty(refs.catalog()),
 			Optional.empty()
 		);
 	}
 
+	private static final Logger LOGGER = LoggerFactory.getLogger(MongoDriverSpecialTest.class);
 }

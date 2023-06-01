@@ -406,6 +406,8 @@ final class SingleDocumentMongoDriver<R extends Entity> implements MongoDriver<R
 				MongoResumeTokenSequenceMark sequenceMark = new MongoResumeTokenSequenceMark(resumeToken.getString("_data").getValue());
 				LOGGER.debug("| SequenceMark: {}", sequenceMark);
 			}
+		} catch (MongoException e) {
+			throw new FlushFailureException(e);
 		} finally {
 			receiver.removeEchoListener(echoToken);
 		}

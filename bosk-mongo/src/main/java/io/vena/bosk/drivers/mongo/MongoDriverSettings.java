@@ -13,11 +13,12 @@ public class MongoDriverSettings {
 
 	@Default long flushTimeoutMS = 30_000;
 	@Default FlushMode flushMode = FlushMode.ECHO;
+	@Default ImplementationKind implementationKind = ImplementationKind.STABLE;
 	@Default Testing testing = Testing.builder().build();
 
 	@Value
 	@Builder
-	static class Testing {
+	public static class Testing {
 		/**
 		 * How long to sleep before processing each event.
 		 * If negative, sleeps before performing each database update.
@@ -52,5 +53,21 @@ public class MongoDriverSettings {
 		 * and runs as quickly as a single database read.
 		 */
 		REVISION_FIELD_ONLY,
+	}
+
+	public enum ImplementationKind {
+		/**
+		 * The more mature, well-tested implementation.
+		 */
+		STABLE,
+
+		/**
+		 * <strong>Experimental</strong>
+		 *
+		 * <p>
+		 * A newer implementation with better resiliency features.
+		 * Ignores {@link FlushMode FlushMode}; only supports the equivalent of {@link FlushMode#REVISION_FIELD_ONLY REVISION_FIELD_ONLY}.
+		 */
+		RESILIENT,
 	}
 }
