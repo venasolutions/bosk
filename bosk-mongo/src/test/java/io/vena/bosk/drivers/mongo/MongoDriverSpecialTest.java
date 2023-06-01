@@ -14,9 +14,9 @@ import io.vena.bosk.Identifier;
 import io.vena.bosk.Listing;
 import io.vena.bosk.ListingEntry;
 import io.vena.bosk.ListingReference;
-import io.vena.bosk.Path;
 import io.vena.bosk.Reference;
 import io.vena.bosk.SideTable;
+import io.vena.bosk.annotations.ReferencePath;
 import io.vena.bosk.drivers.BufferingDriver;
 import io.vena.bosk.drivers.mongo.Formatter.DocumentFields;
 import io.vena.bosk.drivers.mongo.MongoDriverSettings.MongoDriverSettingsBuilder;
@@ -66,6 +66,12 @@ class MongoDriverSpecialTest implements TestParameters {
 	private DriverFactory<TestEntity> driverFactory;
 	private final MongoDriverSettings driverSettings;
 
+	public interface Refs {
+		@ReferencePath("/catalog") CatalogReference<TestEntity> catalog();
+		@ReferencePath("/listing/-entity-") Reference<ListingEntry> listingEntry(Identifier entity);
+		@ReferencePath("/catalog/-child-/catalog") CatalogReference<TestEntity> childCatalog(Identifier child);
+	}
+
 	@ParametersByName
 	public MongoDriverSpecialTest(MongoDriverSettingsBuilder driverSettings) {
 		this.driverSettings = driverSettings.build();
@@ -96,14 +102,13 @@ class MongoDriverSpecialTest implements TestParameters {
 	@UsesMongoService
 	void warmStart_stateMatches() throws InvalidTypeException, InterruptedException, IOException {
 		Bosk<TestEntity> setupBosk = new Bosk<TestEntity>("Test bosk", TestEntity.class, this::initialRoot, driverFactory);
-		CatalogReference<TestEntity> catalogRef = setupBosk.catalogReference(TestEntity.class, Path.just(TestEntity.Fields.catalog));
-		ListingReference<TestEntity> listingRef = setupBosk.listingReference(TestEntity.class, Path.just(TestEntity.Fields.listing));
+		Refs refs = setupBosk.buildReferences(Refs.class);
 
 		// Make a change to the bosk so it's not just the initial root
-		setupBosk.driver().submitReplacement(listingRef.then(entity123), LISTING_ENTRY);
+		setupBosk.driver().submitReplacement(refs.listingEntry(entity123), LISTING_ENTRY);
 		setupBosk.driver().flush();
 		TestEntity expected = initialRoot(setupBosk)
-			.withListing(Listing.of(catalogRef, entity123));
+			.withListing(Listing.of(refs.catalog(), entity123));
 
 		Bosk<TestEntity> latecomerBosk = new Bosk<TestEntity>("Latecomer bosk", TestEntity.class, b->{
 			throw new AssertionError("Default root function should not be called");
@@ -213,9 +218,8 @@ class MongoDriverSpecialTest implements TestParameters {
 	@DisruptsMongoService
 	void networkOutage_boskRecovers() throws InvalidTypeException, InterruptedException, IOException {
 		Bosk<TestEntity> bosk = new Bosk<TestEntity>("Test bosk", TestEntity.class, this::initialRoot, driverFactory);
+		Refs refs = bosk.buildReferences(Refs.class);
 		BoskDriver<TestEntity> driver = bosk.driver();
-		CatalogReference<TestEntity> catalogRef = bosk.catalogReference(TestEntity.class, Path.just(TestEntity.Fields.catalog));
-		ListingReference<TestEntity> listingRef = bosk.listingReference(TestEntity.class, Path.just(TestEntity.Fields.listing));
 
 		// Wait till MongoDB is up and running
 		driver.flush();
@@ -231,9 +235,9 @@ class MongoDriverSpecialTest implements TestParameters {
 		mongoService.proxy().setConnectionCut(false);
 
 		// Make a change to the bosk and verify that it gets through
-		driver.submitReplacement(listingRef.then(entity123), LISTING_ENTRY);
+		driver.submitReplacement(refs.listingEntry(entity123), LISTING_ENTRY);
 		TestEntity expected = initialRoot(bosk)
-			.withListing(Listing.of(catalogRef, entity123));
+			.withListing(Listing.of(refs.catalog(), entity123));
 
 
 		driver.flush();
@@ -510,20 +514,15 @@ class MongoDriverSpecialTest implements TestParameters {
 	}
 
 	private TestEntity initialRoot(Bosk<TestEntity> testEntityBosk) throws InvalidTypeException {
-		Reference<Catalog<TestEntity>> catalogRef = testEntityBosk.catalogReference(TestEntity.class, Path.just(
-				TestEntity.Fields.catalog
-		));
-		Reference<Catalog<TestEntity>> anyChildCatalog = testEntityBosk.catalogReference(TestEntity.class, Path.of(
-			TestEntity.Fields.catalog, "-child-", TestEntity.Fields.catalog
-		));
+		Refs refs = testEntityBosk.buildReferences(Refs.class);
 		return new TestEntity(rootID,
 			rootID.toString(),
 			Catalog.of(
-				TestEntity.empty(entity123, anyChildCatalog.boundTo(entity123)),
-				TestEntity.empty(entity124, anyChildCatalog.boundTo(entity124))
+				TestEntity.empty(entity123, refs.childCatalog(entity123)),
+				TestEntity.empty(entity124, refs.childCatalog(entity124))
 			),
-			Listing.of(catalogRef, entity123),
-			SideTable.empty(catalogRef),
+			Listing.of(refs.catalog(), entity123),
+			SideTable.empty(refs.catalog()),
 			Optional.empty()
 		);
 	}
