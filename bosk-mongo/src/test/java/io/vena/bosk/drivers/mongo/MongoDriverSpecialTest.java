@@ -367,6 +367,7 @@ class MongoDriverSpecialTest implements TestParameters {
 	@UsesMongoService
 	void refurbish_createsField() throws IOException, InterruptedException {
 		// We'll use this as an honest observer of the actual state
+		LOGGER.debug("Create Original bosk");
 		Bosk<TestEntity> originalBosk = new Bosk<TestEntity>(
 			"Original",
 			TestEntity.class,
@@ -374,6 +375,7 @@ class MongoDriverSpecialTest implements TestParameters {
 			createDriverFactory()
 		);
 
+		LOGGER.debug("Create Upgradeable bosk");
 		Bosk<UpgradeableEntity> upgradeableBosk = new Bosk<UpgradeableEntity>(
 			"Upgradeable",
 			UpgradeableEntity.class,
@@ -381,15 +383,18 @@ class MongoDriverSpecialTest implements TestParameters {
 			createDriverFactory()
 		);
 
+		LOGGER.debug("Check state before");
 		Optional<TestValues> before;
 		try (@SuppressWarnings("unused") Bosk<?>.ReadContext readContext = originalBosk.readContext()) {
 			before = originalBosk.rootReference().value().values();
 		}
 		assertEquals(Optional.empty(), before); // Not there yet
 
+		LOGGER.debug("Call refurbish");
 		((MongoDriver<?>)upgradeableBosk.driver()).refurbish();
 		originalBosk.driver().flush(); // Not the bosk that did refurbish!
 
+		LOGGER.debug("Check state after");
 		Optional<TestValues> after;
 		try (@SuppressWarnings("unused") Bosk<?>.ReadContext readContext = originalBosk.readContext()) {
 			after = originalBosk.rootReference().value().values();
