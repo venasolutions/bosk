@@ -14,8 +14,11 @@ public interface TestParameters {
 		String prefix = "boskTestDB_" + dbCounter.incrementAndGet();
 		return Stream.of(
 			MongoDriverSettings.builder()
-				.database(prefix + "_echo")
+				.database(prefix + "_stable")
 				.flushMode(ECHO)
+//			MongoDriverSettings.builder()
+//				.database(prefix + "_resilient")
+//				.implementationKind(RESILIENT)
 			// These tests fail too often. REVISION_FIELD_ONLY is not reliable yet.
 //			MongoDriverSettings.builder()
 //				.database(prefix + "_rev")
