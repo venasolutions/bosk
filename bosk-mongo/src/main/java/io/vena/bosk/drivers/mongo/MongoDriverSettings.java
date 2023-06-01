@@ -17,7 +17,7 @@ public class MongoDriverSettings {
 
 	@Value
 	@Builder
-	static class Testing {
+	public static class Testing {
 		/**
 		 * How long to sleep before processing each event.
 		 * If negative, sleeps before performing each database update.
