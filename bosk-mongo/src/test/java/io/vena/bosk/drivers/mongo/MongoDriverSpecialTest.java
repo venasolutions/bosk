@@ -38,6 +38,8 @@ import org.bson.Document;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import static io.vena.bosk.ListingEntry.LISTING_ENTRY;
 import static io.vena.bosk.drivers.mongo.Formatter.DocumentFields.path;
@@ -217,24 +219,26 @@ class MongoDriverSpecialTest implements TestParameters {
 	@ParametersByName
 	@DisruptsMongoService
 	void networkOutage_boskRecovers() throws InvalidTypeException, InterruptedException, IOException {
-		Bosk<TestEntity> bosk = new Bosk<TestEntity>("Test bosk", TestEntity.class, this::initialRoot, driverFactory);
+		Bosk<TestEntity> bosk = new Bosk<TestEntity>("Main", TestEntity.class, this::initialRoot, driverFactory);
 		Refs refs = bosk.buildReferences(Refs.class);
 		BoskDriver<TestEntity> driver = bosk.driver();
 
-		// Wait till MongoDB is up and running
+		LOGGER.debug("Wait till MongoDB is up and running");
 		driver.flush();
 
-		// Make another bosk that doesn't witness any change stream events before the outage
-		Bosk<TestEntity> latecomerBosk = new Bosk<TestEntity>("Latecomer bosk", TestEntity.class, this::initialRoot, driverFactory);
+		LOGGER.debug("Make another bosk that doesn't witness any change stream events before the outage");
+		Bosk<TestEntity> latecomerBosk = new Bosk<TestEntity>("Latecomer", TestEntity.class, this::initialRoot, driverFactory);
 
+		LOGGER.debug("Cut connection");
 		mongoService.proxy().setConnectionCut(true);
 
 		assertThrows(FlushFailureException.class, driver::flush);
 		assertThrows(FlushFailureException.class, latecomerBosk.driver()::flush);
 
+		LOGGER.debug("Reestablish connection");
 		mongoService.proxy().setConnectionCut(false);
 
-		// Make a change to the bosk and verify that it gets through
+		LOGGER.debug("Make a change to the bosk and verify that it gets through");
 		driver.submitReplacement(refs.listingEntry(entity123), LISTING_ENTRY);
 		TestEntity expected = initialRoot(bosk)
 			.withListing(Listing.of(refs.catalog(), entity123));
@@ -527,4 +531,5 @@ class MongoDriverSpecialTest implements TestParameters {
 		);
 	}
 
+	private static final Logger LOGGER = LoggerFactory.getLogger(MongoDriverSpecialTest.class);
 }
