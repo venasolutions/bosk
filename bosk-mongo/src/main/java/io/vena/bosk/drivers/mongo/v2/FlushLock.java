@@ -60,7 +60,7 @@ class FlushLock {
 				throw new FlushFailureException("Timed out waiting for revision " + revisionValue);
 			}
 		} else {
-			LOGGER.debug("Revision {} is in the past; don't wait", revisionValue);
+			LOGGER.debug("Revision {} <= {} is in the past; don't wait", revisionValue, past);
 			return;
 		}
 		LOGGER.trace("Done awaiting revision {}", revisionValue);

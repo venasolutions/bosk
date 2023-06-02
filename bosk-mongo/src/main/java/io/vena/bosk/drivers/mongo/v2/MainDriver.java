@@ -98,9 +98,9 @@ public class MainDriver<R extends Entity> implements MongoDriver<R> {
 			result = initializeReplication();
 		} catch (UninitializedCollectionException e) {
 			if (LOGGER.isTraceEnabled()) {
-				LOGGER.trace("Creating collection", e);
+				LOGGER.trace("[{}] Creating collection", bosk.name(), e);
 			} else {
-				LOGGER.info("Creating collection");
+				LOGGER.info("[{}] Creating collection", bosk.name());
 			}
 			FormatDriver<R> newDriver = newSingleDocFormatDriver(REVISION_ONE.longValue()); // TODO: Pick based on config?
 			result = downstream.initialRoot(rootType);
