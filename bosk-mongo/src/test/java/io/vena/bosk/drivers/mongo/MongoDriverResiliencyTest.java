@@ -10,7 +10,6 @@ import io.vena.bosk.junit.ParametersByName;
 import java.io.IOException;
 import java.util.stream.Stream;
 import lombok.var;
-import org.junit.jupiter.api.Disabled;
 
 import static io.vena.bosk.ListingEntry.LISTING_ENTRY;
 import static io.vena.bosk.drivers.mongo.MongoDriverSettings.ImplementationKind.RESILIENT;
@@ -38,7 +37,6 @@ public class MongoDriverResiliencyTest extends AbstractMongoDriverTest {
 
 	@ParametersByName
 	@DisruptsMongoService
-	@Disabled("Only supported for ImplementationKind = RESILIENT")
 	void initialOutage_boskRecovers() throws InvalidTypeException, InterruptedException, IOException {
 		// Set up the database contents to be different from initialRoot
 		Bosk<TestEntity> prepBosk = new Bosk<TestEntity>(
