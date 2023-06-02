@@ -35,7 +35,7 @@ import org.bson.Document;
  * </li></ol>
  */
 interface FormatDriver<R extends Entity> extends MongoDriver<R> {
-	void onEvent(ChangeStreamDocument<Document> event);
+	void onEvent(ChangeStreamDocument<Document> event) throws UnprocessableEventException;
 
 	/**
 	 * Implementations should ignore subsequent calls to {@link #onEvent}
@@ -51,8 +51,6 @@ interface FormatDriver<R extends Entity> extends MongoDriver<R> {
 	 * Can assume it's called in a transaction.
 	 */
 	void initializeCollection(StateAndMetadata<R> contents) throws InitializationFailureException;
-
-	default boolean isDisconnected() { return false; }
 
 	@Override
 	default R initialRoot(Type rootType) {

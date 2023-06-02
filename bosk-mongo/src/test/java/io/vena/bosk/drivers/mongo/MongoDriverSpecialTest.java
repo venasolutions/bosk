@@ -26,6 +26,7 @@ import java.util.Optional;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingDeque;
 import lombok.Value;
+import lombok.var;
 import org.bson.BsonDocument;
 import org.bson.BsonNull;
 import org.bson.BsonString;
@@ -315,6 +316,52 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest implements TestPara
 		}
 
 		assertEquals(expected, actual);
+	}
+
+	@ParametersByName
+	@UsesMongoService
+	void unrelatedDatabase_ignored() throws InvalidTypeException, IOException, InterruptedException {
+		tearDownActions.add(mongoService.client().getDatabase("unrelated")::drop);
+		doUnrelatedChangeTest("unrelated", COLLECTION_NAME, "boskDocument");
+	}
+
+	@ParametersByName
+	@UsesMongoService
+	void unrelatedCollection_ignored() throws InvalidTypeException, IOException, InterruptedException {
+		doUnrelatedChangeTest(driverSettings.database(), "unrelated", "boskDocument");
+	}
+
+	@ParametersByName
+	@UsesMongoService
+	void unrelatedDoc_ignored() throws InvalidTypeException, IOException, InterruptedException {
+		doUnrelatedChangeTest(driverSettings.database(), COLLECTION_NAME, "unrelated");
+	}
+
+	private void doUnrelatedChangeTest(String databaseName, String collectionName, String docID) throws IOException, InterruptedException, InvalidTypeException {
+		Bosk<TestEntity> bosk = new Bosk<TestEntity>("Test bosk", TestEntity.class, this::initialRoot, driverFactory);
+
+		MongoCollection<Document> counterfeitCollection = mongoService.client()
+			.getDatabase(databaseName)
+			.getCollection(collectionName);
+
+		// Make a realistic-looking doc to try to fool the driver
+		MongoCollection<Document> actualCollection = mongoService.client()
+			.getDatabase(driverSettings.database())
+			.getCollection(COLLECTION_NAME);
+		Document doc;
+		try (MongoCursor<Document> cursor = actualCollection.find().limit(1).cursor()) {
+			doc = cursor.next();
+		}
+		doc.put("_id", docID);
+		doc.get("state", Document.class).put("string", "counterfeit");
+		counterfeitCollection.insertOne(doc);
+
+		bosk.driver().flush();
+		TestEntity expected = initialRoot(bosk);
+		try (var __ = bosk.readContext()) {
+			TestEntity actual = bosk.rootReference().value();
+			assertEquals(expected, actual);
+		}
 	}
 
 	@ParametersByName

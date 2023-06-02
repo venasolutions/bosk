@@ -93,7 +93,7 @@ final class SingleDocFormatDriver<R extends Entity> implements FormatDriver<R> {
 
 	@Override
 	public <T> void submitDeletion(Reference<T> target) {
-		if (target.path().isEmpty()) {
+		if (target.path().isEmpty()) { // TODO: this seems out of place. MainDriver ought to do error checking like this
 			throw new IllegalArgumentException("Can't delete the root of the bosk");
 		} else {
 			doUpdate(deletionDoc(target), standardPreconditions(target));
@@ -124,6 +124,7 @@ final class SingleDocFormatDriver<R extends Entity> implements FormatDriver<R> {
 	@Override
 	public void close() {
 		LOGGER.debug("+ close()");
+		flushLock.close();
 	}
 
 	@Override
@@ -131,12 +132,12 @@ final class SingleDocFormatDriver<R extends Entity> implements FormatDriver<R> {
 		try (MongoCursor<Document> cursor = collection.find(documentFilter()).limit(1).cursor()) {
 			Document document = cursor.next();
 			Document state = document.get(DocumentFields.state.name(), Document.class);
-			Long revision = document.getLong(DocumentFields.revision.name());
+			Long revision = document.get(DocumentFields.revision.name(), 0L);
 			if (state == null) {
 				throw new IOException("No existing state in document");
 			} else {
 				R root = formatter.document2object(state, rootRef);
-				BsonInt64 rev = new BsonInt64((revision==null)? 0L : revision); // Nonexistent revision == 0
+				BsonInt64 rev = new BsonInt64(revision);
 				return new StateAndMetadata<>(root, rev);
 			}
 		} catch (NoSuchElementException e) {
@@ -161,12 +162,20 @@ final class SingleDocFormatDriver<R extends Entity> implements FormatDriver<R> {
 	}
 
 	@Override
-	public void onEvent(ChangeStreamDocument<Document> event) {
+	public void onEvent(ChangeStreamDocument<Document> event) throws UnprocessableEventException {
 		LOGGER.debug("# EVENT: {}", event);
+		if (!DOCUMENT_FILTER.equals(event.getDocumentKey())) {
+			LOGGER.debug("Ignoring event for unrecognized document key: {}", event.getDocumentKey());
+			return;
+		}
 		switch (event.getOperationType()) {
 			case INSERT: case REPLACE: {
-				BsonInt64 revision = getRevisionFromFullDocumentEvent(event.getFullDocument());
-				Document state = event.getFullDocument().get(DocumentFields.state.name(), Document.class);
+				Document fullDocument = event.getFullDocument();
+				if (fullDocument == null) {
+					throw new NotYetImplementedException("No document??");
+				}
+				BsonInt64 revision = getRevisionFromFullDocumentEvent(fullDocument);
+				Document state = fullDocument.get(DocumentFields.state.name(), Document.class);
 				if (state == null) {
 					throw new NotYetImplementedException("No state??");
 				}
@@ -189,7 +198,7 @@ final class SingleDocFormatDriver<R extends Entity> implements FormatDriver<R> {
 				LOGGER.info("Delete event ignored (id={}). Assuming the document will be created again...", event.getDocumentKey());
 			} break;
 			default: {
-				throw new NotYetImplementedException("Unknown change stream event: " + event);
+				throw new UnprocessableEventException("Cannot process event: " + event);
 			}
 		}
 	}
@@ -249,7 +258,7 @@ final class SingleDocFormatDriver<R extends Entity> implements FormatDriver<R> {
 					// In that case, newer servers (including this one) will create the
 					// the field upon initialization, and we're ok to wait for any old
 					// revision number at all.
-					LOGGER.debug("No revision field; using zero");
+					LOGGER.debug("No revision field; assuming {}", REVISION_ZERO.longValue());
 					return REVISION_ZERO;
 				} else {
 					LOGGER.debug("Read revision {}", result);
@@ -257,9 +266,8 @@ final class SingleDocFormatDriver<R extends Entity> implements FormatDriver<R> {
 				}
 			}
 		} catch (NoSuchElementException e) {
-			// Document doesn't exist at all yet. We're ok to wait for any update at all.
-			LOGGER.debug("No document; using zero");
-			return REVISION_ZERO;
+			LOGGER.debug("Document is missing", e);
+			throw new FlushFailureException(e);
 		} catch (RuntimeException e) {
 			LOGGER.debug("readRevisionNumber failed", e);
 			throw new FlushFailureException(e);
@@ -374,7 +382,7 @@ final class SingleDocFormatDriver<R extends Entity> implements FormatDriver<R> {
 	 * Call <code>downstream.{@link BoskDriver#submitDeletion submitDeletion}</code>
 	 * for each removed field.
 	 */
-	private void deleteRemovedFields(@Nullable List<String> removedFields) {
+	private void deleteRemovedFields(@Nullable List<String> removedFields) throws UnprocessableEventException {
 		if (removedFields != null) {
 			for (String dottedName : removedFields) {
 				if (dottedName.startsWith(DocumentFields.state.name())) {
@@ -387,6 +395,8 @@ final class SingleDocFormatDriver<R extends Entity> implements FormatDriver<R> {
 					}
 					LOGGER.debug("| Delete {}", ref);
 					downstream.submitDeletion(ref);
+				} else {
+					throw new UnprocessableEventException("Deletion of metadata field " + dottedName);
 				}
 			}
 		}

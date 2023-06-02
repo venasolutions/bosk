@@ -28,9 +28,12 @@ public interface MongoDriver<R extends Entity> extends BoskDriver<R> {
 	 * other database updates.
 	 *
 	 * <p>
-	 * This requires the database state to be in a recognizable condition
-	 * at the outset. This can't generally be used to fix up corrupted
-	 * databases unless the corruption is very mild.
+	 * This requires the database state to be in good condition at the outset;
+	 * it can't generally be used to repair corrupted databases
+	 * unless the corruption is so mild that it doesn't
+	 * interfere with proper functioning beforehand.
+	 * It can be expected to evolve the database from that of a supported prior format,
+	 * but for unsupported formats or other corruption, YMMV.
 	 */
 	void refurbish() throws IOException;
 

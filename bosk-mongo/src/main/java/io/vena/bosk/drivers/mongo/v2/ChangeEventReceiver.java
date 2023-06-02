@@ -1,6 +1,7 @@
 package io.vena.bosk.drivers.mongo.v2;
 
 import com.mongodb.MongoCommandException;
+import com.mongodb.MongoException;
 import com.mongodb.MongoInterruptedException;
 import com.mongodb.client.MongoChangeStreamCursor;
 import com.mongodb.client.MongoCollection;
@@ -25,6 +26,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import static java.lang.Thread.currentThread;
+import static java.lang.Thread.sleep;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -61,6 +63,7 @@ class ChangeEventReceiver implements Closeable {
 		final MongoChangeStreamCursor<ChangeStreamDocument<Document>> cursor;
 		final ChangeEventListener listener;
 		ChangeStreamDocument<Document> initialEvent;
+		volatile boolean isClosed;
 	}
 
 	/**
@@ -76,7 +79,8 @@ class ChangeEventReceiver implements Closeable {
 	 * thread itself, since a re-initialization could be triggered by an event or exception.
 	 * For example, a {@link ChangeEventListener#onException} implementation can call this.
 	 *
-	 * @return true if we obtained a resume token.
+	 * @return true if we succeeded in establishing a new session;
+	 * false if we should enter the disconnected state
 	 * @see #start()
 	 */
 	public boolean initialize(ChangeEventListener listener) throws ReceiverInitializationException {
@@ -84,8 +88,7 @@ class ChangeEventReceiver implements Closeable {
 		try {
 			lock.lock();
 			stop();
-			setupNewSession(listener);
-			return lastProcessedResumeToken != null;
+			return setupNewSession(listener);
 		} catch (RuntimeException | InterruptedException | TimeoutException e) {
 			throw new ReceiverInitializationException(e);
 		} finally {
@@ -116,13 +119,24 @@ class ChangeEventReceiver implements Closeable {
 	public void stop() throws InterruptedException, TimeoutException {
 		try {
 			lock.lock();
+			Session session = currentSession;
+			if (session != null) {
+				session.isClosed = true;
+				session.cursor.close();
+			}
 			Future<?> task = this.eventProcessingTask;
 			if (task != null) {
 				LOGGER.debug("Canceling event processing task");
-				task.cancel(true);
+				task.cancel(
+					// You'd think this should be true, but the Mongo client does not seem
+					// to deal with being interrupted very well. Closing the cursor seems
+					// to have the right effect though.
+					false
+				);
 				try {
 					task.get(10, SECONDS); // TODO: Config
-					LOGGER.warn("Normal completion of event processing task was not expected");
+					LOGGER.debug("Cancellation succeeded; event loop exited normally");
+					this.eventProcessingTask = null;
 				} catch (CancellationException e) {
 					LOGGER.debug("Cancellation succeeded; event loop interrupted");
 					this.eventProcessingTask = null;
@@ -145,16 +159,30 @@ class ChangeEventReceiver implements Closeable {
 		ex.shutdown();
 	}
 
-	private void setupNewSession(ChangeEventListener newListener) {
+	/**
+	 * @return true if we succeeded in establishing a new session;
+	 * false if we should enter the disconnected state
+	 */
+	private boolean setupNewSession(ChangeEventListener newListener) {
 		assert this.eventProcessingTask == null;
 		LOGGER.debug("Setup new session");
 		this.currentSession = null; // In case any exceptions happen during this method
 
-		for (int attempt = 1; attempt <= 2; attempt++) {
+		int attempt;
+		for (attempt = 1; attempt <= 2; attempt++) {
 			LOGGER.debug("Attempt #{}", attempt);
 			ChangeStreamDocument<Document> initialEvent;
-			BsonDocument resumePoint = lastProcessedResumeToken;
+			BsonDocument resumePoint = null; //lastProcessedResumeToken;
 			if (resumePoint == null) {
+				if (settings.testing().eventDelayMS() < 0) {
+					LOGGER.debug("- Sleeping");
+					try {
+						sleep(-settings.testing().eventDelayMS());
+					} catch (InterruptedException e) {
+						LOGGER.debug("Sleep aborted; continuing", e);
+						Thread.interrupted();
+					}
+				}
 				LOGGER.debug("Acquire initial resume token");
 				// TODO: Config
 				// Note: on a quiescent collection, tryNext() will wait for the Await Time to elapse, so keep it short
@@ -178,14 +206,16 @@ class ChangeEventReceiver implements Closeable {
 			try {
 				MongoChangeStreamCursor<ChangeStreamDocument<Document>> cursor
 					= collection.watch().resumeAfter(resumePoint).cursor();
-				currentSession = new Session(cursor, newListener, initialEvent);
-				return;
+				currentSession = new Session(cursor, newListener, initialEvent, false);
+				return true;
 			} catch (MongoCommandException e) {
 				LOGGER.error("Change stream cursor command failed; discarding resume token", e);
 				lastProcessedResumeToken = null;
 				// If we haven't already retried, we'll continue around the loop
 			}
 		}
+		LOGGER.debug("Giving up initializing session after attempt #{}", attempt-1);
+		return false;
 	}
 
 	/**
@@ -202,18 +232,26 @@ class ChangeEventReceiver implements Closeable {
 			while (true) {
 				if (settings.testing().eventDelayMS() > 0) {
 					LOGGER.debug("- Sleeping");
-					try {
-						Thread.sleep(settings.testing().eventDelayMS());
-					} catch (InterruptedException e) {
-						LOGGER.debug("| Interrupted");
-					}
+					Thread.sleep(settings.testing().eventDelayMS());
 				}
 				processEvent(session, session.cursor.next());
 			}
-		} catch (MongoInterruptedException e) {
-			// This happens when stop() cancels the task; this is part of normal operation
-			LOGGER.debug("Event loop interrupted", e);
+		} catch (UnprocessableEventException e) {
+			LOGGER.warn("Unprocessable event; discarding resume token", e);
+			lastProcessedResumeToken = null;
 			session.listener.onException(e);
+		} catch (InterruptedException | MongoInterruptedException e) {
+			// This can happen if stop() cancels the task with an interrupt; it's part of normal operation
+			LOGGER.info("Event loop interrupted", e);
+			Thread.interrupted();
+		} catch (MongoException e) {
+			if (session.isClosed) {
+				// This happens when stop() cancels the task; this is part of normal operation
+				LOGGER.info("Session is closed; exiting event loop", e);
+			} else {
+				LOGGER.warn("Unexpected MongoException while processing events; event loop aborted", e);
+				session.listener.onException(e);
+			}
 		} catch (RuntimeException e) {
 			LOGGER.warn("Unexpected exception while processing events; event loop aborted", e);
 			session.listener.onException(e);
@@ -222,7 +260,7 @@ class ChangeEventReceiver implements Closeable {
 		}
 	}
 
-	private void processEvent(Session session, ChangeStreamDocument<Document> event) {
+	private void processEvent(Session session, ChangeStreamDocument<Document> event) throws UnprocessableEventException {
 		session.listener.onEvent(event);
 		lastProcessedResumeToken = event.getResumeToken();
 	}
