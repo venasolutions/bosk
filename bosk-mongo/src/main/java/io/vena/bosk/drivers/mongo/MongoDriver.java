@@ -26,6 +26,11 @@ public interface MongoDriver<R extends Entity> extends BoskDriver<R> {
 	 * database state, deserializes it, re-serializes it, and writes it back.
 	 * This produces predictable results even if done concurrently with
 	 * other database updates.
+	 *
+	 * <p>
+	 * This requires the database state to be in a recognizable condition
+	 * at the outset. This can't generally be used to fix up corrupted
+	 * databases unless the corruption is very mild.
 	 */
 	void refurbish() throws IOException;
 
