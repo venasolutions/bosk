@@ -5,6 +5,7 @@ import com.mongodb.MongoInterruptedException;
 import com.mongodb.client.MongoChangeStreamCursor;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.changestream.ChangeStreamDocument;
+import io.vena.bosk.drivers.mongo.MongoDriverSettings;
 import io.vena.bosk.exceptions.NotYetImplementedException;
 import java.io.Closeable;
 import java.util.concurrent.CancellationException;
@@ -46,6 +47,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 @RequiredArgsConstructor
 class ChangeEventReceiver implements Closeable {
 	private final String boskName;
+	private final MongoDriverSettings settings;
 	private final MongoCollection<Document> collection;
 	private final ExecutorService ex = Executors.newFixedThreadPool(1);
 
@@ -198,6 +200,14 @@ class ChangeEventReceiver implements Closeable {
 				session.initialEvent = null; // Allow GC
 			}
 			while (true) {
+				if (settings.testing().eventDelayMS() > 0) {
+					LOGGER.debug("- Sleeping");
+					try {
+						Thread.sleep(settings.testing().eventDelayMS());
+					} catch (InterruptedException e) {
+						LOGGER.debug("| Interrupted");
+					}
+				}
 				processEvent(session, session.cursor.next());
 			}
 		} catch (MongoInterruptedException e) {

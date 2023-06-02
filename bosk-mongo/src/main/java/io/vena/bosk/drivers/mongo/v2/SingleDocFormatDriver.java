@@ -167,7 +167,6 @@ final class SingleDocFormatDriver<R extends Entity> implements FormatDriver<R> {
 		switch (event.getOperationType()) {
 			case INSERT: case REPLACE: {
 				BsonInt64 revision = getRevisionFromFullDocumentEvent(event.getFullDocument());
-				flushLock.startedRevision(revision);
 				Document state = event.getFullDocument().get(DocumentFields.state.name(), Document.class);
 				if (state == null) {
 					throw new NotYetImplementedException("No state??");
@@ -180,7 +179,6 @@ final class SingleDocFormatDriver<R extends Entity> implements FormatDriver<R> {
 				UpdateDescription updateDescription = event.getUpdateDescription();
 				if (updateDescription != null) {
 					BsonInt64 revision = getRevisionFromUpdateEvent(event);
-					flushLock.startedRevision(revision);
 					if (shouldNotSkip(revision)) {
 						replaceUpdatedFields(updateDescription.getUpdatedFields());
 						deleteRemovedFields(updateDescription.getRemovedFields());
