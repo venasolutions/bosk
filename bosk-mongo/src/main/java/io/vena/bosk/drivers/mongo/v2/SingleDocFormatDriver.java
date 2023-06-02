@@ -35,7 +35,6 @@ import org.slf4j.LoggerFactory;
 
 import static com.mongodb.client.model.Projections.fields;
 import static com.mongodb.client.model.Projections.include;
-import static io.vena.bosk.drivers.mongo.v2.Formatter.REVISION_ONE;
 import static io.vena.bosk.drivers.mongo.v2.Formatter.REVISION_ZERO;
 import static io.vena.bosk.drivers.mongo.v2.Formatter.dottedFieldNameOf;
 import static io.vena.bosk.drivers.mongo.v2.Formatter.enclosingReference;
@@ -304,7 +303,7 @@ final class SingleDocFormatDriver<R extends Entity> implements FormatDriver<R> {
 	}
 
 	private BsonDocument updateDoc() {
-		return new BsonDocument("$inc", new BsonDocument(DocumentFields.revision.name(), REVISION_ONE));
+		return new BsonDocument("$inc", new BsonDocument(DocumentFields.revision.name(), new BsonInt64(1)));
 	}
 
 	private BsonDocument initialDocument(BsonValue initialState, BsonInt64 revision) {
