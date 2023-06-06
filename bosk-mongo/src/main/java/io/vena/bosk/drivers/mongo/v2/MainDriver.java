@@ -11,7 +11,6 @@ import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoCursor;
-import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.model.changestream.ChangeStreamDocument;
 import io.vena.bosk.Bosk;
 import io.vena.bosk.BoskDriver;
@@ -46,12 +45,11 @@ public class MainDriver<R extends Entity> implements MongoDriver<R> {
 
 	private final Reference<R> rootRef;
 	private final MongoClient mongoClient;
-	private final MongoDatabase database;
 	private final MongoCollection<Document> collection;
 	private final ChangeEventReceiver receiver;
 
 	private final AtomicReference<FutureTask<R>> initializationInProgress = new AtomicReference<>();
-	private volatile FormatDriver<R> formatDriver = new DisconnectedDriver<>();
+	private volatile FormatDriver<R> formatDriver = new DisconnectedDriver<>("Driver not yet initialized");
 	private volatile boolean isClosed = false;
 
 	public MainDriver(
@@ -60,7 +58,7 @@ public class MainDriver<R extends Entity> implements MongoDriver<R> {
 		MongoDriverSettings driverSettings,
 		BsonPlugin bsonPlugin,
 		BoskDriver<R> downstream
-		) {
+	) {
 		validateMongoClientSettings(clientSettings);
 
 		this.bosk = bosk;
@@ -70,9 +68,8 @@ public class MainDriver<R extends Entity> implements MongoDriver<R> {
 
 		this.rootRef = bosk.rootReference();
 		this.mongoClient = MongoClients.create(clientSettings);
-		this.database = mongoClient
-			.getDatabase(driverSettings.database());
-		this.collection = database
+		this.collection = mongoClient
+			.getDatabase(driverSettings.database())
 			.getCollection(COLLECTION_NAME);
 		this.receiver = new ChangeEventReceiver(bosk.name(), driverSettings, collection);
 	}
@@ -98,15 +95,15 @@ public class MainDriver<R extends Entity> implements MongoDriver<R> {
 			result = initializeReplication();
 		} catch (UninitializedCollectionException e) {
 			if (LOGGER.isTraceEnabled()) {
-				LOGGER.trace("Creating collection", e);
+				LOGGER.trace("[{}] Creating collection", bosk.name(), e);
 			} else {
-				LOGGER.info("Creating collection");
+				LOGGER.info("[{}] Creating collection", bosk.name());
 			}
 			FormatDriver<R> newDriver = newSingleDocFormatDriver(REVISION_ONE.longValue()); // TODO: Pick based on config?
 			result = downstream.initialRoot(rootType);
 			newDriver.initializeCollection(new StateAndMetadata<>(result, REVISION_ONE));
 			formatDriver = newDriver;
-		} catch (ReceiverInitializationException e) {
+		} catch (IOException | ReceiverInitializationException e) {
 			LOGGER.debug("Unable to initialize replication", e);
 			result = null;
 		}
@@ -127,14 +124,18 @@ public class MainDriver<R extends Entity> implements MongoDriver<R> {
 			LOGGER.debug("Closed driver ignoring exception", exception);
 			return;
 		}
-		LOGGER.error("Recovering from unexpected exception; reinitializing", exception);
+		if (exception instanceof DisconnectedException) {
+			LOGGER.debug("Recovering from exception; reinitializing", exception);
+		} else {
+			LOGGER.error("Recovering from unexpected exception; reinitializing", exception);
+		}
 		R result;
 		try {
 			result = initializeReplication();
 		} catch (UninitializedCollectionException e) {
 			LOGGER.warn("Collection is uninitialized; driver is disconnected", e);
 			return;
-		} catch (ReceiverInitializationException e) {
+		} catch (IOException | ReceiverInitializationException e) {
 			LOGGER.warn("Unable to initialize receiver", e);
 			return;
 		}
@@ -150,53 +151,69 @@ public class MainDriver<R extends Entity> implements MongoDriver<R> {
 	@Override
 	public <T> void submitReplacement(Reference<T> target, T newValue) {
 		beginDriverOperation("submitReplacement({})", target);
-		retryIfDisconnected(() ->
+		runWithRetry(() ->
 			formatDriver.submitReplacement(target, newValue));
 	}
 
 	@Override
 	public <T> void submitConditionalReplacement(Reference<T> target, T newValue, Reference<Identifier> precondition, Identifier requiredValue) {
 		beginDriverOperation("submitConditionalReplacement({}, {} = {})", target, precondition, requiredValue);
-		retryIfDisconnected(() ->
+		runWithRetry(() ->
 			formatDriver.submitConditionalReplacement(target, newValue, precondition, requiredValue));
 	}
 
 	@Override
 	public <T> void submitInitialization(Reference<T> target, T newValue) {
 		beginDriverOperation("submitInitialization({})", target);
-		retryIfDisconnected(() ->
+		runWithRetry(() ->
 			formatDriver.submitInitialization(target, newValue));
 	}
 
 	@Override
 	public <T> void submitDeletion(Reference<T> target) {
 		beginDriverOperation("submitDeletion({}, {})", target);
-		retryIfDisconnected(() ->
+		runWithRetry(() ->
 			formatDriver.submitDeletion(target));
 	}
 
 	@Override
 	public <T> void submitConditionalDeletion(Reference<T> target, Reference<Identifier> precondition, Identifier requiredValue) {
 		beginDriverOperation("submitConditionalDeletion({}, {} = {})", target, precondition, requiredValue);
-		retryIfDisconnected(() ->
+		runWithRetry(() ->
 			formatDriver.submitConditionalDeletion(target, precondition, requiredValue));
+	}
+
+	@Override
+	public void refurbish() throws IOException {
+		beginDriverOperation("refurbish");
+		runWithRetry(this::doRefurbish);
 	}
 
 	@Override
 	public void flush() throws IOException, InterruptedException {
 		beginDriverOperation("flush");
 		try {
-			this.<IOException, InterruptedException>retryIfDisconnected(() ->
-				formatDriver.flush());
-		} catch (DisconnectedException e) {
-			throw new FlushFailureException("Unable to connect to database", e);
+			formatDriver.flush();
+		} catch (FlushFailureException | RuntimeException e1) {
+			recoverFrom(e1);
+			LOGGER.debug("Retrying flush");
+			try {
+				formatDriver.flush();
+			} catch (DisconnectedException e2) { // Other RuntimeExceptions are unexpected
+				// The message from DisconnectionException is suitable as-is
+				throw new FlushFailureException(e2.getMessage(), e2);
+			}
 		}
 	}
 
-	@Override
-	public void refurbish() throws IOException {
-		beginDriverOperation("refurbish");
-		retryIfDisconnected(this::doRefurbish);
+	private <X extends Exception, Y extends Exception> void runWithRetry(Action<X, Y> action) throws X, Y {
+		try {
+			action.run();
+		} catch (RuntimeException e) {
+			recoverFrom(e);
+			LOGGER.debug("Retrying");
+			action.run();
+		}
 	}
 
 	private void doRefurbish() throws IOException {
@@ -237,16 +254,6 @@ public class MainDriver<R extends Entity> implements MongoDriver<R> {
 		formatDriver.close();
 	}
 
-	private <X extends Exception, Y extends Exception> void retryIfDisconnected(Action<X, Y> action) throws X, Y {
-		try {
-			action.run();
-		} catch (DisconnectedException e) {
-			recoverFrom(e);
-			LOGGER.debug("Retrying");
-			action.run();
-		}
-	}
-
 	private interface Action<X extends Exception, Y extends Exception> {
 		void run() throws X, Y;
 	}
@@ -258,11 +265,13 @@ public class MainDriver<R extends Entity> implements MongoDriver<R> {
 	 * Caller is responsible for calling {@link #receiver}{@link ChangeEventReceiver#start() .start()}
 	 * to kick off event processing. We don't do it here because some callers need to do other things
 	 * after initialization but before any events arrive.
+	 * <p>
+	 * Does some intelligent debouncing if multiple calls happen in parallel.
 	 *
 	 * @return The new root object to use, if any
 	 * @throws UninitializedCollectionException if the database or collection doesn't exist
 	 */
-	private R initializeReplication() throws UninitializedCollectionException, ReceiverInitializationException {
+	private R initializeReplication() throws UninitializedCollectionException, ReceiverInitializationException, IOException {
 		if (isClosed) {
 			LOGGER.debug("Don't initialize replication on closed driver");
 			return null;
@@ -274,7 +283,8 @@ public class MainDriver<R extends Entity> implements MongoDriver<R> {
 		FutureTask<R> initTask = new FutureTask<>(() -> {
 			LOGGER.debug("Initializing replication");
 			try {
-				formatDriver = new DisconnectedDriver<>(); // Fallback in case initialization fails
+				formatDriver.close();
+				formatDriver = new DisconnectedDriver<>("Driver initialization failed"); // Fallback in case initialization fails
 				if (receiver.initialize(new Listener())) {
 					FormatDriver<R> newDriver = detectFormat();
 					StateAndMetadata<R> result = newDriver.loadAllState();
@@ -282,11 +292,13 @@ public class MainDriver<R extends Entity> implements MongoDriver<R> {
 					formatDriver = newDriver;
 					return result.state;
 				} else {
-					LOGGER.warn("Unable to fetch resume token; disconnected");
+					LOGGER.warn("Unable to fetch resume token; disconnecting");
+					formatDriver = new DisconnectedDriver<>("Unable to fetch resume token");
 					return null;
 				}
-			} catch (ReceiverInitializationException | IOException e) {
+			} catch (ReceiverInitializationException | IOException | RuntimeException e) {
 				LOGGER.warn("Failed to initialize replication", e);
+				formatDriver = new DisconnectedDriver<>(e.toString());
 				throw new TunneledCheckedException(e);
 			} finally {
 				// Clearing the map entry here allows the next initialization task to be created
@@ -297,16 +309,28 @@ public class MainDriver<R extends Entity> implements MongoDriver<R> {
 
 		// Use initializationInProgress to check for an existing task, and if there isn't
 		// one, use the new one we just created.
-		FutureTask<R> init = initializationInProgress.updateAndGet(x -> x == null? initTask : x);
+		FutureTask<R> init = initializationInProgress.updateAndGet(x -> {
+			if (x == null) {
+				LOGGER.debug("Will perform initialization");
+				return initTask;
+			} else {
+				LOGGER.debug("Will wait for initialization already underway");
+				return x;
+			}
+		});
 
 		// This either runs the task (if it's the new one we just created) or waits for the run in progress to finish.
 		init.run();
 
 		try {
-			return init.get();
+			R result = init.get();
+			LOGGER.debug("Initialization returned {}", (result==null)? "null" : "new root");
+			return result;
 		} catch (InterruptedException e) {
+			LOGGER.debug("Initialization interrupted", e);
 			throw new NotYetImplementedException(e);
 		} catch (ExecutionException e) {
+			LOGGER.debug("Initialization threw", e.getCause());
 			// Unpacking the exception is super annoying
 			if (e.getCause() instanceof UninitializedCollectionException) {
 				throw (UninitializedCollectionException) e.getCause();
@@ -316,6 +340,10 @@ public class MainDriver<R extends Entity> implements MongoDriver<R> {
 					throw (UninitializedCollectionException) cause;
 				} else if (cause instanceof ReceiverInitializationException) {
 					throw (ReceiverInitializationException)cause;
+				} else if (cause instanceof IOException) {
+					throw (IOException)cause;
+				} else if (cause instanceof RuntimeException) {
+					throw (RuntimeException)cause;
 				} else {
 					throw new NotYetImplementedException(cause);
 				}
@@ -333,7 +361,7 @@ public class MainDriver<R extends Entity> implements MongoDriver<R> {
 		volatile boolean isListening = true; // (volatile is probably overkill because all calls are on the same thread anyway)
 
 		@Override
-		public void onEvent(ChangeStreamDocument<Document> event) {
+		public void onEvent(ChangeStreamDocument<Document> event) throws UnprocessableEventException {
 			if (isListening) {
 				try {
 					formatDriver.onEvent(event);

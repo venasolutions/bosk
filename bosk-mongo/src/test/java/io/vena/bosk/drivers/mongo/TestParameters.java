@@ -20,6 +20,18 @@ public interface TestParameters {
 			MongoDriverSettings.builder()
 				.database(prefix + "_resilient")
 				.implementationKind(RESILIENT)
+//			MongoDriverSettings.builder()
+//				.database(prefix + "_slow")
+//				.implementationKind(RESILIENT)
+//				.testing(MongoDriverSettings.Testing.builder()
+//					.eventDelayMS(200)
+//					.build()),
+//			MongoDriverSettings.builder()
+//				.database(prefix + "_fast")
+//				.implementationKind(RESILIENT)
+//				.testing(MongoDriverSettings.Testing.builder()
+//					.eventDelayMS(-200)
+//					.build())
 		);
 	}
 
