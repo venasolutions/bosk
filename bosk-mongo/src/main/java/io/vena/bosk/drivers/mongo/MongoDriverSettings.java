@@ -12,10 +12,23 @@ public class MongoDriverSettings {
 	String database;
 
 	@Default long flushTimeoutMS = 30_000;
-	@Default FlushMode flushMode = FlushMode.ECHO;
-	@Default ImplementationKind implementationKind = ImplementationKind.STABLE;
+
+	@Default Experimental experimental = Experimental.builder().build();
 	@Default Testing testing = Testing.builder().build();
 
+	/**
+	 * Settings with no guarantee of long-term support.
+	 */
+	@Value
+	@Builder
+	public static class Experimental {
+		@Default ImplementationKind implementationKind = ImplementationKind.STABLE;
+		@Default FlushMode flushMode = FlushMode.ECHO;
+	}
+
+	/**
+	 * Settings not meant to be used in production.
+	 */
 	@Value
 	@Builder
 	public static class Testing {

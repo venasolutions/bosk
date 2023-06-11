@@ -39,19 +39,22 @@ public class MongoDriverResiliencyTest extends AbstractMongoDriverTest {
 
 	@SuppressWarnings("unused")
 	static Stream<MongoDriverSettings.MongoDriverSettingsBuilder> driverSettings() {
+		MongoDriverSettings.Experimental resilient = MongoDriverSettings.Experimental.builder()
+			.implementationKind(RESILIENT)
+			.build();
 		return Stream.of(
 			MongoDriverSettings.builder()
 				.database("boskResiliencyTestDB_" + dbCounter.incrementAndGet())
-				.implementationKind(RESILIENT),
+				.experimental(resilient),
 			MongoDriverSettings.builder()
 				.database("boskResiliencyTestDB_" + dbCounter.incrementAndGet() + "_late")
-				.implementationKind(RESILIENT)
+				.experimental(resilient)
 				.testing(MongoDriverSettings.Testing.builder()
 					.eventDelayMS(200)
 					.build()),
 			MongoDriverSettings.builder()
 				.database("boskResiliencyTestDB_" + dbCounter.incrementAndGet() + "_early")
-				.implementationKind(RESILIENT)
+				.experimental(resilient)
 				.testing(MongoDriverSettings.Testing.builder()
 					.eventDelayMS(-200)
 					.build())
