@@ -163,7 +163,11 @@ final class SingleDocFormatDriver<R extends Entity> implements FormatDriver<R> {
 
 	@Override
 	public void onEvent(ChangeStreamDocument<Document> event) throws UnprocessableEventException {
-		LOGGER.debug("# EVENT: {}", event);
+		if (LOGGER.isTraceEnabled()) {
+			LOGGER.trace("# EVENT: {} {}", event.getOperationType().getValue(), event);
+		} else {
+			LOGGER.debug("# EVENT: {}", event.getOperationType().getValue());
+		}
 		if (!DOCUMENT_FILTER.equals(event.getDocumentKey())) {
 			LOGGER.debug("Ignoring event for unrecognized document key: {}", event.getDocumentKey());
 			return;
@@ -180,6 +184,7 @@ final class SingleDocFormatDriver<R extends Entity> implements FormatDriver<R> {
 					throw new NotYetImplementedException("No state??");
 				}
 				R newRoot = formatter.document2object(state, rootRef);
+				LOGGER.debug("| Replace {}", rootRef);
 				downstream.submitReplacement(rootRef, newRoot);
 				flushLock.finishedRevision(revision);
 			} break;

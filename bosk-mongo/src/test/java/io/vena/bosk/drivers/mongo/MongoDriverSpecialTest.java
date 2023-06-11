@@ -57,7 +57,7 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest implements TestPara
 	@ParametersByName
 	@UsesMongoService
 	void warmStart_stateMatches() throws InvalidTypeException, InterruptedException, IOException {
-		Bosk<TestEntity> setupBosk = new Bosk<TestEntity>("Test bosk", TestEntity.class, this::initialRoot, driverFactory);
+		Bosk<TestEntity> setupBosk = new Bosk<TestEntity>("Setup", TestEntity.class, this::initialRoot, driverFactory);
 		Refs refs = setupBosk.buildReferences(Refs.class);
 
 		// Make a change to the bosk so it's not just the initial root
@@ -66,7 +66,7 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest implements TestPara
 		TestEntity expected = initialRoot(setupBosk)
 			.withListing(Listing.of(refs.catalog(), entity123));
 
-		Bosk<TestEntity> latecomerBosk = new Bosk<TestEntity>("Latecomer bosk", TestEntity.class, b->{
+		Bosk<TestEntity> latecomerBosk = new Bosk<TestEntity>("Latecomer", TestEntity.class, b->{
 			throw new AssertionError("Default root function should not be called");
 		}, driverFactory);
 
@@ -83,7 +83,7 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest implements TestPara
 		// Set up MongoDriver writing to a modified BufferingDriver that lets us
 		// have tight control over all the comings and goings from MongoDriver.
 		BlockingQueue<Reference<?>> replacementsSeen = new LinkedBlockingDeque<>();
-		Bosk<TestEntity> bosk = new Bosk<TestEntity>("Test bosk", TestEntity.class, this::initialRoot,
+		Bosk<TestEntity> bosk = new Bosk<TestEntity>("Test", TestEntity.class, this::initialRoot,
 			(b,d) -> driverFactory.build(b, new BufferingDriver<TestEntity>(d){
 				@Override
 				public <T> void submitReplacement(Reference<T> target, T newValue) {
@@ -135,7 +135,7 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest implements TestPara
 	@ParametersByName
 	@UsesMongoService
 	void listing_stateMatches() throws InvalidTypeException, InterruptedException, IOException {
-		Bosk<TestEntity> bosk = new Bosk<TestEntity>("Test bosk", TestEntity.class, this::initialRoot, driverFactory);
+		Bosk<TestEntity> bosk = new Bosk<TestEntity>("Test", TestEntity.class, this::initialRoot, driverFactory);
 		BoskDriver<TestEntity> driver = bosk.driver();
 		CatalogReference<TestEntity> catalogRef = bosk.rootReference().thenCatalog(TestEntity.class,
 			TestEntity.Fields.catalog);
@@ -217,11 +217,11 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest implements TestPara
 	@UsesMongoService
 	void initialStateHasNonexistentFields_ignored() {
 		// Upon creating bosk, the initial value will be saved to MongoDB
-		Bosk<TestEntity> bosk = new Bosk<TestEntity>("Newer bosk", TestEntity.class, this::initialRoot, driverFactory);
+		Bosk<TestEntity> bosk = new Bosk<TestEntity>("Newer", TestEntity.class, this::initialRoot, driverFactory);
 
 		// Upon creating prevBosk, the state in the database will be loaded into the local.
 		Bosk<OldEntity> prevBosk = new Bosk<OldEntity>(
-			"Older bosk",
+			"Prev",
 			OldEntity.class,
 			(b) -> { throw new AssertionError("prevBosk should use the state from MongoDB"); },
 			createDriverFactory());
@@ -238,9 +238,9 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest implements TestPara
 	@ParametersByName
 	@UsesMongoService
 	void updateHasNonexistentFields_ignored() throws InvalidTypeException, IOException, InterruptedException {
-		Bosk<TestEntity> bosk = new Bosk<TestEntity>("Newer bosk", TestEntity.class, this::initialRoot, driverFactory);
+		Bosk<TestEntity> bosk = new Bosk<TestEntity>("Newer", TestEntity.class, this::initialRoot, driverFactory);
 		Bosk<OldEntity> prevBosk = new Bosk<OldEntity>(
-			"Older bosk",
+			"Prev",
 			OldEntity.class,
 			(b) -> { throw new AssertionError("prevBosk should use the state from MongoDB"); },
 			createDriverFactory());
@@ -266,9 +266,9 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest implements TestPara
 	@ParametersByName
 	@UsesMongoService
 	void updateNonexistentField_ignored() throws InvalidTypeException, IOException, InterruptedException {
-		Bosk<TestEntity> bosk = new Bosk<TestEntity>("Newer bosk", TestEntity.class, this::initialRoot, driverFactory);
+		Bosk<TestEntity> bosk = new Bosk<TestEntity>("Newer", TestEntity.class, this::initialRoot, driverFactory);
 		Bosk<OldEntity> prevBosk = new Bosk<OldEntity>(
-			"Older bosk",
+			"Prev",
 			OldEntity.class,
 			(b) -> { throw new AssertionError("prevBosk should use the state from MongoDB"); },
 			createDriverFactory());
@@ -294,9 +294,9 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest implements TestPara
 	@ParametersByName
 	@UsesMongoService
 	void deleteNonexistentField_ignored() throws InvalidTypeException, IOException, InterruptedException {
-		Bosk<TestEntity> bosk = new Bosk<TestEntity>("Newer bosk", TestEntity.class, this::initialRoot, driverFactory);
+		Bosk<TestEntity> bosk = new Bosk<TestEntity>("Newer", TestEntity.class, this::initialRoot, driverFactory);
 		Bosk<OldEntity> prevBosk = new Bosk<OldEntity>(
-			"Older bosk",
+			"Prev",
 			OldEntity.class,
 			(b) -> { throw new AssertionError("prevBosk should use the state from MongoDB"); },
 			createDriverFactory());
@@ -337,7 +337,7 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest implements TestPara
 	}
 
 	private void doUnrelatedChangeTest(String databaseName, String collectionName, String docID) throws IOException, InterruptedException, InvalidTypeException {
-		Bosk<TestEntity> bosk = new Bosk<TestEntity>("Test bosk", TestEntity.class, this::initialRoot, driverFactory);
+		Bosk<TestEntity> bosk = new Bosk<TestEntity>("Test", TestEntity.class, this::initialRoot, driverFactory);
 
 		MongoCollection<Document> counterfeitCollection = mongoService.client()
 			.getDatabase(databaseName)

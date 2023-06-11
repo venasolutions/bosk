@@ -7,8 +7,10 @@ import com.mongodb.client.MongoChangeStreamCursor;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.changestream.ChangeStreamDocument;
 import io.vena.bosk.drivers.mongo.MongoDriverSettings;
+import io.vena.bosk.drivers.mongo.v2.MainDriver.MDCScope;
 import io.vena.bosk.exceptions.NotYetImplementedException;
 import java.io.Closeable;
+import java.util.NoSuchElementException;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -25,6 +27,7 @@ import org.bson.Document;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static io.vena.bosk.drivers.mongo.v2.MainDriver.setupMDC;
 import static java.lang.Thread.currentThread;
 import static java.lang.Thread.sleep;
 import static java.util.Objects.requireNonNull;
@@ -179,7 +182,7 @@ class ChangeEventReceiver implements Closeable {
 					try {
 						sleep(-settings.testing().eventDelayMS());
 					} catch (InterruptedException e) {
-						LOGGER.debug("Sleep aborted; continuing", e);
+						LOGGER.debug("Sleep interrupted; continuing", e);
 						Thread.interrupted();
 					}
 				}
@@ -224,39 +227,46 @@ class ChangeEventReceiver implements Closeable {
 	private void eventProcessingLoop(Session session) {
 		String oldThreadName = currentThread().getName();
 		currentThread().setName(getClass().getSimpleName() + " [" + boskName + "]");
-		try {
-			if (session.initialEvent != null) {
-				processEvent(session, session.initialEvent);
-				session.initialEvent = null; // Allow GC
-			}
-			while (true) {
-				if (settings.testing().eventDelayMS() > 0) {
-					LOGGER.debug("- Sleeping");
-					Thread.sleep(settings.testing().eventDelayMS());
+		try (MDCScope __ = setupMDC(boskName)) {
+			try {
+				if (session.initialEvent != null) {
+					LOGGER.debug("Processing initial event");
+					processEvent(session, session.initialEvent);
+					session.initialEvent = null; // Allow GC
 				}
-				processEvent(session, session.cursor.next());
-			}
-		} catch (UnprocessableEventException e) {
-			LOGGER.warn("Unprocessable event; discarding resume token", e);
-			lastProcessedResumeToken = null;
-			session.listener.onException(e);
-		} catch (InterruptedException | MongoInterruptedException e) {
-			// This can happen if stop() cancels the task with an interrupt; it's part of normal operation
-			LOGGER.info("Event loop interrupted", e);
-			Thread.interrupted();
-		} catch (MongoException e) {
-			if (session.isClosed) {
-				// This happens when stop() cancels the task; this is part of normal operation
-				LOGGER.info("Session is closed; exiting event loop", e);
-			} else {
-				LOGGER.warn("Unexpected MongoException while processing events; event loop aborted", e);
+				LOGGER.debug("Starting event loop");
+				while (true) {
+					if (settings.testing().eventDelayMS() > 0) {
+						LOGGER.debug("- Sleeping");
+						Thread.sleep(settings.testing().eventDelayMS());
+					}
+					processEvent(session, session.cursor.next());
+				}
+			} catch (UnprocessableEventException e) {
+				LOGGER.warn("Unprocessable event; discarding resume token", e);
+				lastProcessedResumeToken = null;
 				session.listener.onException(e);
+			} catch (InterruptedException | MongoInterruptedException e) {
+				// This can happen if stop() cancels the task with an interrupt; it's part of normal operation
+				LOGGER.info("Event loop interrupted", e);
+				Thread.interrupted();
+			} catch (NoSuchElementException e) {
+				LOGGER.warn("Change stream has ended; event loop terminated", e);
+				session.listener.onException(e);
+			} catch (MongoException e) {
+				if (session.isClosed) {
+					// This happens when stop() cancels the task; this is part of normal operation
+					LOGGER.info("Session is closed; exiting event loop", e);
+				} else {
+					LOGGER.warn("Unexpected MongoException while processing events; event loop terminated", e);
+					session.listener.onException(e);
+				}
+			} catch (RuntimeException e) {
+				LOGGER.warn("Unexpected exception while processing events; event loop terminated", e);
+				session.listener.onException(e);
+			} finally {
+				currentThread().setName(oldThreadName);
 			}
-		} catch (RuntimeException e) {
-			LOGGER.warn("Unexpected exception while processing events; event loop aborted", e);
-			session.listener.onException(e);
-		} finally {
-			currentThread().setName(oldThreadName);
 		}
 	}
 
