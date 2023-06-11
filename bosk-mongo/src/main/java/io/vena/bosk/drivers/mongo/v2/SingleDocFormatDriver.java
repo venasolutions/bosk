@@ -96,11 +96,7 @@ final class SingleDocFormatDriver<R extends Entity> implements FormatDriver<R> {
 
 	@Override
 	public <T> void submitDeletion(Reference<T> target) {
-		if (target.path().isEmpty()) { // TODO: this seems out of place. MainDriver ought to do error checking like this
-			throw new IllegalArgumentException("Can't delete the root of the bosk");
-		} else {
-			doUpdate(deletionDoc(target), standardPreconditions(target));
-		}
+		doUpdate(deletionDoc(target), standardPreconditions(target));
 	}
 
 	@Override
@@ -166,11 +162,6 @@ final class SingleDocFormatDriver<R extends Entity> implements FormatDriver<R> {
 
 	@Override
 	public void onEvent(ChangeStreamDocument<Document> event) throws UnprocessableEventException {
-		if (LOGGER.isTraceEnabled()) {
-			LOGGER.trace("# EVENT: {} {}", event.getOperationType().getValue(), event);
-		} else {
-			LOGGER.debug("# EVENT: {}", event.getOperationType().getValue());
-		}
 		if (!DOCUMENT_FILTER.equals(event.getDocumentKey())) {
 			LOGGER.debug("Ignoring event for unrecognized document key: {}", event.getDocumentKey());
 			return;

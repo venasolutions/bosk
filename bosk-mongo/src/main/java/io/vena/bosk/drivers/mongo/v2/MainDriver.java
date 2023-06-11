@@ -178,8 +178,13 @@ public class MainDriver<R extends Entity> implements MongoDriver<R> {
 
 	@Override
 	public <T> void submitDeletion(Reference<T> target) {
-		runWithRetry(() ->
-			formatDriver.submitDeletion(target), "submitDeletion({}, {})", target);
+		if (target.path().isEmpty()) {
+			// TODO: Refactor this kind of error checking out of LocalDriver and make it available
+			throw new IllegalArgumentException("Can't delete the root of the bosk");
+		} else {
+			runWithRetry(() ->
+				formatDriver.submitDeletion(target), "submitDeletion({}, {})", target);
+		}
 	}
 
 	@Override
@@ -372,6 +377,11 @@ public class MainDriver<R extends Entity> implements MongoDriver<R> {
 		@Override
 		public void onEvent(ChangeStreamDocument<Document> event) throws UnprocessableEventException {
 			if (isListening) {
+				if (LOGGER.isTraceEnabled()) {
+					LOGGER.trace("# EVENT: {} {}", event.getOperationType().getValue(), event);
+				} else {
+					LOGGER.debug("# EVENT: {}", event.getOperationType().getValue());
+				}
 				try {
 					formatDriver.onEvent(event);
 				} catch (RuntimeException e) {
