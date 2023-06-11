@@ -49,7 +49,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  * Tests for MongoDB-specific functionality
  */
 class MongoDriverSpecialTest extends AbstractMongoDriverTest implements TestParameters {
-
 	@ParametersByName
 	public MongoDriverSpecialTest(MongoDriverSettingsBuilder driverSettings) {
 		super(driverSettings);
@@ -321,7 +320,7 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest implements TestPara
 	@ParametersByName
 	@UsesMongoService
 	void unrelatedDatabase_ignored() throws InvalidTypeException, IOException, InterruptedException {
-		tearDownActions.add(mongoService.client().getDatabase("unrelated")::drop);
+		tearDownActions.addFirst(mongoService.client().getDatabase("unrelated")::drop);
 		doUnrelatedChangeTest("unrelated", COLLECTION_NAME, "boskDocument");
 	}
 
