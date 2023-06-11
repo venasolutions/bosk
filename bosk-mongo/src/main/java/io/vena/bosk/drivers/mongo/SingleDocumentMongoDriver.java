@@ -161,12 +161,12 @@ final class SingleDocumentMongoDriver<R extends Entity> implements MongoDriver<R
 	@Override
 	public void flush() throws IOException, InterruptedException {
 		LOGGER.debug("+ flush");
-		switch (settings.flushMode()) {
+		switch (settings.experimental().flushMode()) {
 			case REVISION_FIELD_ONLY:
 				receiver.awaitLatestRevision();
 				break;
 			default:
-				LOGGER.warn("Unrecognized flush mode {}; defaulting to ECHO", settings.flushMode());
+				LOGGER.warn("Unrecognized flush mode {}; defaulting to ECHO", settings.experimental().flushMode());
 				// fall through
 			case ECHO:
 				performEcho();

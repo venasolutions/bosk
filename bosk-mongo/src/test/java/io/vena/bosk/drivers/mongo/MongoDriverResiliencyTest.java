@@ -39,19 +39,22 @@ public class MongoDriverResiliencyTest extends AbstractMongoDriverTest {
 
 	@SuppressWarnings("unused")
 	static Stream<MongoDriverSettings.MongoDriverSettingsBuilder> driverSettings() {
+		MongoDriverSettings.Experimental resilient = MongoDriverSettings.Experimental.builder()
+			.implementationKind(RESILIENT)
+			.build();
 		return Stream.of(
 			MongoDriverSettings.builder()
 				.database("boskResiliencyTestDB_" + dbCounter.incrementAndGet())
-				.implementationKind(RESILIENT),
+				.experimental(resilient),
 			MongoDriverSettings.builder()
 				.database("boskResiliencyTestDB_" + dbCounter.incrementAndGet() + "_late")
-				.implementationKind(RESILIENT)
+				.experimental(resilient)
 				.testing(MongoDriverSettings.Testing.builder()
 					.eventDelayMS(200)
 					.build()),
 			MongoDriverSettings.builder()
 				.database("boskResiliencyTestDB_" + dbCounter.incrementAndGet() + "_early")
-				.implementationKind(RESILIENT)
+				.experimental(resilient)
 				.testing(MongoDriverSettings.Testing.builder()
 					.eventDelayMS(-200)
 					.build())
@@ -61,12 +64,14 @@ public class MongoDriverResiliencyTest extends AbstractMongoDriverTest {
 	@ParametersByName
 	@DisruptsMongoService
 	void initialOutage_recovers() throws InvalidTypeException, InterruptedException, IOException {
-		// Set up the database contents to be different from initialRoot
+		LOGGER.debug("Set up the database contents to be different from initialRoot");
 		TestEntity initialState = initializeDatabase("distinctive string");
 
+		LOGGER.debug("Cut mongo connection");
 		mongoService.proxy().setConnectionCut(true);
 
-		Bosk<TestEntity> bosk = new Bosk<TestEntity>("Test bosk", TestEntity.class, this::initialRoot, driverFactory);
+		LOGGER.debug("Create a new bosk that can't connect");
+		Bosk<TestEntity> bosk = new Bosk<TestEntity>("Test " + boskCounter.incrementAndGet(), TestEntity.class, this::initialRoot, driverFactory);
 		MongoDriverSpecialTest.Refs refs = bosk.buildReferences(MongoDriverSpecialTest.Refs.class);
 		BoskDriver<TestEntity> driver = bosk.driver();
 		TestEntity defaultState = initialRoot(bosk);
@@ -76,20 +81,23 @@ public class MongoDriverResiliencyTest extends AbstractMongoDriverTest {
 				"Uses default state if database is unavailable");
 		}
 
+		LOGGER.debug("Verify that driver operations throw");
 		assertThrows(FlushFailureException.class, driver::flush,
 			"Flush disallowed during outage");
 		assertThrows(Exception.class, () -> driver.submitReplacement(bosk.rootReference(), initialRoot(bosk)),
 			"Updates disallowed during outage");
 
+		LOGGER.debug("Restore mongo connection");
 		mongoService.proxy().setConnectionCut(false);
 
+		LOGGER.debug("Flush and check that the state updates");
 		driver.flush();
 		try (var __ = bosk.readContext()) {
 			assertEquals(initialState, bosk.rootReference().value(),
 				"Updates to database state once it reconnects");
 		}
 
-		// Make a change to the bosk and verify that it gets through
+		LOGGER.debug("Make a change to the bosk and verify that it gets through");
 		driver.submitReplacement(refs.listingEntry(entity123), LISTING_ENTRY);
 		TestEntity expected = initialRoot(bosk)
 			.withString("distinctive string")
@@ -166,7 +174,7 @@ public class MongoDriverResiliencyTest extends AbstractMongoDriverTest {
 		LOGGER.debug("Setup database to beforeState");
 		TestEntity beforeState = initializeDatabase("before deletion");
 
-		Bosk<TestEntity> bosk = new Bosk<TestEntity>("Test bosk " + boskCounter.incrementAndGet(), TestEntity.class, this::initialRoot, driverFactory);
+		Bosk<TestEntity> bosk = new Bosk<TestEntity>("Test " + boskCounter.incrementAndGet(), TestEntity.class, this::initialRoot, driverFactory);
 		try (var __ = bosk.readContext()) {
 			assertEquals(beforeState, bosk.rootReference().value());
 		}
@@ -209,7 +217,7 @@ public class MongoDriverResiliencyTest extends AbstractMongoDriverTest {
 	private TestEntity initializeDatabase(String distinctiveString) {
 		try {
 			Bosk<TestEntity> prepBosk = new Bosk<TestEntity>(
-				"Prep bosk " + boskCounter.incrementAndGet(),
+				"Prep " + boskCounter.incrementAndGet(),
 				TestEntity.class,
 				bosk -> initialRoot(bosk).withString(distinctiveString),
 				driverFactory);
@@ -227,7 +235,7 @@ public class MongoDriverResiliencyTest extends AbstractMongoDriverTest {
 		LOGGER.debug("Setup database to beforeState");
 		TestEntity beforeState = initializeDatabase("before disruption");
 
-		Bosk<TestEntity> bosk = new Bosk<TestEntity>("Test bosk " + boskCounter.incrementAndGet(), TestEntity.class, this::initialRoot, driverFactory);
+		Bosk<TestEntity> bosk = new Bosk<TestEntity>("Test " + boskCounter.incrementAndGet(), TestEntity.class, this::initialRoot, driverFactory);
 		try (var __ = bosk.readContext()) {
 			assertEquals(beforeState, bosk.rootReference().value());
 		}

@@ -12,10 +12,25 @@ public class MongoDriverSettings {
 	String database;
 
 	@Default long flushTimeoutMS = 30_000;
-	@Default FlushMode flushMode = FlushMode.ECHO;
-	@Default ImplementationKind implementationKind = ImplementationKind.STABLE;
+	@Default DatabaseFormat preferredDatabaseFormat = DatabaseFormat.SINGLE_DOC;
+
+	@Default Experimental experimental = Experimental.builder().build();
 	@Default Testing testing = Testing.builder().build();
 
+	/**
+	 * Settings with no guarantee of long-term support.
+	 */
+	@Value
+	@Builder
+	public static class Experimental {
+		@Default ImplementationKind implementationKind = ImplementationKind.STABLE;
+		@Default FlushMode flushMode = FlushMode.ECHO;
+		@Default long changeStreamInitialWaitMS = 20;
+	}
+
+	/**
+	 * Settings not meant to be used in production.
+	 */
 	@Value
 	@Builder
 	public static class Testing {
@@ -69,5 +84,9 @@ public class MongoDriverSettings {
 		 * Ignores {@link FlushMode FlushMode}; only supports the equivalent of {@link FlushMode#REVISION_FIELD_ONLY REVISION_FIELD_ONLY}.
 		 */
 		RESILIENT,
+	}
+
+	public enum DatabaseFormat {
+		SINGLE_DOC
 	}
 }

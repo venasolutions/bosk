@@ -15,12 +15,16 @@ import io.vena.bosk.annotations.ReferencePath;
 import io.vena.bosk.drivers.mongo.MongoDriverSettings.MongoDriverSettingsBuilder;
 import io.vena.bosk.drivers.state.TestEntity;
 import io.vena.bosk.exceptions.InvalidTypeException;
+import java.lang.reflect.Method;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.Optional;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.TestInfo;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import static io.vena.bosk.drivers.mongo.SingleDocumentMongoDriver.COLLECTION_NAME;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -32,7 +36,7 @@ abstract class AbstractMongoDriverTest {
 
 	protected static MongoService mongoService;
 	protected DriverFactory<TestEntity> driverFactory;
-	protected final Deque<Runnable> tearDownActions = new ArrayDeque<>();
+	protected Deque<Runnable> tearDownActions;
 	protected final MongoDriverSettings driverSettings;
 
 	public AbstractMongoDriverTest(MongoDriverSettingsBuilder driverSettings) {
@@ -56,9 +60,35 @@ abstract class AbstractMongoDriverTest {
 			.drop();
 	}
 
+	@BeforeEach
+	void clearTearDown(TestInfo testInfo) {
+		logTest("/=== Start", testInfo);
+		tearDownActions = new ArrayDeque<>();
+//		tearDownActions.addLast(() ->  {
+//			try {
+//				LOGGER.debug("Sleeping after teardown");
+//				Thread.sleep(10_000);
+//			} catch (InterruptedException e) {
+//				LOGGER.debug("Interrupted", e);
+//				Thread.interrupted();
+//			} finally {
+//				LOGGER.debug("Done sleeping");
+//			}
+//		});
+	}
+
 	@AfterEach
-	void runTearDown() {
+	void runTearDown(TestInfo testInfo) {
 		tearDownActions.forEach(Runnable::run);
+		logTest("\\=== Done", testInfo);
+	}
+
+	private static void logTest(String verb, TestInfo testInfo) {
+		String method =
+			testInfo.getTestClass().map(Class::getSimpleName).orElse(null)
+				+ "."
+				+ testInfo.getTestMethod().map(Method::getName).orElse(null);
+		LOGGER.info("{} {} {}", verb, method, testInfo.getDisplayName());
 	}
 
 
@@ -106,4 +136,6 @@ abstract class AbstractMongoDriverTest {
 		@ReferencePath("/catalog/-child-/catalog")
 		CatalogReference<TestEntity> childCatalog(Identifier child);
 	}
+
+	private static final Logger LOGGER = LoggerFactory.getLogger(AbstractMongoDriverTest.class);
 }

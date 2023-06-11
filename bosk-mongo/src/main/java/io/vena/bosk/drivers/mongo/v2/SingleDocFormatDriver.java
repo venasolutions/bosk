@@ -43,6 +43,9 @@ import static java.lang.String.format;
 import static java.util.Collections.newSetFromMap;
 import static org.bson.BsonBoolean.FALSE;
 
+/**
+ * A {@link FormatDriver} that stores the entire bosk state in a single document.
+ */
 final class SingleDocFormatDriver<R extends Entity> implements FormatDriver<R> {
 	private final String description;
 	private final MongoDriverSettings settings;
@@ -93,11 +96,7 @@ final class SingleDocFormatDriver<R extends Entity> implements FormatDriver<R> {
 
 	@Override
 	public <T> void submitDeletion(Reference<T> target) {
-		if (target.path().isEmpty()) { // TODO: this seems out of place. MainDriver ought to do error checking like this
-			throw new IllegalArgumentException("Can't delete the root of the bosk");
-		} else {
-			doUpdate(deletionDoc(target), standardPreconditions(target));
-		}
+		doUpdate(deletionDoc(target), standardPreconditions(target));
 	}
 
 	@Override
@@ -163,7 +162,6 @@ final class SingleDocFormatDriver<R extends Entity> implements FormatDriver<R> {
 
 	@Override
 	public void onEvent(ChangeStreamDocument<Document> event) throws UnprocessableEventException {
-		LOGGER.debug("# EVENT: {}", event);
 		if (!DOCUMENT_FILTER.equals(event.getDocumentKey())) {
 			LOGGER.debug("Ignoring event for unrecognized document key: {}", event.getDocumentKey());
 			return;
@@ -180,6 +178,7 @@ final class SingleDocFormatDriver<R extends Entity> implements FormatDriver<R> {
 					throw new NotYetImplementedException("No state??");
 				}
 				R newRoot = formatter.document2object(state, rootRef);
+				LOGGER.debug("| Replace {}", rootRef);
 				downstream.submitReplacement(rootRef, newRoot);
 				flushLock.finishedRevision(revision);
 			} break;
