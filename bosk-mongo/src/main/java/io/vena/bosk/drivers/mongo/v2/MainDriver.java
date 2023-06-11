@@ -36,6 +36,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 
+import static io.vena.bosk.drivers.mongo.MongoDriverSettings.DatabaseFormat.SINGLE_DOC;
 import static io.vena.bosk.drivers.mongo.v2.Formatter.REVISION_ONE;
 
 /**
@@ -106,7 +107,7 @@ public class MainDriver<R extends Entity> implements MongoDriver<R> {
 				} else {
 					LOGGER.info("Creating collection");
 				}
-				FormatDriver<R> newDriver = newSingleDocFormatDriver(REVISION_ONE.longValue()); // TODO: Pick based on config?
+				FormatDriver<R> newDriver = newPreferredFormatDriver();
 				result = downstream.initialRoot(rootType);
 				newDriver.initializeCollection(new StateAndMetadata<>(result, REVISION_ONE));
 				formatDriver = newDriver;
@@ -124,6 +125,14 @@ public class MainDriver<R extends Entity> implements MongoDriver<R> {
 			} else {
 				return result;
 			}
+		}
+	}
+
+	private FormatDriver<R> newPreferredFormatDriver() {
+		if (driverSettings.preferredDatabaseFormat() == SINGLE_DOC) {
+			return newSingleDocFormatDriver(REVISION_ONE.longValue());
+		} else {
+			throw new AssertionError("Unknown database format setting: " + driverSettings.preferredDatabaseFormat());
 		}
 	}
 
@@ -231,7 +240,7 @@ public class MainDriver<R extends Entity> implements MongoDriver<R> {
 				// That system needs to cope with a refurbish operations without any help.
 				session.startTransaction();
 				StateAndMetadata<R> result = formatDriver.loadAllState();
-				FormatDriver<R> newFormatDriver = detectFormat(); // TODO: use the configured driver, not the detected one
+				FormatDriver<R> newFormatDriver = newPreferredFormatDriver();
 				collection.deleteMany(new BsonDocument());
 				newFormatDriver.initializeCollection(result);
 				session.commitTransaction();
