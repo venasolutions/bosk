@@ -32,7 +32,6 @@ import static java.lang.Thread.currentThread;
 import static java.lang.Thread.sleep;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static java.util.concurrent.TimeUnit.SECONDS;
 
 /**
  * Has three jobs:
@@ -137,7 +136,7 @@ class ChangeEventReceiver implements Closeable {
 					false
 				);
 				try {
-					task.get(10, SECONDS); // TODO: Config
+					task.get(settings.flushTimeoutMS(), MILLISECONDS); // Not strictly a flush timeout, but it's related
 					LOGGER.debug("Cancellation succeeded; event loop exited normally");
 					this.eventProcessingTask = null;
 				} catch (CancellationException e) {
