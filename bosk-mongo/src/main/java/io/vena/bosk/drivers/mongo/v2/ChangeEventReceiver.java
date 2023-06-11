@@ -187,9 +187,8 @@ class ChangeEventReceiver implements Closeable {
 					}
 				}
 				LOGGER.debug("Acquire initial resume token");
-				// TODO: Config
 				// Note: on a quiescent collection, tryNext() will wait for the Await Time to elapse, so keep it short
-				try (var initialCursor = collection.watch().maxAwaitTime(20, MILLISECONDS).cursor()) {
+				try (var initialCursor = collection.watch().maxAwaitTime(settings.experimental().changeStreamInitialWaitMS(), MILLISECONDS).cursor()) {
 					initialEvent = initialCursor.tryNext();
 					if (initialEvent == null) {
 						// In this case, tryNext() has caused the cursor to point to
