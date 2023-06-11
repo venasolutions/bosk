@@ -38,6 +38,12 @@ import org.slf4j.MDC;
 
 import static io.vena.bosk.drivers.mongo.v2.Formatter.REVISION_ONE;
 
+/**
+ * Serves as a harness for driver implementations.
+ * Handles resiliency concerns like exception handling, disconnecting, and reinitializing.
+ * Handles {@link MDC} and some basic logging.
+ * Implements format detection and refurbish operations.
+ */
 public class MainDriver<R extends Entity> implements MongoDriver<R> {
 	private final Bosk<R> bosk;
 	private final MongoDriverSettings driverSettings;

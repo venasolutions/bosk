@@ -43,6 +43,9 @@ import static java.lang.String.format;
 import static java.util.Collections.newSetFromMap;
 import static org.bson.BsonBoolean.FALSE;
 
+/**
+ * A {@link FormatDriver} that stores the entire bosk state in a single document.
+ */
 final class SingleDocFormatDriver<R extends Entity> implements FormatDriver<R> {
 	private final String description;
 	private final MongoDriverSettings settings;
