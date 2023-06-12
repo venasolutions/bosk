@@ -261,7 +261,7 @@ public class MainDriver<R extends Entity> implements MongoDriver<R> {
 				action.run();
 			} catch (RuntimeException e) {
 				recoverFrom(e);
-				LOGGER.debug("Retrying");
+				LOGGER.debug("Retrying " + description, args);
 				action.run();
 			}
 		}

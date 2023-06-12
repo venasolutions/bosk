@@ -64,7 +64,7 @@ class ChangeEventReceiver implements Closeable {
 	private static final class Session {
 		final MongoChangeStreamCursor<ChangeStreamDocument<Document>> cursor;
 		final ChangeEventListener listener;
-		ChangeStreamDocument<Document> initialEvent;
+		ChangeStreamDocument<Document> initialEvent; // Could be final, but we want to let the GC collect it
 		volatile boolean isClosed;
 	}
 
@@ -174,7 +174,7 @@ class ChangeEventReceiver implements Closeable {
 		for (attempt = 1; attempt <= 2; attempt++) {
 			LOGGER.debug("Attempt #{}", attempt);
 			ChangeStreamDocument<Document> initialEvent;
-			BsonDocument resumePoint = null; //lastProcessedResumeToken;
+			BsonDocument resumePoint = null; // TODO: use lastProcessedResumeToken;
 			if (resumePoint == null) {
 				if (settings.testing().eventDelayMS() < 0) {
 					LOGGER.debug("- Sleeping");

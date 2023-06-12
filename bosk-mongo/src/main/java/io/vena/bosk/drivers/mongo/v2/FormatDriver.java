@@ -44,11 +44,24 @@ interface FormatDriver<R extends Entity> extends MongoDriver<R> {
 	 */
 	void onRevisionToSkip(BsonInt64 revision);
 
+	/**
+	 * @throws UninitializedCollectionException if it looks like the database has not yet
+	 * been created (as opposed to being in a damaged or unrecognizable state).
+	 * This signals to {@link MainDriver} that it may, if appropriate,
+	 * automatically initialize the collection.
+	 * @throws IOException if otherwise unable to return the appropriate result.
+	 */
 	StateAndMetadata<R> loadAllState() throws IOException, UninitializedCollectionException;
 
 	/**
-	 * Can assume that the collection is empty or nonexistent.
-	 * Can assume it's called in a transaction.
+	 * Can assume there is an active database transaction.
+	 * <p>
+	 * Can assume that the collection is empty or nonexistent,
+	 * in the sense that there is no mess to clean up,
+	 * but should tolerate documents already existing,
+	 * by using upsert or replace operations, for example.
+	 * @param contents the state and metadata to use.
+	 * In particular, the revision number can be used directly without being incremented.
 	 */
 	void initializeCollection(StateAndMetadata<R> contents) throws InitializationFailureException;
 
