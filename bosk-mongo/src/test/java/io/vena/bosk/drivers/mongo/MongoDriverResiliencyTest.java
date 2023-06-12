@@ -112,25 +112,25 @@ public class MongoDriverResiliencyTest extends AbstractMongoDriverTest {
 
 	@ParametersByName
 	@UsesMongoService
-	void databaseDeleted_recovers() throws InvalidTypeException, InterruptedException, IOException {
+	void databaseDropped_recovers() throws InvalidTypeException, InterruptedException, IOException {
 		testRecovery(() -> {
 			LOGGER.debug("Drop database");
 			mongoService.client()
 				.getDatabase(driverSettings.database())
 				.drop();
-		}, (b) -> initializeDatabase("after deletion"));
+		}, (b) -> initializeDatabase("after drop"));
 	}
 
 	@ParametersByName
 	@UsesMongoService
-	void collectionDeleted_recovers() throws InvalidTypeException, InterruptedException, IOException {
+	void collectionDropped_recovers() throws InvalidTypeException, InterruptedException, IOException {
 		testRecovery(() -> {
 			LOGGER.debug("Drop collection");
 			mongoService.client()
 				.getDatabase(driverSettings.database())
 				.getCollection(COLLECTION_NAME)
 				.drop();
-		}, (b) -> initializeDatabase("after deletion"));
+		}, (b) -> initializeDatabase("after drop"));
 	}
 
 	@ParametersByName
