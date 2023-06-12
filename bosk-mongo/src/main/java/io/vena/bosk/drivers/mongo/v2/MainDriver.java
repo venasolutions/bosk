@@ -22,6 +22,7 @@ import io.vena.bosk.drivers.mongo.MongoDriver;
 import io.vena.bosk.drivers.mongo.MongoDriverSettings;
 import io.vena.bosk.drivers.mongo.v2.Formatter.DocumentFields;
 import io.vena.bosk.exceptions.FlushFailureException;
+import io.vena.bosk.exceptions.InitializationFailureException;
 import io.vena.bosk.exceptions.InvalidTypeException;
 import io.vena.bosk.exceptions.NotYetImplementedException;
 import io.vena.bosk.exceptions.TunneledCheckedException;
@@ -109,7 +110,7 @@ public class MainDriver<R extends Entity> implements MongoDriver<R> {
 				}
 				FormatDriver<R> newDriver = newPreferredFormatDriver();
 				result = downstream.initialRoot(rootType);
-				newDriver.initializeCollection(new StateAndMetadata<>(result, REVISION_ONE));
+				doInitialization(result, newDriver);
 				formatDriver = newDriver;
 			} catch (IOException | ReceiverInitializationException e) {
 				LOGGER.debug("Unable to initialize replication", e);
@@ -220,6 +221,25 @@ public class MainDriver<R extends Entity> implements MongoDriver<R> {
 				} catch (DisconnectedException e2) { // Other RuntimeExceptions are unexpected
 					// The message from DisconnectionException is suitable as-is
 					throw new FlushFailureException(e2.getMessage(), e2);
+				}
+			}
+		}
+	}
+
+	private void doInitialization(R result, FormatDriver<R> newDriver) throws InitializationFailureException {
+		ClientSessionOptions sessionOptions = ClientSessionOptions.builder()
+			.causallyConsistent(true)
+			.defaultTransactionOptions(TransactionOptions.builder()
+				.writeConcern(WriteConcern.MAJORITY)
+				.readConcern(ReadConcern.MAJORITY)
+				.build())
+			.build();
+		try (ClientSession session = mongoClient.startSession(sessionOptions)) {
+			try {
+				newDriver.initializeCollection(new StateAndMetadata<>(result, REVISION_ONE));
+			} finally {
+				if (session.hasActiveTransaction()) {
+					session.abortTransaction();
 				}
 			}
 		}
