@@ -209,7 +209,7 @@ class ChangeEventReceiver implements Closeable {
 			}
 			try {
 				MongoChangeStreamCursor<ChangeStreamDocument<Document>> cursor
-					= collection.watch().resumeAfter(resumePoint).cursor();
+					= collection.watch().startAfter(resumePoint).cursor();
 				currentSession = new Session(cursor, newListener, initialEvent, false);
 				return true;
 			} catch (MongoCommandException e) {
