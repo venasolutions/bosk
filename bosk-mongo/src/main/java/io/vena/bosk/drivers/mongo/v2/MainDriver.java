@@ -38,7 +38,6 @@ import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 
 import static io.vena.bosk.drivers.mongo.MongoDriverSettings.DatabaseFormat.SINGLE_DOC;
-import static io.vena.bosk.drivers.mongo.v2.Formatter.REVISION_ONE;
 import static io.vena.bosk.drivers.mongo.v2.Formatter.REVISION_ZERO;
 
 /**
@@ -132,7 +131,7 @@ public class MainDriver<R extends Entity> implements MongoDriver<R> {
 
 	private FormatDriver<R> newPreferredFormatDriver() {
 		if (driverSettings.preferredDatabaseFormat() == SINGLE_DOC) {
-			return newSingleDocFormatDriver(REVISION_ONE.longValue());
+			return newSingleDocFormatDriver(REVISION_ZERO.longValue());
 		} else {
 			throw new AssertionError("Unknown database format setting: " + driverSettings.preferredDatabaseFormat());
 		}
