@@ -174,7 +174,10 @@ class ChangeEventReceiver implements Closeable {
 		for (attempt = 1; attempt <= 2; attempt++) {
 			LOGGER.debug("Attempt #{}", attempt);
 			ChangeStreamDocument<Document> initialEvent;
-			BsonDocument resumePoint = null; // TODO: use lastProcessedResumeToken;
+			// Resuming from lastProcessedResumeToken doesn't currently work.
+			// It is the source of a lot of race conditions, and it doesn't actually
+			// achieve anything until we use it to avoid loading the entire bosk state.
+			BsonDocument resumePoint = null; // lastProcessedResumeToken;
 			if (resumePoint == null) {
 				if (settings.testing().eventDelayMS() < 0) {
 					LOGGER.debug("- Sleeping");
