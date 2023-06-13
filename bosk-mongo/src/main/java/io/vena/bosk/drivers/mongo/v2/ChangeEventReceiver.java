@@ -272,6 +272,20 @@ class ChangeEventReceiver implements Closeable {
 	}
 
 	private void processEvent(Session session, ChangeStreamDocument<Document> event) throws UnprocessableEventException {
+		switch (event.getOperationType()) {
+			case DROP:
+			case DROP_DATABASE:
+			case INVALIDATE:
+				// These events are hopeless. There is no way a resume could succeed.
+				// If we try, we'll simply cause another unnecessary reinitialization,
+				// which is not only wasteful, but can also cause the DisconnectedDriver
+				// retry to fail a second time and report a user-visible error. If we make
+				// sure not to try to re-process these events, we avoid all this.
+				lastProcessedResumeToken = event.getResumeToken();
+				break;
+			default:
+				break;
+		}
 		session.listener.onEvent(event);
 		lastProcessedResumeToken = event.getResumeToken();
 	}
