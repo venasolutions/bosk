@@ -65,11 +65,10 @@ class FlushLock implements Closeable {
 			if (isClosed) {
 				throw new FlushFailureException("Wait aborted");
 			}
+			LOGGER.debug("Done awaiting revision {}", revisionValue);
 		} else {
 			LOGGER.debug("Revision {} <= {} is in the past; don't wait", revisionValue, past);
-			return;
 		}
-		LOGGER.trace("Done awaiting revision {}", revisionValue);
 	}
 
 	/**
