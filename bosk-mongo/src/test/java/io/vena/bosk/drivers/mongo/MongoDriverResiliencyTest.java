@@ -32,9 +32,12 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  * A set of tests that only work with {@link io.vena.bosk.drivers.mongo.MongoDriverSettings.ImplementationKind#RESILIENT}
  */
 public class MongoDriverResiliencyTest extends AbstractMongoDriverTest {
+	FlushOrWait flushOrWait;
+
 	@ParametersByName
-	public MongoDriverResiliencyTest(MongoDriverSettings.MongoDriverSettingsBuilder driverSettings) {
+	public MongoDriverResiliencyTest(MongoDriverSettings.MongoDriverSettingsBuilder driverSettings, FlushOrWait flushOrWait) {
 		super(driverSettings);
+		this.flushOrWait = flushOrWait;
 	}
 
 	@SuppressWarnings("unused")
@@ -45,20 +48,29 @@ public class MongoDriverResiliencyTest extends AbstractMongoDriverTest {
 		return Stream.of(
 			MongoDriverSettings.builder()
 				.database("boskResiliencyTestDB_" + dbCounter.incrementAndGet())
+				.recoveryPollingMS(500)
 				.experimental(resilient),
 			MongoDriverSettings.builder()
 				.database("boskResiliencyTestDB_" + dbCounter.incrementAndGet() + "_late")
+				.recoveryPollingMS(500)
 				.experimental(resilient)
 				.testing(MongoDriverSettings.Testing.builder()
 					.eventDelayMS(200)
 					.build()),
 			MongoDriverSettings.builder()
 				.database("boskResiliencyTestDB_" + dbCounter.incrementAndGet() + "_early")
+				.recoveryPollingMS(500)
 				.experimental(resilient)
 				.testing(MongoDriverSettings.Testing.builder()
 					.eventDelayMS(-200)
 					.build())
 		);
+	}
+
+	enum FlushOrWait { FLUSH, WAIT };
+
+	static Stream<FlushOrWait> flushOrWait() {
+		return Stream.of(FlushOrWait.values());
 	}
 
 	@ParametersByName
@@ -91,7 +103,7 @@ public class MongoDriverResiliencyTest extends AbstractMongoDriverTest {
 		mongoService.proxy().setConnectionCut(false);
 
 		LOGGER.debug("Flush and check that the state updates");
-		driver.flush();
+		waitFor(driver);
 		try (var __ = bosk.readContext()) {
 			assertEquals(initialState, bosk.rootReference().value(),
 				"Updates to database state once it reconnects");
@@ -104,9 +116,20 @@ public class MongoDriverResiliencyTest extends AbstractMongoDriverTest {
 			.withListing(Listing.of(refs.catalog(), entity123));
 
 
-		driver.flush();
+		waitFor(driver);
 		try (@SuppressWarnings("unused") Bosk<?>.ReadContext readContext = bosk.readContext()) {
 			assertEquals(expected, bosk.rootReference().value());
+		}
+	}
+
+	private void waitFor(BoskDriver<TestEntity> driver) throws IOException, InterruptedException {
+		switch (flushOrWait) {
+			case FLUSH:
+				driver.flush();
+				break;
+			case WAIT:
+				Thread.sleep(2 * driverSettings.recoveryPollingMS());
+				break;
 		}
 	}
 
@@ -189,7 +212,7 @@ public class MongoDriverResiliencyTest extends AbstractMongoDriverTest {
 			);
 
 		LOGGER.debug("Ensure flush works");
-		bosk.driver().flush();
+		waitFor(bosk.driver());
 		try (var __ = bosk.readContext()) {
 			assertEquals(beforeState, bosk.rootReference().value());
 		}
@@ -198,7 +221,7 @@ public class MongoDriverResiliencyTest extends AbstractMongoDriverTest {
 		setRevision(1000L);
 
 		LOGGER.debug("Ensure flush works again");
-		bosk.driver().flush();
+		waitFor(bosk.driver());
 		try (var __ = bosk.readContext()) {
 			assertEquals(beforeState, bosk.rootReference().value());
 		}
@@ -222,7 +245,7 @@ public class MongoDriverResiliencyTest extends AbstractMongoDriverTest {
 				bosk -> initialRoot(bosk).withString(distinctiveString),
 				driverFactory);
 			MongoDriver<TestEntity> driver = (MongoDriver<TestEntity>) prepBosk.driver();
-			driver.flush();
+			waitFor(driver);
 			driver.close();
 
 			return initialRoot(prepBosk).withString(distinctiveString);
@@ -253,7 +276,7 @@ public class MongoDriverResiliencyTest extends AbstractMongoDriverTest {
 		TestEntity afterState = recoveryAction.apply(beforeState);
 
 		LOGGER.debug("Ensure flush works");
-		bosk.driver().flush();
+		waitFor(bosk.driver());
 		try (var __ = bosk.readContext()) {
 			assertEquals(afterState, bosk.rootReference().value());
 		}

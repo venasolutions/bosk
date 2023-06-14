@@ -29,7 +29,9 @@ import io.vena.bosk.exceptions.TunneledCheckedException;
 import java.io.IOException;
 import java.lang.reflect.Type;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executors;
 import java.util.concurrent.FutureTask;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
 import org.bson.BsonDocument;
 import org.bson.Document;
@@ -39,6 +41,7 @@ import org.slf4j.MDC;
 
 import static io.vena.bosk.drivers.mongo.MongoDriverSettings.DatabaseFormat.SINGLE_DOC;
 import static io.vena.bosk.drivers.mongo.v2.Formatter.REVISION_ZERO;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 /**
  * Serves as a harness for driver implementations.
@@ -61,6 +64,8 @@ public class MainDriver<R extends Entity> implements MongoDriver<R> {
 	private volatile FormatDriver<R> formatDriver = new DisconnectedDriver<>("Driver not yet initialized");
 	private volatile boolean isClosed = false;
 
+	private final ScheduledExecutorService livenessPool = Executors.newScheduledThreadPool(1);
+
 	public MainDriver(
 		Bosk<R> bosk,
 		MongoClientSettings clientSettings,
@@ -81,6 +86,12 @@ public class MainDriver<R extends Entity> implements MongoDriver<R> {
 			.getDatabase(driverSettings.database())
 			.getCollection(COLLECTION_NAME);
 		this.receiver = new ChangeEventReceiver(bosk.name(), driverSettings, collection);
+
+		livenessPool.scheduleWithFixedDelay(
+			this::backgroundReconnectTask,
+			driverSettings.recoveryPollingMS(),
+			driverSettings.recoveryPollingMS(),
+			MILLISECONDS);
 	}
 
 	private void validateMongoClientSettings(MongoClientSettings clientSettings) {
@@ -148,23 +159,44 @@ public class MainDriver<R extends Entity> implements MongoDriver<R> {
 			} else {
 				LOGGER.error("Recovering from unexpected {}; reinitializing", exception.getClass().getSimpleName(), exception);
 			}
-			R result;
-			try {
-				result = initializeReplication();
-			} catch (UninitializedCollectionException e) {
-				LOGGER.warn("Collection is uninitialized; driver is disconnected", e);
-				return;
-			} catch (IOException | ReceiverInitializationException e) {
-				LOGGER.warn("Unable to initialize event receiver", e);
-				return;
+			recover();
+		}
+	}
+
+	private void backgroundReconnectTask() {
+		boolean isDisconnected = formatDriver instanceof DisconnectedDriver;
+		if (isDisconnected) {
+			try (MDCScope __ = beginDriverOperation("backgroundReconnectTask()")) {
+				LOGGER.debug("Recovering from disconnection");
+				try {
+					recover();
+				} catch (RuntimeException e) {
+					LOGGER.debug("Error recovering from disconnection: {}", e.getClass().getSimpleName(), e);
+					// Ignore and try again next time
+				}
 			}
-			if (result != null) {
-				// Because we haven't called receiver.start() yet, this won't race with other events
-				downstream.submitReplacement(rootRef, result);
-			}
-			if (!isClosed) {
-				receiver.start();
-			}
+		} else {
+			LOGGER.trace("Nothing to do");
+		}
+	}
+
+	private void recover() {
+		R newRoot;
+		try {
+			newRoot = initializeReplication();
+		} catch (UninitializedCollectionException e) {
+			LOGGER.warn("Collection is uninitialized; driver is disconnected", e);
+			return;
+		} catch (IOException | ReceiverInitializationException e) {
+			LOGGER.warn("Unable to initialize event receiver", e);
+			return;
+		}
+		if (newRoot != null) {
+			// Because we haven't called receiver.start() yet, this won't race with other events
+			downstream.submitReplacement(rootRef, newRoot);
+		}
+		if (!isClosed) {
+			receiver.start();
 		}
 	}
 

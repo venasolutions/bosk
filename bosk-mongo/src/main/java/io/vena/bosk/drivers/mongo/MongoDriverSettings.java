@@ -12,6 +12,7 @@ public class MongoDriverSettings {
 	String database;
 
 	@Default long flushTimeoutMS = 30_000;
+	@Default long recoveryPollingMS = 30_000;
 	@Default DatabaseFormat preferredDatabaseFormat = DatabaseFormat.SINGLE_DOC;
 
 	@Default Experimental experimental = Experimental.builder().build();
