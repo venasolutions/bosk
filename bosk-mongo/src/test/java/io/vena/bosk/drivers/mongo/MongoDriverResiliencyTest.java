@@ -48,15 +48,18 @@ public class MongoDriverResiliencyTest extends AbstractMongoDriverTest {
 		return Stream.of(
 			MongoDriverSettings.builder()
 				.database("boskResiliencyTestDB_" + dbCounter.incrementAndGet())
+				.recoveryPollingMS(500)
 				.experimental(resilient),
 			MongoDriverSettings.builder()
 				.database("boskResiliencyTestDB_" + dbCounter.incrementAndGet() + "_late")
+				.recoveryPollingMS(500)
 				.experimental(resilient)
 				.testing(MongoDriverSettings.Testing.builder()
 					.eventDelayMS(200)
 					.build()),
 			MongoDriverSettings.builder()
 				.database("boskResiliencyTestDB_" + dbCounter.incrementAndGet() + "_early")
+				.recoveryPollingMS(500)
 				.experimental(resilient)
 				.testing(MongoDriverSettings.Testing.builder()
 					.eventDelayMS(-200)
