@@ -148,23 +148,29 @@ public class MainDriver<R extends Entity> implements MongoDriver<R> {
 			} else {
 				LOGGER.error("Recovering from unexpected {}; reinitializing", exception.getClass().getSimpleName(), exception);
 			}
-			R result;
-			try {
-				result = initializeReplication();
-			} catch (UninitializedCollectionException e) {
-				LOGGER.warn("Collection is uninitialized; driver is disconnected", e);
-				return;
-			} catch (IOException | ReceiverInitializationException e) {
-				LOGGER.warn("Unable to initialize event receiver", e);
-				return;
+			recover();
+		}
+	}
+
 			}
-			if (result != null) {
-				// Because we haven't called receiver.start() yet, this won't race with other events
-				downstream.submitReplacement(rootRef, result);
-			}
-			if (!isClosed) {
-				receiver.start();
-			}
+
+	private void recover() {
+		R newRoot;
+		try {
+			newRoot = initializeReplication();
+		} catch (UninitializedCollectionException e) {
+			LOGGER.warn("Collection is uninitialized; driver is disconnected", e);
+			return;
+		} catch (IOException | ReceiverInitializationException e) {
+			LOGGER.warn("Unable to initialize event receiver", e);
+			return;
+		}
+		if (newRoot != null) {
+			// Because we haven't called receiver.start() yet, this won't race with other events
+			downstream.submitReplacement(rootRef, newRoot);
+		}
+		if (!isClosed) {
+			receiver.start();
 		}
 	}
 
