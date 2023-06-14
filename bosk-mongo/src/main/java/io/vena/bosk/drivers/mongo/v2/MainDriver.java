@@ -22,6 +22,7 @@ import io.vena.bosk.drivers.mongo.MongoDriver;
 import io.vena.bosk.drivers.mongo.MongoDriverSettings;
 import io.vena.bosk.drivers.mongo.v2.Formatter.DocumentFields;
 import io.vena.bosk.exceptions.FlushFailureException;
+import io.vena.bosk.exceptions.InitializationFailureException;
 import io.vena.bosk.exceptions.InvalidTypeException;
 import io.vena.bosk.exceptions.NotYetImplementedException;
 import io.vena.bosk.exceptions.TunneledCheckedException;
@@ -37,7 +38,7 @@ import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 
 import static io.vena.bosk.drivers.mongo.MongoDriverSettings.DatabaseFormat.SINGLE_DOC;
-import static io.vena.bosk.drivers.mongo.v2.Formatter.REVISION_ONE;
+import static io.vena.bosk.drivers.mongo.v2.Formatter.REVISION_ZERO;
 
 /**
  * Serves as a harness for driver implementations.
@@ -109,7 +110,7 @@ public class MainDriver<R extends Entity> implements MongoDriver<R> {
 				}
 				FormatDriver<R> newDriver = newPreferredFormatDriver();
 				result = downstream.initialRoot(rootType);
-				newDriver.initializeCollection(new StateAndMetadata<>(result, REVISION_ONE));
+				doInitialization(result, newDriver);
 				formatDriver = newDriver;
 			} catch (IOException | ReceiverInitializationException e) {
 				LOGGER.debug("Unable to initialize replication", e);
@@ -130,7 +131,7 @@ public class MainDriver<R extends Entity> implements MongoDriver<R> {
 
 	private FormatDriver<R> newPreferredFormatDriver() {
 		if (driverSettings.preferredDatabaseFormat() == SINGLE_DOC) {
-			return newSingleDocFormatDriver(REVISION_ONE.longValue());
+			return newSingleDocFormatDriver(REVISION_ZERO.longValue());
 		} else {
 			throw new AssertionError("Unknown database format setting: " + driverSettings.preferredDatabaseFormat());
 		}
@@ -154,7 +155,7 @@ public class MainDriver<R extends Entity> implements MongoDriver<R> {
 				LOGGER.warn("Collection is uninitialized; driver is disconnected", e);
 				return;
 			} catch (IOException | ReceiverInitializationException e) {
-				LOGGER.warn("Unable to initialize receiver", e);
+				LOGGER.warn("Unable to initialize event receiver", e);
 				return;
 			}
 			if (result != null) {
@@ -225,6 +226,25 @@ public class MainDriver<R extends Entity> implements MongoDriver<R> {
 		}
 	}
 
+	private void doInitialization(R result, FormatDriver<R> newDriver) throws InitializationFailureException {
+		ClientSessionOptions sessionOptions = ClientSessionOptions.builder()
+			.causallyConsistent(true)
+			.defaultTransactionOptions(TransactionOptions.builder()
+				.writeConcern(WriteConcern.MAJORITY)
+				.readConcern(ReadConcern.MAJORITY)
+				.build())
+			.build();
+		try (ClientSession session = mongoClient.startSession(sessionOptions)) {
+			try {
+				newDriver.initializeCollection(new StateAndMetadata<>(result, REVISION_ZERO));
+			} finally {
+				if (session.hasActiveTransaction()) {
+					session.abortTransaction();
+				}
+			}
+		}
+	}
+
 	private void doRefurbish() throws IOException {
 		ClientSessionOptions sessionOptions = ClientSessionOptions.builder()
 			.causallyConsistent(true)
@@ -255,13 +275,13 @@ public class MainDriver<R extends Entity> implements MongoDriver<R> {
 		}
 	}
 
-	private <X extends Exception, Y extends Exception> void runWithRetry(Action<X, Y> action, String description, Object... args) throws X, Y {
+	private <X extends Exception> void runWithRetry(Action<X> action, String description, Object... args) throws X {
 		try (MDCScope __ = beginDriverOperation(description, args)) {
 			try {
 				action.run();
 			} catch (RuntimeException e) {
 				recoverFrom(e);
-				LOGGER.debug("Retrying");
+				LOGGER.debug("Retrying " + description, args);
 				action.run();
 			}
 		}
@@ -277,8 +297,8 @@ public class MainDriver<R extends Entity> implements MongoDriver<R> {
 		}
 	}
 
-	private interface Action<X extends Exception, Y extends Exception> {
-		void run() throws X, Y;
+	private interface Action<X extends Exception> {
+		void run() throws X;
 	}
 
 	/**

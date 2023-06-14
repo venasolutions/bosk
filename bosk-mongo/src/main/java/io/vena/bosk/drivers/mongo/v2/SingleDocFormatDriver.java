@@ -146,9 +146,9 @@ final class SingleDocFormatDriver<R extends Entity> implements FormatDriver<R> {
 	}
 
 	@Override
-	public void initializeCollection(StateAndMetadata<R> contents) {
-		BsonValue initialState = formatter.object2bsonValue(contents.state, rootRef.targetType());
-		BsonInt64 newRevision = new BsonInt64(1 + contents.revision.longValue());
+	public void initializeCollection(StateAndMetadata<R> priorContents) {
+		BsonValue initialState = formatter.object2bsonValue(priorContents.state, rootRef.targetType());
+		BsonInt64 newRevision = new BsonInt64(1 + priorContents.revision.longValue());
 		BsonDocument update = new BsonDocument("$set", initialDocument(initialState, newRevision));
 		BsonDocument filter = documentFilter();
 		UpdateOptions options = new UpdateOptions().upsert(true);

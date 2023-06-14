@@ -64,7 +64,7 @@ class ChangeEventReceiver implements Closeable {
 	private static final class Session {
 		final MongoChangeStreamCursor<ChangeStreamDocument<Document>> cursor;
 		final ChangeEventListener listener;
-		ChangeStreamDocument<Document> initialEvent;
+		ChangeStreamDocument<Document> initialEvent; // Could be final, but we want to let the GC collect it
 		volatile boolean isClosed;
 	}
 
@@ -174,7 +174,10 @@ class ChangeEventReceiver implements Closeable {
 		for (attempt = 1; attempt <= 2; attempt++) {
 			LOGGER.debug("Attempt #{}", attempt);
 			ChangeStreamDocument<Document> initialEvent;
-			BsonDocument resumePoint = null; //lastProcessedResumeToken;
+			// Resuming from lastProcessedResumeToken doesn't currently work.
+			// It is the source of a lot of race conditions, and it doesn't actually
+			// achieve anything until we use it to avoid loading the entire bosk state.
+			BsonDocument resumePoint = null; // lastProcessedResumeToken;
 			if (resumePoint == null) {
 				if (settings.testing().eventDelayMS() < 0) {
 					LOGGER.debug("- Sleeping");
@@ -206,7 +209,7 @@ class ChangeEventReceiver implements Closeable {
 			}
 			try {
 				MongoChangeStreamCursor<ChangeStreamDocument<Document>> cursor
-					= collection.watch().resumeAfter(resumePoint).cursor();
+					= collection.watch().startAfter(resumePoint).cursor();
 				currentSession = new Session(cursor, newListener, initialEvent, false);
 				return true;
 			} catch (MongoCommandException e) {
@@ -269,6 +272,20 @@ class ChangeEventReceiver implements Closeable {
 	}
 
 	private void processEvent(Session session, ChangeStreamDocument<Document> event) throws UnprocessableEventException {
+		switch (event.getOperationType()) {
+			case DROP:
+			case DROP_DATABASE:
+			case INVALIDATE:
+				// These events are hopeless. There is no way a resume could succeed.
+				// If we try, we'll simply cause another unnecessary reinitialization,
+				// which is not only wasteful, but can also cause the DisconnectedDriver
+				// retry to fail a second time and report a user-visible error. If we make
+				// sure not to try to re-process these events, we avoid all this.
+				lastProcessedResumeToken = event.getResumeToken();
+				break;
+			default:
+				break;
+		}
 		session.listener.onEvent(event);
 		lastProcessedResumeToken = event.getResumeToken();
 	}
