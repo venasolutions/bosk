@@ -39,6 +39,7 @@ import org.slf4j.MDC;
 
 import static io.vena.bosk.drivers.mongo.MongoDriverSettings.DatabaseFormat.SINGLE_DOC;
 import static io.vena.bosk.drivers.mongo.v2.Formatter.REVISION_ONE;
+import static io.vena.bosk.drivers.mongo.v2.Formatter.REVISION_ZERO;
 
 /**
  * Serves as a harness for driver implementations.
@@ -236,7 +237,7 @@ public class MainDriver<R extends Entity> implements MongoDriver<R> {
 			.build();
 		try (ClientSession session = mongoClient.startSession(sessionOptions)) {
 			try {
-				newDriver.initializeCollection(new StateAndMetadata<>(result, REVISION_ONE));
+				newDriver.initializeCollection(new StateAndMetadata<>(result, REVISION_ZERO));
 			} finally {
 				if (session.hasActiveTransaction()) {
 					session.abortTransaction();

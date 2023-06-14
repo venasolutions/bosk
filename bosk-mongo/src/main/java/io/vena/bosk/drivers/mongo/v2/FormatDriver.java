@@ -60,10 +60,10 @@ interface FormatDriver<R extends Entity> extends MongoDriver<R> {
 	 * in the sense that there is no mess to clean up,
 	 * but should tolerate documents already existing,
 	 * by using upsert or replace operations, for example.
-	 * @param contents the state and metadata to use.
-	 * In particular, the revision number can be used directly without being incremented.
+	 * @param priorContents the desired state, with metadata representing a (possibly hypothetical)
+	 * "prior" state of the database; in particular, the revision number should be incremented.
 	 */
-	void initializeCollection(StateAndMetadata<R> contents) throws InitializationFailureException;
+	void initializeCollection(StateAndMetadata<R> priorContents) throws InitializationFailureException;
 
 	@Override
 	default R initialRoot(Type rootType) {

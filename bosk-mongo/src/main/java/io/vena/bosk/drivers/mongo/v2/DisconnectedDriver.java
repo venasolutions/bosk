@@ -54,7 +54,7 @@ class DisconnectedDriver<R extends Entity> implements FormatDriver<R> {
 	}
 
 	@Override
-	public void initializeCollection(StateAndMetadata<R> contents) {
+	public void initializeCollection(StateAndMetadata<R> priorContents) {
 
 	}
 
