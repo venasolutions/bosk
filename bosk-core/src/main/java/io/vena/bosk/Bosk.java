@@ -182,10 +182,15 @@ public class Bosk<R extends Entity> {
 		}
 
 		@Override
-		public <T> void submitReplacement(Reference<T> target, T newValue) {
+		public <T> void submitReplacement(Reference<T> target, Optional<T> newValue) {
 			synchronized (this) {
 				R priorRoot = currentRoot;
-				if (!tryGraftReplacement(target, newValue)) {
+				// FIXME: temporary way to handle deletions
+				if (!newValue.isPresent()) {
+					submitDeletion(target);
+					return;
+				}
+				if (!tryGraftReplacement(target, newValue.get())) {
 					return;
 				}
 				queueHooks(target, priorRoot);

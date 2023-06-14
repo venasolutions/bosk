@@ -5,6 +5,8 @@ import lombok.val;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import java.util.Optional;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class PluginRoundTripTest extends AbstractRoundTripTest {
@@ -16,7 +18,7 @@ public class PluginRoundTripTest extends AbstractRoundTripTest {
 		try (val context = bosk.readContext()) {
 			originalRoot = bosk.rootReference().value();
 		}
-		bosk.driver().submitReplacement(bosk.rootReference(), originalRoot);
+		bosk.driver().submitReplacement(bosk.rootReference(), Optional.of(originalRoot));
 
 		try (val context = bosk.readContext()) {
 			// Use our entity's equals() to check that all is well

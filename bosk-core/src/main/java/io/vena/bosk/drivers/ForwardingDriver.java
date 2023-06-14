@@ -9,6 +9,8 @@ import java.io.IOException;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
+
 import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor
@@ -38,7 +40,7 @@ public class ForwardingDriver<R extends Entity> implements BoskDriver<R> {
 	}
 
 	@Override
-	public <T> void submitReplacement(Reference<T> target, T newValue) {
+	public <T> void submitReplacement(Reference<T> target, Optional<T> newValue) {
 		downstream.forEach(d -> d.submitReplacement(target, newValue));
 	}
 

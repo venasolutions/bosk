@@ -3,6 +3,8 @@ package io.vena.bosk;
 import io.vena.bosk.annotations.ReferencePath;
 import io.vena.bosk.exceptions.InvalidTypeException;
 import java.io.IOException;
+import java.util.Optional;
+
 import lombok.val;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -63,7 +65,7 @@ public class BoskUpdateTest extends AbstractBoskTest {
 	void replaceEntity_nodeChanged() throws IOException, InterruptedException {
 		TestEntity newValue = originalParent.withString(originalParent.string() + " - modified");
 		Reference<TestEntity> ref = refs.entity(originalParent.id());
-		bosk.driver().submitReplacement(ref, newValue);
+		bosk.driver().submitReplacement(ref, Optional.of(newValue));
 		assertValueEquals(newValue, ref);
 	}
 
@@ -71,7 +73,7 @@ public class BoskUpdateTest extends AbstractBoskTest {
 	void replaceField_valueChanged() throws IOException, InterruptedException {
 		String newValue = originalParent.string() + " - modified";
 		Reference<String> ref = refs.entityString(originalParent.id());
-		bosk.driver().submitReplacement(ref, newValue);
+		bosk.driver().submitReplacement(ref, Optional.of(newValue));
 		assertValueEquals(newValue, ref);
 	}
 
@@ -79,7 +81,7 @@ public class BoskUpdateTest extends AbstractBoskTest {
 	void replaceNonexistentField_nothingChanged() throws IOException, InterruptedException {
 		String newValue = originalParent.string() + " - modified";
 		Reference<String> ref = refs.entityString(Identifier.from("nonexistent"));
-		bosk.driver().submitReplacement(ref, newValue);
+		bosk.driver().submitReplacement(ref, Optional.of(newValue));
 		assertValueEquals(originalRoot, bosk.rootReference());
 		assertValueEquals(null, ref);
 	}

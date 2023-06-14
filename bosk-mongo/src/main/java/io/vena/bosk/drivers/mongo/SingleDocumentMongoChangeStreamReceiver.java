@@ -16,12 +16,7 @@ import io.vena.bosk.exceptions.InvalidTypeException;
 import io.vena.bosk.exceptions.NotYetImplementedException;
 import java.io.IOException;
 import java.lang.reflect.Type;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.NoSuchElementException;
-import java.util.Set;
-import java.util.TreeMap;
+import java.util.*;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -383,7 +378,7 @@ final class SingleDocumentMongoChangeStreamReceiver<R extends Entity> implements
 					}
 					LOGGER.debug("| Replace {}", ref);
 					Object replacement = formatter.bsonValue2object(entry.getValue(), ref);
-					downstream.submitReplacement(ref, replacement);
+					downstream.submitReplacement(ref, Optional.of(replacement));
 				}
 			}
 		}

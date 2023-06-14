@@ -28,6 +28,7 @@ import io.vena.bosk.exceptions.NotYetImplementedException;
 import io.vena.bosk.exceptions.TunneledCheckedException;
 import java.io.IOException;
 import java.lang.reflect.Type;
+import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.atomic.AtomicReference;
@@ -160,7 +161,7 @@ public class MainDriver<R extends Entity> implements MongoDriver<R> {
 			}
 			if (result != null) {
 				// Because we haven't called receiver.start() yet, this won't race with other events
-				downstream.submitReplacement(rootRef, result);
+				downstream.submitReplacement(rootRef, Optional.of(result));
 			}
 			if (!isClosed) {
 				receiver.start();
@@ -169,7 +170,7 @@ public class MainDriver<R extends Entity> implements MongoDriver<R> {
 	}
 
 	@Override
-	public <T> void submitReplacement(Reference<T> target, T newValue) {
+	public <T> void submitReplacement(Reference<T> target, Optional<T> newValue) {
 		runWithRetry(() ->
 			formatDriver.submitReplacement(target, newValue), "submitReplacement({})", target);
 	}

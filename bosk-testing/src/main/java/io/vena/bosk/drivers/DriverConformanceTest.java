@@ -17,6 +17,7 @@ import io.vena.bosk.exceptions.InvalidTypeException;
 import io.vena.bosk.junit.ParametersByName;
 import java.io.IOException;
 import java.time.temporal.ChronoUnit;
+import java.util.Optional;
 import java.util.stream.Stream;
 
 import static io.vena.bosk.ListingEntry.LISTING_ENTRY;
@@ -40,15 +41,15 @@ public abstract class DriverConformanceTest extends AbstractDriverTest {
 	@ParametersByName
 	void testReplaceIdentical(Path enclosingCatalogPath, Identifier childID) throws InvalidTypeException {
 		CatalogReference<TestEntity> ref = initializeBoskWithCatalog(enclosingCatalogPath);
-		driver.submitReplacement(ref.then(childID), newEntity(childID, ref));
+		driver.submitReplacement(ref.then(childID), Optional.of(newEntity(childID, ref)));
 		assertCorrectBoskContents();
 	}
 
 	@ParametersByName
 	void testReplaceDifferent(Path enclosingCatalogPath, Identifier childID) throws InvalidTypeException {
 		CatalogReference<TestEntity> ref = initializeBoskWithCatalog(enclosingCatalogPath);
-		driver.submitReplacement(ref.then(childID), newEntity(childID, ref)
-			.withString("replaced"));
+		driver.submitReplacement(ref.then(childID), Optional.of(newEntity(childID, ref)
+			.withString("replaced")));
 		assertCorrectBoskContents();
 	}
 
@@ -63,7 +64,7 @@ public abstract class DriverConformanceTest extends AbstractDriverTest {
 		Reference<ListingEntry> listingEntryRef = wholeEntityRef.thenListing(TestEntity.class, "listing").then(childID);
 
 		driver.submitReplacement(wholeEntityRef,
-			newEntity(awkwardID, catalogRef)
+			Optional.of(newEntity(awkwardID, catalogRef)
 				.withCatalog(Catalog.of(
 					emptyEntityAt(part1EntityRef)
 						.withString("original-part1")
@@ -75,14 +76,14 @@ public abstract class DriverConformanceTest extends AbstractDriverTest {
 				))
 				.withListing(Listing.of(innerCatalogRef,
 					child1ID
-				)));
+				))));
 		driver.submitReplacement(part1EntityRef,
-			emptyEntityAt(part1EntityRef)
-				.withString("replaced-part1"));
+				Optional.of(emptyEntityAt(part1EntityRef)
+				.withString("replaced-part1")));
 		driver.submitReplacement(part2EntityRef,
-			emptyEntityAt(part2EntityRef)
-				.withString("replaced-part2"));
-		driver.submitReplacement(listingEntryRef, LISTING_ENTRY);
+				Optional.of(emptyEntityAt(part2EntityRef)
+				.withString("replaced-part2")));
+		driver.submitReplacement(listingEntryRef, Optional.of(LISTING_ENTRY));
 
 		assertCorrectBoskContents();
 	}
@@ -98,18 +99,18 @@ public abstract class DriverConformanceTest extends AbstractDriverTest {
 	void testReplaceCatalog(Path enclosingCatalogPath) throws InvalidTypeException {
 		CatalogReference<TestEntity> ref = initializeBoskWithCatalog(enclosingCatalogPath);
 		Identifier unique = Identifier.unique("child");
-		driver.submitReplacement(ref, Catalog.of(
+		driver.submitReplacement(ref, Optional.of(Catalog.of(
 			newEntity(child2ID, ref),
 			newEntity(unique, ref),
 			newEntity(child1ID, ref)
-		));
+		)));
 		assertCorrectBoskContents();
 	}
 
 	@ParametersByName
 	void testReplaceCatalogEmpty(Path enclosingCatalogPath) {
 		CatalogReference<TestEntity> ref = initializeBoskWithCatalog(enclosingCatalogPath);
-		driver.submitReplacement(ref, Catalog.empty());
+		driver.submitReplacement(ref, Optional.of(Catalog.empty()));
 		assertCorrectBoskContents();
 	}
 
@@ -239,7 +240,7 @@ public abstract class DriverConformanceTest extends AbstractDriverTest {
 	void testOptional() throws InvalidTypeException {
 		Reference<TestValues> ref = initializeBoskWithBlankValues(Path.just(TestEntity.Fields.catalog));
 		assertCorrectBoskContents();
-		driver.submitReplacement(ref, TestValues.blank().withString("changed"));
+		driver.submitReplacement(ref, Optional.of(TestValues.blank().withString("changed")));
 		assertCorrectBoskContents();
 
 		assertThrows(NullPointerException.class, ()->driver.submitReplacement(ref, null));
@@ -255,7 +256,7 @@ public abstract class DriverConformanceTest extends AbstractDriverTest {
 	void testString() throws InvalidTypeException {
 		Reference<TestValues> ref = initializeBoskWithBlankValues(Path.just(TestEntity.Fields.catalog));
 		Reference<String> stringRef = ref.then(String.class, TestValues.Fields.string);
-		driver.submitReplacement(stringRef, "changed");
+		driver.submitReplacement(stringRef, Optional.of("changed"));
 		assertCorrectBoskContents();
 
 		assertThrows(NullPointerException.class, ()->driver.submitReplacement(stringRef, null));
@@ -268,7 +269,7 @@ public abstract class DriverConformanceTest extends AbstractDriverTest {
 	void testEnum() throws InvalidTypeException {
 		Reference<TestValues> ref = initializeBoskWithBlankValues(Path.just(TestEntity.Fields.catalog));
 		Reference<ChronoUnit> enumRef = ref.then(ChronoUnit.class, TestValues.Fields.chronoUnit);
-		driver.submitReplacement(enumRef, MINUTES);
+		driver.submitReplacement(enumRef, Optional.of(MINUTES));
 		assertCorrectBoskContents();
 
 		assertThrows(NullPointerException.class, ()->driver.submitReplacement(enumRef, null));
@@ -281,9 +282,9 @@ public abstract class DriverConformanceTest extends AbstractDriverTest {
 	void testListValue() throws InvalidTypeException {
 		Reference<TestValues> ref = initializeBoskWithBlankValues(Path.just(TestEntity.Fields.catalog));
 		Reference<ListValue<String>> listRef = ref.then(listValue(String.class), TestValues.Fields.list);
-		driver.submitReplacement(listRef, ListValue.of("this", "that"));
+		driver.submitReplacement(listRef, Optional.of(ListValue.of("this", "that")));
 		assertCorrectBoskContents();
-		driver.submitReplacement(listRef, ListValue.of("that", "this"));
+		driver.submitReplacement(listRef, Optional.of(ListValue.of("that", "this")));
 		assertCorrectBoskContents();
 
 		assertThrows(NullPointerException.class, ()->driver.submitReplacement(listRef, null));
@@ -298,13 +299,13 @@ public abstract class DriverConformanceTest extends AbstractDriverTest {
 		Reference<MapValue<String>> mapRef = ref.then(mapValue(String.class), TestValues.Fields.map);
 
 		// Check that key order is preserved
-		driver.submitReplacement(mapRef, MapValue.fromFunction(asList("key1", "key2"), key->key+"_value"));
+		driver.submitReplacement(mapRef, Optional.of(MapValue.fromFunction(asList("key1", "key2"), key->key+"_value")));
 		assertCorrectBoskContents();
-		driver.submitReplacement(mapRef, MapValue.fromFunction(asList("key2", "key1"), key->key+"_value"));
+		driver.submitReplacement(mapRef, Optional.of(MapValue.fromFunction(asList("key2", "key1"), key->key+"_value")));
 		assertCorrectBoskContents();
 
 		// Check that blank keys and values are supported
-		driver.submitReplacement(mapRef, MapValue.singleton("", ""));
+		driver.submitReplacement(mapRef, Optional.of(MapValue.singleton("", "")));
 		assertCorrectBoskContents();
 
 		// Check that value-only replacement works, even if the key has periods in it.
@@ -312,10 +313,10 @@ public abstract class DriverConformanceTest extends AbstractDriverTest {
 		// so it makes sense to put it here. We're trying to trick MongoDB into confusing a key with dots for
 		// a series of nested fields.)
 		MapValue<String> originalMapValue = MapValue.fromFunction(asList("key.with.dots.1", "key.with.dots.2"), k -> k + "_originalValue");
-		driver.submitReplacement(mapRef, originalMapValue);
+		driver.submitReplacement(mapRef, Optional.of(originalMapValue));
 		assertCorrectBoskContents();
 		MapValue<String> newMapValue = originalMapValue.with("key.with.dots.1", "newValue");
-		driver.submitReplacement(mapRef, newMapValue);
+		driver.submitReplacement(mapRef, Optional.of(newMapValue));
 		assertCorrectBoskContents();
 
 		// Check that the right submission-time exceptions are thrown
@@ -337,7 +338,7 @@ public abstract class DriverConformanceTest extends AbstractDriverTest {
 		CatalogReference<TestEntity> catalogRef = initializeBoskWithCatalog(enclosingCatalogPath);
 		Reference<TestValues> ref = catalogRef.then(child1ID).then(TestValues.class,
 			TestEntity.Fields.values);
-		driver.submitReplacement(ref, TestValues.blank());
+		driver.submitReplacement(ref, Optional.of(TestValues.blank()));
 		return ref;
 	}
 
@@ -350,7 +351,7 @@ public abstract class DriverConformanceTest extends AbstractDriverTest {
 			TestEntity child2 = autoInitialize(ref.then(child2ID));
 
 			Catalog<TestEntity> bothChildren = Catalog.of(child1, child2);
-			driver.submitReplacement(ref, bothChildren);
+			driver.submitReplacement(ref, Optional.of(bothChildren));
 
 			return ref;
 		} catch (InvalidTypeException e) {

@@ -8,6 +8,7 @@ import io.vena.bosk.exceptions.InvalidTypeException;
 import java.io.IOException;
 import java.lang.reflect.Type;
 import java.util.Deque;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.function.Consumer;
 import lombok.RequiredArgsConstructor;
@@ -43,7 +44,7 @@ public class BufferingDriver<R extends Entity> implements BoskDriver<R> {
 	}
 
 	@Override
-	public <T> void submitReplacement(Reference<T> target, T newValue) {
+	public <T> void submitReplacement(Reference<T> target, Optional<T> newValue) {
 		updateQueue.add(d -> d.submitReplacement(target, newValue));
 	}
 
