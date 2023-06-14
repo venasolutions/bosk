@@ -123,7 +123,7 @@ class OptionalRefsTest extends AbstractRoundTripTest {
 		try (val context = bosk.readContext()) {
 			assertEquals(null, optionalRef.valueIfExists());
 		}
-		bosk.driver().submitReplacement(optionalRef, value);
+		bosk.driver().submitReplacement(optionalRef, Optional.of(value));
 		try (val context = bosk.readContext()) {
 			assertEquals(value, optionalRef.valueIfExists());
 		}

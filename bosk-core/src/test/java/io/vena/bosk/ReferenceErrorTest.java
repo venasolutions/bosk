@@ -36,7 +36,7 @@ public class ReferenceErrorTest {
 	void referenceUpdate_brokenGetter_propagatesException() throws InvalidTypeException {
 		Reference<String> stringRef = bosk.reference(String.class, Path.of(BadGetters.Fields.nestedObject, NestedObject.Fields.string));
 		assertThrows(UnsupportedOperationException.class, ()->
-			bosk.driver().submitReplacement(stringRef, "newValue"));
+			bosk.driver().submitReplacement(stringRef, Optional.of("newValue")));
 		assertThrows(UnsupportedOperationException.class, ()->
 			bosk.driver().submitDeletion(stringRef));
 	}

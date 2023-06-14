@@ -265,8 +265,8 @@ public abstract class AbstractRoundTripTest extends AbstractBoskTest {
 		}
 
 		@Override
-		public <T> void submitReplacement(Reference<T> target, T newValue) {
-			downstream.submitReplacement(target, preprocess(target, newValue));
+		public <T> void submitReplacement(Reference<T> target, Optional<T> newValue) {
+			downstream.submitReplacement(target, Optional.of(preprocess(target, newValue.get())));
 		}
 
 		@Override

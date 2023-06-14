@@ -11,6 +11,7 @@ import io.vena.bosk.exceptions.InvalidTypeException;
 import io.vena.bosk.util.Types;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Optional;
 import java.util.stream.Stream;
 import org.bson.BsonDocument;
 import org.bson.BsonString;
@@ -38,7 +39,7 @@ class FormatterTest extends AbstractBoskTest {
 		entitiesRef = builder.entitiesRef();
 		weirdRef = builder.entityRef(Identifier.from(WEIRD_ID));
 		weirdEntity = builder.blankEntity(Identifier.from(WEIRD_ID), TestEnum.OK);
-		bosk.driver().submitReplacement(entitiesRef, Catalog.of(weirdEntity));
+		bosk.driver().submitReplacement(entitiesRef, Optional.of(Catalog.of(weirdEntity)));
 		bosk.driver().flush();
 		formatter = new Formatter(bosk, new BsonPlugin());
 	}

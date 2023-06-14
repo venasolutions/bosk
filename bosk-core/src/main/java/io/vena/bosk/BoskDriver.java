@@ -6,6 +6,7 @@ import io.vena.bosk.exceptions.FlushFailureException;
 import io.vena.bosk.exceptions.InvalidTypeException;
 import java.io.IOException;
 import java.lang.reflect.Type;
+import java.util.Optional;
 
 /**
  * Receives update requests for some {@link Bosk}.
@@ -55,7 +56,21 @@ public interface BoskDriver<R extends Entity> {
 	 * was called. If <code>target</code> is inside an enclosing object that does not exist at the
 	 * time the update is applied, it is silently ignored.
 	 */
-	<T> void submitReplacement(Reference<T> target, T newValue);
+	default <T> void submitReplacement(Reference<T> target, T newValue) {
+		submitReplacement(target, Optional.of(newValue));
+	}
+
+	/**
+	 * If <code>newValue</code> is present, requests that the object referenced by <code>target</code> be changed to <code>newValue</code>.
+	 *
+	 * If <code>newValue</code> is empty, requests that the object referenced by <code>target</code> be deleted.
+	 *
+	 * <p>
+	 * Changes will not be visible in the {@link io.vena.bosk.Bosk.ReadContext} in which this method
+	 * was called. If <code>target</code> is inside an enclosing object that does not exist at the
+	 * time the update is applied, it is silently ignored.
+	 */
+	<T> void submitReplacement(Reference<T> target, Optional<T> newValue);
 
 	/**
 	 * Like {@link #submitReplacement}, but has no effect unless
@@ -163,8 +178,9 @@ public interface BoskDriver<R extends Entity> {
 	 * submitReplacement(newValue.reference(), newValue);
 	 * </code>
 	 */
+	// TODO: convert to Optional
 	default <T extends ReflectiveEntity<T>> void submitReplacement(T newValue) {
-		submitReplacement(newValue.reference(), newValue);
+		submitReplacement(newValue.reference(), Optional.of(newValue));
 	}
 
 }

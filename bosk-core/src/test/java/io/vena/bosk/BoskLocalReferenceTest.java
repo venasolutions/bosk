@@ -78,7 +78,7 @@ class BoskLocalReferenceTest {
 				SideTable.of(entitiesRef, ernieID, "pal"),
 				ListValue.empty(),
 				Optional.empty());
-		bosk.driver().submitReplacement(entitiesRef, Catalog.of(ernie, bert));
+		bosk.driver().submitReplacement(entitiesRef, Optional.of(Catalog.of(ernie, bert)));
 		root = bosk.currentRoot();
 	}
 
@@ -351,13 +351,13 @@ class BoskLocalReferenceTest {
 		T secondValue = updater.apply(firstValue);
 		try (val __ = bosk.readContext()) {
 			assertSame(firstValue, ref.value(), "New ReadContext sees same value as before");
-			bosk.driver().submitReplacement(ref, secondValue);
+			bosk.driver().submitReplacement(ref, Optional.of(secondValue));
 			assertSame(firstValue, ref.value(), "Bosk updates not visible during the same ReadContext");
 		}
 
 		try (val context = bosk.readContext()) {
 			assertSame(secondValue, ref.value(), "New value is visible in next ReadContext");
-			bosk.driver().submitReplacement(ref, firstValue);
+			bosk.driver().submitReplacement(ref, Optional.of(firstValue));
 			assertSame(secondValue, ref.value(), "Bosk updates still not visible during the same ReadContext");
 			ExecutorService executor = Executors.newFixedThreadPool(1);
 			Future<?> future = executor.submit(()->{
@@ -392,7 +392,7 @@ class BoskLocalReferenceTest {
 		// Reset the bosk for subsequent tests.  This is necessary because we do
 		// a lot of strong assertSame checks, and so it's not good enough to
 		// leave it in an "equivalent" state; it must be composed of the same objects.
-		bosk.driver().submitReplacement(bosk.rootReference(), originalRoot);
+		bosk.driver().submitReplacement(bosk.rootReference(), Optional.of(originalRoot));
 	}
 
 	private <T> void checkDeletion(Reference<T> ref, T expectedValue) {
@@ -406,11 +406,11 @@ class BoskLocalReferenceTest {
 		try (val __ = bosk.readContext()) {
 			assertThrows(NonexistentReferenceException.class, ref::value);
 			if (expectedValue != null) {
-				bosk.driver().submitReplacement(ref, expectedValue);
+				bosk.driver().submitReplacement(ref, Optional.of(expectedValue));
 				assertThrows(NonexistentReferenceException.class, ref::value);
 			}
 		}
-		bosk.driver().submitReplacement(bosk.rootReference(), originalRoot);
+		bosk.driver().submitReplacement(bosk.rootReference(), Optional.of(originalRoot));
 	}
 
 	private static final UnaryOperator<Root>       ROOT_UPDATER   = r -> r.withVersion(1 + r.version());

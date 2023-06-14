@@ -26,6 +26,7 @@ import io.vena.bosk.exceptions.NotYetImplementedException;
 import java.io.IOException;
 import java.lang.reflect.Type;
 import java.util.NoSuchElementException;
+import java.util.Optional;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.atomic.AtomicLong;
@@ -131,9 +132,11 @@ final class SingleDocumentMongoDriver<R extends Entity> implements MongoDriver<R
 	}
 
 	@Override
-	public <T> void submitReplacement(Reference<T> target, T newValue) {
+	public <T> void submitReplacement(Reference<T> target, Optional<T> newValue) {
 		LOGGER.debug("+ submitReplacement({})", target);
-		doUpdate(replacementDoc(target, newValue), standardPreconditions(target));
+		// TODO: pass something better than null here
+//		doUpdate(replacementDoc(target, newValue), standardPreconditions(target));
+		doUpdate(replacementDoc(target, newValue.orElse(null)), standardPreconditions(target));
 	}
 
 	@Override

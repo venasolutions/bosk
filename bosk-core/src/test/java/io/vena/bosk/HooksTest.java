@@ -4,6 +4,7 @@ import io.vena.bosk.HookRecorder.Event;
 import io.vena.bosk.exceptions.InvalidTypeException;
 import java.io.IOException;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.val;
 import org.junit.jupiter.api.BeforeEach;
@@ -347,7 +348,7 @@ public class HooksTest extends AbstractBoskTest {
 				"Subsequent change to child2 is not visible");
 			assertEquals("child3", child3StringRef.value(),
 				"Subsequent change to child3 is not visible");
-			bosk.driver().submitReplacement(child2StringRef, ref.value() + "_child2_hookA");
+			bosk.driver().submitReplacement(child2StringRef, Optional.of(ref.value() + "_child2_hookA"));
 		}));
 		bosk.registerHook("B", child1StringRef, recorder.hookNamed("B", ref -> {
 			if (initializing.get()) {
@@ -362,7 +363,7 @@ public class HooksTest extends AbstractBoskTest {
 				"A's update to child2 is not visible even though A runs first");
 			assertEquals("child3", child3StringRef.value(),
 				"Subsequent change to child3 is not visible");
-			bosk.driver().submitReplacement(child3StringRef, ref.value() + "_child3_hookB");
+			bosk.driver().submitReplacement(child3StringRef, Optional.of(ref.value() + "_child3_hookB"));
 		}));
 		bosk.registerHook("C", child2StringRef, recorder.hookNamed("C", ref -> {
 			if (initializing.get()) {
@@ -382,7 +383,7 @@ public class HooksTest extends AbstractBoskTest {
 		// Reset everything and submit the replacement that triggers the hooks
 		recorder.restart();
 		initializing.set(false);
-		bosk.driver().submitReplacement(child1StringRef, "newValue");
+		bosk.driver().submitReplacement(child1StringRef, Optional.of("newValue"));
 		bosk.driver().flush();
 
 		// Check for expected hook events
@@ -402,16 +403,16 @@ public class HooksTest extends AbstractBoskTest {
 	void testNestedMultipleUpdates_breadthFirst() {
 		// Register hooks to propagate string updates from parent -> child 1 -> 2 -> 3 with a tag
 		bosk.registerHook("+P", parentStringRef, recorder.hookNamed("P", ref -> {
-			bosk.driver().submitReplacement(child1StringRef, ref.value() + "+P");
-			bosk.driver().submitReplacement(child2StringRef, ref.value() + "+P");
-			bosk.driver().submitReplacement(child3StringRef, ref.value() + "+P");
+			bosk.driver().submitReplacement(child1StringRef, Optional.of(ref.value() + "+P"));
+			bosk.driver().submitReplacement(child2StringRef, Optional.of(ref.value() + "+P"));
+			bosk.driver().submitReplacement(child3StringRef, Optional.of(ref.value() + "+P"));
 		}));
 		bosk.registerHook("+C1", child1StringRef, recorder.hookNamed("C1", ref -> {
-			bosk.driver().submitReplacement(child2StringRef, ref.value() + "+C1");
-			bosk.driver().submitReplacement(child3StringRef, ref.value() + "+C1");
+			bosk.driver().submitReplacement(child2StringRef, Optional.of(ref.value() + "+C1"));
+			bosk.driver().submitReplacement(child3StringRef, Optional.of(ref.value() + "+C1"));
 		}));
 		bosk.registerHook("+C2", child2StringRef, recorder.hookNamed("C2", ref -> {
-			bosk.driver().submitReplacement(child3StringRef, ref.value() + "+C2");
+			bosk.driver().submitReplacement(child3StringRef, Optional.of(ref.value() + "+C2"));
 		}));
 		bosk.registerHook("C3", child3StringRef, recorder.hookNamed("C3"));
 
@@ -437,7 +438,7 @@ public class HooksTest extends AbstractBoskTest {
 		));
 
 		recorder.restart();
-		bosk.driver().submitReplacement(parentStringRef, "replacement");
+		bosk.driver().submitReplacement(parentStringRef, Optional.of("replacement"));
 
 		assertEquals(
 			expectedEvents,
@@ -452,12 +453,12 @@ public class HooksTest extends AbstractBoskTest {
 	@Test
 	void testNested_correctReadContext() {
 		bosk.registerHook("stringCopier", child2Ref, recorder.hookNamed("stringCopier", ref ->
-			bosk.driver().submitReplacement(child1StringRef, ref.value().string())));
+			bosk.driver().submitReplacement(child1StringRef, Optional.of(ref.value().string()))));
 		recorder.restart();
 		String expectedString = "expected string";
 
 		try (val __ = bosk.readContext()) {
-			bosk.driver().submitReplacement(child2StringRef, expectedString);
+			bosk.driver().submitReplacement(child2StringRef, Optional.of(expectedString));
 			// If the hook were to run accidentally in this ReadContext, it would
 			// see originalChild2.string() instead of expectedString.
 		}
@@ -487,7 +488,7 @@ public class HooksTest extends AbstractBoskTest {
 		UNCONDITIONAL(new Submit() {
 			@Override
 			public <T> void replacement(Bosk<?> bosk, Reference<T> target, T newValue) {
-				bosk.driver().submitReplacement(target, newValue);
+				bosk.driver().submitReplacement(target, Optional.of(newValue));
 			}
 
 			@Override

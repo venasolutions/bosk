@@ -9,6 +9,8 @@ import io.vena.bosk.Reference;
 import io.vena.bosk.exceptions.InvalidTypeException;
 import java.io.IOException;
 import java.lang.reflect.Type;
+import java.util.Optional;
+
 import lombok.RequiredArgsConstructor;
 
 import static java.util.Arrays.asList;
@@ -34,7 +36,7 @@ public class MirroringDriver<R extends Entity> implements BoskDriver<R> {
 	}
 
 	@Override
-	public <T> void submitReplacement(Reference<T> target, T newValue) {
+	public <T> void submitReplacement(Reference<T> target, Optional<T> newValue) {
 		mirror.driver().submitReplacement(correspondingReference(target), newValue);
 	}
 

@@ -19,10 +19,7 @@ import io.vena.bosk.drivers.mongo.v3.Formatter.DocumentFields;
 import io.vena.bosk.exceptions.FlushFailureException;
 import io.vena.bosk.exceptions.InvalidTypeException;
 import java.io.IOException;
-import java.util.List;
-import java.util.Map;
-import java.util.NoSuchElementException;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import org.bson.BsonDocument;
 import org.bson.BsonInt64;
@@ -80,8 +77,8 @@ final class SingleDocFormatDriver<R extends Entity> implements io.vena.bosk.driv
 	}
 
 	@Override
-	public <T> void submitReplacement(Reference<T> target, T newValue) {
-		doUpdate(replacementDoc(target, newValue), standardPreconditions(target));
+	public <T> void submitReplacement(Reference<T> target, Optional<T> newValue) {
+		doUpdate(replacementDoc(target, newValue.get()), standardPreconditions(target));
 	}
 
 	@Override
@@ -184,7 +181,7 @@ final class SingleDocFormatDriver<R extends Entity> implements io.vena.bosk.driv
 				}
 				R newRoot = formatter.document2object(state, rootRef);
 				LOGGER.debug("| Replace {}", rootRef);
-				downstream.submitReplacement(rootRef, newRoot);
+				downstream.submitReplacement(rootRef, Optional.of(newRoot));
 				flushLock.finishedRevision(revision);
 			} break;
 			case UPDATE: {
@@ -377,7 +374,7 @@ final class SingleDocFormatDriver<R extends Entity> implements io.vena.bosk.driv
 					}
 					LOGGER.debug("| Replace {}", ref);
 					Object replacement = formatter.bsonValue2object(entry.getValue(), ref);
-					downstream.submitReplacement(ref, replacement);
+					downstream.submitReplacement(ref, Optional.of(replacement));
 				}
 			}
 		}

@@ -6,6 +6,8 @@ import io.vena.bosk.Identifier;
 import io.vena.bosk.Reference;
 import io.vena.bosk.exceptions.InitializationFailureException;
 import java.io.IOException;
+import java.util.Optional;
+
 import lombok.RequiredArgsConstructor;
 import org.bson.BsonInt64;
 import org.bson.Document;
@@ -17,6 +19,11 @@ class DisconnectedDriver<R extends Entity> implements FormatDriver<R> {
 	private final String reason;
 	@Override
 	public <T> void submitReplacement(Reference<T> target, T newValue) {
+		throw disconnected();
+	}
+
+	@Override
+	public <T> void submitReplacement(Reference<T> target, Optional<T> newValue) {
 		throw disconnected();
 	}
 
