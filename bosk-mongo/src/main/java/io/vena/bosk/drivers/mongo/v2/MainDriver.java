@@ -156,7 +156,7 @@ public class MainDriver<R extends Entity> implements MongoDriver<R> {
 				LOGGER.warn("Collection is uninitialized; driver is disconnected", e);
 				return;
 			} catch (IOException | ReceiverInitializationException e) {
-				LOGGER.warn("Unable to initialize receiver", e);
+				LOGGER.warn("Unable to initialize event receiver", e);
 				return;
 			}
 			if (result != null) {
@@ -276,7 +276,7 @@ public class MainDriver<R extends Entity> implements MongoDriver<R> {
 		}
 	}
 
-	private <X extends Exception, Y extends Exception> void runWithRetry(Action<X, Y> action, String description, Object... args) throws X, Y {
+	private <X extends Exception> void runWithRetry(Action<X> action, String description, Object... args) throws X {
 		try (MDCScope __ = beginDriverOperation(description, args)) {
 			try {
 				action.run();
@@ -298,8 +298,8 @@ public class MainDriver<R extends Entity> implements MongoDriver<R> {
 		}
 	}
 
-	private interface Action<X extends Exception, Y extends Exception> {
-		void run() throws X, Y;
+	private interface Action<X extends Exception> {
+		void run() throws X;
 	}
 
 	/**

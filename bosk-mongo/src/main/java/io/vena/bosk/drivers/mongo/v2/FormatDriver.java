@@ -20,7 +20,7 @@ import org.bson.Document;
  * </li><li>
  *     Processing change stream events via {@link #onEvent}
  * </li><li>
- *     Managing revision numbers (eg. {@link #onRevisionToSkip}
+ *     Managing revision numbers (eg. {@link #onRevisionToSkip})
  * </li><li>
  *     Implementing {@link #flush()} (consider using {@link FlushLock})
  * </li></ol>
@@ -49,7 +49,6 @@ interface FormatDriver<R extends Entity> extends MongoDriver<R> {
 	 * been created (as opposed to being in a damaged or unrecognizable state).
 	 * This signals to {@link MainDriver} that it may, if appropriate,
 	 * automatically initialize the collection.
-	 * @throws IOException if otherwise unable to return the appropriate result.
 	 */
 	StateAndMetadata<R> loadAllState() throws IOException, UninitializedCollectionException;
 
