@@ -11,11 +11,11 @@ interface ChangeListener {
 		UninitializedCollectionException,
 		InterruptedException,
 		IOException,
-		InitialRootException,
+		InitialRootActionException,
 		TimeoutException;
 
 	void onEvent(ChangeStreamDocument<Document> event) throws UnprocessableEventException;
 
-	void onConnectionFailed(Exception e) throws InterruptedException, InitialRootException, TimeoutException;
+	void onConnectionFailed(Exception e) throws InterruptedException, InitialRootActionException, TimeoutException;
 	void onDisconnect(Exception e);
 }

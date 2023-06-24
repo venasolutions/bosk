@@ -326,7 +326,7 @@ public class MainDriver<R extends Entity> implements MongoDriver<R> {
 			UninitializedCollectionException,
 			InterruptedException,
 			IOException,
-			InitialRootException,
+			InitialRootActionException,
 			TimeoutException
 		{
 			LOGGER.debug("onConnectionSucceeded");
@@ -344,14 +344,14 @@ public class MainDriver<R extends Entity> implements MongoDriver<R> {
 			}
 		}
 
-		private void runInitialRootAction(FutureTask<R> initialRootAction) throws InterruptedException, TimeoutException, InitialRootException {
+		private void runInitialRootAction(FutureTask<R> initialRootAction) throws InterruptedException, TimeoutException, InitialRootActionException {
 			initialRootAction.run();
 			try {
 				initialRootAction.get(5 * driverSettings.recoveryPollingMS(), MILLISECONDS);
 				LOGGER.debug("initialRoot action completed successfully");
 			} catch (ExecutionException e) {
 				LOGGER.debug("initialRoot action failed", e);
-				throw new InitialRootException(e.getCause());
+				throw new InitialRootActionException(e.getCause());
 			}
 		}
 
@@ -362,7 +362,7 @@ public class MainDriver<R extends Entity> implements MongoDriver<R> {
 		}
 
 		@Override
-		public void onConnectionFailed(Exception e) throws InterruptedException, InitialRootException, TimeoutException {
+		public void onConnectionFailed(Exception e) throws InterruptedException, InitialRootActionException, TimeoutException {
 			LOGGER.debug("onConnectionFailed");
 			FutureTask<R> initialRootAction = this.taskRef.get();
 			if (initialRootAction == null) {
