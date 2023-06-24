@@ -185,6 +185,7 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest implements TestPara
 
 		LOGGER.debug("Cut connection");
 		mongoService.proxy().setConnectionCut(true);
+		tearDownActions.add(()->mongoService.proxy().setConnectionCut(false));
 
 		assertThrows(FlushFailureException.class, driver::flush);
 		assertThrows(FlushFailureException.class, latecomerBosk.driver()::flush);

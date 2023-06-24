@@ -24,6 +24,7 @@ public class MongoDriverInitializationFailureTest extends AbstractMongoDriverTes
 	@DisruptsMongoService
 	void initialOutage_throws() {
 		mongoService.proxy().setConnectionCut(true);
+		tearDownActions.add(()->mongoService.proxy().setConnectionCut(false));
 		assertThrows(InitialRootFailureException.class, ()->{
 			new Bosk<TestEntity>("Fail", TestEntity.class, this::initialRoot, super.createDriverFactory());
 		});
