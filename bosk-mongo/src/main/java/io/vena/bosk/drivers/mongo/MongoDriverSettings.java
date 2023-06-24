@@ -14,6 +14,7 @@ public class MongoDriverSettings {
 	@Default long flushTimeoutMS = 30_000;
 	@Default long recoveryPollingMS = 30_000;
 	@Default DatabaseFormat preferredDatabaseFormat = DatabaseFormat.SINGLE_DOC;
+	@Default InitialDatabaseUnavailableMode initialDatabaseUnavailableMode = InitialDatabaseUnavailableMode.DISCONNECT;
 
 	@Default Experimental experimental = Experimental.builder().build();
 	@Default Testing testing = Testing.builder().build();
@@ -89,5 +90,27 @@ public class MongoDriverSettings {
 
 	public enum DatabaseFormat {
 		SINGLE_DOC
+	}
+
+	public enum InitialDatabaseUnavailableMode {
+		/**
+		 * If the database state can't be loaded during {@link BoskDriver#initialRoot},
+		 * use the downstream driver's initial state and proceed in disconnected mode.
+		 * This allows the database and application to be booted in either order,
+		 * which can simplify repairs and recovery in production,
+		 * but during development, it can cause confusing behaviour if the database is misconfigured.
+		 * <p>
+		 * In the spirit of making things "just work in production", this is the default,
+		 * but you might want to consider using {@link #FAIL} in non-production settings.
+		 */
+		DISCONNECT,
+
+		/**
+		 * If the database state can't be loaded during {@link BoskDriver#initialRoot},
+		 * throw an exception.
+		 * This is probably the desired "fail fast" behaviour during development,
+		 * but in production, it creates a boot sequencing dependency between the application and the database.
+		 */
+		FAIL
 	}
 }

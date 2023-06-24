@@ -20,6 +20,7 @@ import io.vena.bosk.Reference;
 import io.vena.bosk.drivers.mongo.BsonPlugin;
 import io.vena.bosk.drivers.mongo.MongoDriver;
 import io.vena.bosk.drivers.mongo.MongoDriverSettings;
+import io.vena.bosk.drivers.mongo.MongoDriverSettings.InitialDatabaseUnavailableMode;
 import io.vena.bosk.drivers.mongo.v3.Formatter.DocumentFields;
 import io.vena.bosk.drivers.mongo.v3.MappedDiagnosticContext.MDCScope;
 import io.vena.bosk.exceptions.FlushFailureException;
@@ -125,6 +126,8 @@ public class MainDriver<R extends Entity> implements MongoDriver<R> {
 					} else {
 						throw new AssertionError("Unexpected exception during initialRoot: " + e.getClass().getSimpleName(), e);
 					}
+				} else if (exception instanceof InitialRootFailureException) {
+					throw (InitialRootFailureException) exception;
 				} else {
 					throw new AssertionError("Exception from initialRoot was not wrapped in DownstreamInitialRootException: " + e.getClass().getSimpleName(), e);
 				}
@@ -139,6 +142,8 @@ public class MainDriver<R extends Entity> implements MongoDriver<R> {
 	 *
 	 * @throws DownstreamInitialRootException if we attempt to delegate {@link #initialRoot} to
 	 * the {@link #downstream} driver and it throws an exception; this is a fatal initialization error.
+	 * @throws InitialRootFailureException if unable to load the initial root from the database,
+	 * and {@link InitialDatabaseUnavailableMode#FAIL} is active.
 	 */
 	private R doInitialRoot(Type rootType) {
 		R root;
@@ -162,9 +167,18 @@ public class MainDriver<R extends Entity> implements MongoDriver<R> {
 				quietlySetFormatDriver(new DisconnectedDriver<>(e2.toString()));
 			}
 		} catch (RuntimeException | UnrecognizedFormatException | IOException e) {
-			LOGGER.debug("Unable to load initial root from database; will proceed with downstream.initialRoot", e);
-			quietlySetFormatDriver(new DisconnectedDriver<>(e.toString()));
-			root = callDownstreamInitialRoot(rootType);
+			switch (driverSettings.initialDatabaseUnavailableMode()) {
+				case FAIL:
+					LOGGER.debug("Unable to load initial root from database; aborting initialization", e);
+					throw new InitialRootFailureException("Unable to load initial state from MongoDB", e);
+				case DISCONNECT:
+					LOGGER.debug("Unable to load initial root from database; will proceed with downstream.initialRoot", e);
+					quietlySetFormatDriver(new DisconnectedDriver<>(e.toString()));
+					root = callDownstreamInitialRoot(rootType);
+					break;
+				default:
+					throw new AssertionError("Unknown " + InitialDatabaseUnavailableMode.class.getSimpleName() + ": " + driverSettings.initialDatabaseUnavailableMode());
+			}
 		} finally {
 			// For better or worse, we're done initialRoot. Clear taskRef so that Listener
 			// enters its normal steady-state mode where onConnectionSucceeded events cause the state
