@@ -50,7 +50,7 @@ public interface MongoDriver<R extends Entity> extends BoskDriver<R> {
 		BsonPlugin bsonPlugin
 	) {
 		switch (driverSettings.experimental().implementationKind()) {
-			case RESILIENT3:
+			case RESILIENT:
 				return (b, d) -> new MainDriver<>(b, clientSettings, driverSettings, bsonPlugin, d);
 			default:
 				return (b, d) -> new SingleDocumentMongoDriver<>(b, clientSettings, driverSettings, bsonPlugin, d);
