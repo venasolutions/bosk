@@ -11,16 +11,40 @@ import io.vena.bosk.Reference;
 import io.vena.bosk.drivers.state.TestEntity;
 import io.vena.bosk.exceptions.InvalidTypeException;
 import java.io.IOException;
+import java.lang.reflect.Method;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.TestInfo;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import static java.lang.Thread.currentThread;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-public class AbstractDriverTest {
+public abstract class AbstractDriverTest {
 	protected final Identifier child1ID = Identifier.from("child1");
 	protected final Identifier child2ID = Identifier.from("child2");
 	protected Bosk<TestEntity> canonicalBosk;
 	protected Bosk<TestEntity> bosk;
 	protected BoskDriver<TestEntity> driver;
+
+	@BeforeEach
+	void logStart(TestInfo testInfo) {
+		logTest("/=== Start", testInfo);
+	}
+
+	@AfterEach
+	void logDone(TestInfo testInfo) {
+		logTest("\\=== Done", testInfo);
+	}
+
+	private static void logTest(String verb, TestInfo testInfo) {
+		String method =
+			testInfo.getTestClass().map(Class::getSimpleName).orElse(null)
+				+ "."
+				+ testInfo.getTestMethod().map(Method::getName).orElse(null);
+		LOGGER.info("{} {} {}", verb, method, testInfo.getDisplayName());
+	}
 
 	protected void setupBosksAndReferences(DriverFactory<TestEntity> driverFactory) {
 		// This is the bosk whose behaviour we'll consider to be correct by definition
@@ -89,4 +113,5 @@ public class AbstractDriverTest {
 		assertEquals(expected, actual);
 	}
 
+	private static final Logger LOGGER = LoggerFactory.getLogger(AbstractDriverTest.class);
 }

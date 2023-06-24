@@ -23,13 +23,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import static io.vena.bosk.ListingEntry.LISTING_ENTRY;
-import static io.vena.bosk.drivers.mongo.MongoDriverSettings.ImplementationKind.RESILIENT;
+import static io.vena.bosk.drivers.mongo.MongoDriverSettings.ImplementationKind.RESILIENT3;
 import static io.vena.bosk.drivers.mongo.v2.MainDriver.COLLECTION_NAME;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
- * A set of tests that only work with {@link io.vena.bosk.drivers.mongo.MongoDriverSettings.ImplementationKind#RESILIENT}
+ * A set of tests that only work with resilient drivers.
  */
 public class MongoDriverResiliencyTest extends AbstractMongoDriverTest {
 	FlushOrWait flushOrWait;
@@ -43,7 +43,7 @@ public class MongoDriverResiliencyTest extends AbstractMongoDriverTest {
 	@SuppressWarnings("unused")
 	static Stream<MongoDriverSettings.MongoDriverSettingsBuilder> driverSettings() {
 		MongoDriverSettings.Experimental resilient = MongoDriverSettings.Experimental.builder()
-			.implementationKind(RESILIENT)
+			.implementationKind(RESILIENT3)
 			.build();
 		return Stream.of(
 			MongoDriverSettings.builder()
@@ -192,8 +192,15 @@ public class MongoDriverResiliencyTest extends AbstractMongoDriverTest {
 	@ParametersByName
 	@UsesMongoService
 	void revisionDeleted_recovers() throws InvalidTypeException, InterruptedException, IOException {
-		// TODO: need a more complete test here. Deleting the revision
-		// field should be the same as setting it to zero, and both should work.
+		// It's not clear that this is a valid test. If this test is a burden to support,
+		// we can consider removing it.
+		//
+		// In general, changing the revision field to a lower number is not fair to bosk
+		// unless you also revert to the corresponding state. (And deleting the revision
+		// field is conceptually equivalent to setting it to zero.) Deleting the revision field
+		// is a special case because no ordinary bosk operations delete the revision field, or
+		// set it to zero, so it's not unreasonable to expect bosk to handle this; but it's
+		// also not reasonable to be surprised if it didn't.
 		LOGGER.debug("Setup database to beforeState");
 		TestEntity beforeState = initializeDatabase("before deletion");
 
