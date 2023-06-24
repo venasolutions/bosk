@@ -297,7 +297,7 @@ final class SingleDocumentMongoDriver<R extends Entity> implements MongoDriver<R
 	}
 
 	private BsonDocument updateDoc() {
-		return new BsonDocument("$inc", new BsonDocument(revision.name(), REVISION_ONE));
+		return new BsonDocument("$inc", new BsonDocument(revision.name(), new BsonInt64(1)));
 	}
 
 	private void ensureDocumentExists(BsonValue initialState, String updateCommand) {

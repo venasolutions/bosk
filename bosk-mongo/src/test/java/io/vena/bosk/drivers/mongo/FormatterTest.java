@@ -107,4 +107,5 @@ class FormatterTest extends AbstractBoskTest {
 	static Arguments dottedNameCase(String plain, String dotted) {
 		return Arguments.of(plain, dotted);
 	}
+
 }

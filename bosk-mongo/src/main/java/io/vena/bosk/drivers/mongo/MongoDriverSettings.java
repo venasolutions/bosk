@@ -85,6 +85,7 @@ public class MongoDriverSettings {
 		 * Ignores {@link FlushMode FlushMode}; only supports the equivalent of {@link FlushMode#REVISION_FIELD_ONLY REVISION_FIELD_ONLY}.
 		 */
 		RESILIENT,
+		RESILIENT3,
 	}
 
 	public enum DatabaseFormat {
