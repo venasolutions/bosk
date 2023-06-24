@@ -45,7 +45,7 @@ abstract class AbstractMongoDriverTest {
 
 
 	@BeforeAll
-	static void setupMongoConnection() {
+	public static void setupMongoConnection() {
 		mongoService = new MongoService();
 	}
 
@@ -92,7 +92,7 @@ abstract class AbstractMongoDriverTest {
 	}
 
 
-	protected TestEntity initialRoot(Bosk<TestEntity> testEntityBosk) throws InvalidTypeException {
+	public TestEntity initialRoot(Bosk<TestEntity> testEntityBosk) throws InvalidTypeException {
 		Refs refs = testEntityBosk.buildReferences(Refs.class);
 		return new TestEntity(rootID,
 			rootID.toString(),
