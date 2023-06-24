@@ -81,6 +81,7 @@ public class MongoDriverResiliencyTest extends AbstractMongoDriverTest {
 
 		LOGGER.debug("Cut mongo connection");
 		mongoService.proxy().setConnectionCut(true);
+		tearDownActions.add(()->mongoService.proxy().setConnectionCut(false));
 
 		LOGGER.debug("Create a new bosk that can't connect");
 		Bosk<TestEntity> bosk = new Bosk<TestEntity>("Test " + boskCounter.incrementAndGet(), TestEntity.class, this::initialRoot, driverFactory);

@@ -32,7 +32,7 @@ jobs:
         run: |
           ./gradlew spotlessCheck spotBugsMain test publish \
             -Pversion="${{github.event.release.tag_name}}" \
-            --no-daemon -i
+            --no-daemon -i --fail-fast
         env:
           ORG_GRADLE_PROJECT_ossrhUsername: ${{secrets.OSSRH_USERNAME}}
           ORG_GRADLE_PROJECT_ossrhPassword: ${{secrets.OSSRH_TOKEN}}
