@@ -20,7 +20,6 @@ import io.vena.bosk.Reference;
 import io.vena.bosk.drivers.mongo.BsonPlugin;
 import io.vena.bosk.drivers.mongo.MongoDriver;
 import io.vena.bosk.drivers.mongo.MongoDriverSettings;
-import io.vena.bosk.drivers.mongo.v2.DisconnectedException;
 import io.vena.bosk.drivers.mongo.v3.Formatter.DocumentFields;
 import io.vena.bosk.drivers.mongo.v3.MappedDiagnosticContext.MDCScope;
 import io.vena.bosk.exceptions.FlushFailureException;

@@ -4,7 +4,6 @@ import com.mongodb.client.model.changestream.ChangeStreamDocument;
 import io.vena.bosk.Entity;
 import io.vena.bosk.Identifier;
 import io.vena.bosk.Reference;
-import io.vena.bosk.drivers.mongo.v2.DisconnectedException;
 import io.vena.bosk.exceptions.InitializationFailureException;
 import java.io.IOException;
 import lombok.RequiredArgsConstructor;
