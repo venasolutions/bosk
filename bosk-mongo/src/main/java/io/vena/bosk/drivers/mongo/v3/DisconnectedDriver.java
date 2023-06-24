@@ -13,7 +13,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 @RequiredArgsConstructor
-public class DisconnectedDriver<R extends Entity> implements FormatDriver<R> {
+class DisconnectedDriver<R extends Entity> implements FormatDriver<R> {
 	private final String reason;
 	@Override
 	public <T> void submitReplacement(Reference<T> target, T newValue) {
