@@ -11,7 +11,7 @@ import static java.util.Objects.requireNonNull;
  * Callers of {@link FutureTask#get()} implementing {@link MongoDriver#initialRoot}
  * need to handle this appropriately without any help from the compiler.
  */
-public class DownstreamInitialRootException extends IllegalStateException {
+class DownstreamInitialRootException extends IllegalStateException {
 	public DownstreamInitialRootException(String message, Throwable cause) {
 		super(message, requireNonNull(cause));
 	}

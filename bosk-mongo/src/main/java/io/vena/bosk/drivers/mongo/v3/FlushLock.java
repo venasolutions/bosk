@@ -1,7 +1,6 @@
 package io.vena.bosk.drivers.mongo.v3;
 
 import io.vena.bosk.drivers.mongo.MongoDriverSettings;
-import io.vena.bosk.drivers.mongo.v2.DisconnectedException;
 import io.vena.bosk.exceptions.FlushFailureException;
 import java.io.Closeable;
 import java.util.concurrent.PriorityBlockingQueue;

@@ -1,6 +1,6 @@
-package io.vena.bosk.drivers.mongo.v2;
+package io.vena.bosk.drivers.mongo.v3;
 
-public class DisconnectedException extends RuntimeException {
+class DisconnectedException extends RuntimeException {
 	public DisconnectedException(String message) {
 		super(message);
 	}

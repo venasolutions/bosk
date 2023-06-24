@@ -4,7 +4,6 @@ import com.mongodb.client.model.changestream.ChangeStreamDocument;
 import io.vena.bosk.Entity;
 import io.vena.bosk.Identifier;
 import io.vena.bosk.Reference;
-import io.vena.bosk.drivers.mongo.v2.DisconnectedException;
 import io.vena.bosk.exceptions.InitializationFailureException;
 import java.io.IOException;
 import lombok.RequiredArgsConstructor;
@@ -14,7 +13,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 @RequiredArgsConstructor
-public class DisconnectedDriver<R extends Entity> implements FormatDriver<R> {
+class DisconnectedDriver<R extends Entity> implements FormatDriver<R> {
 	private final String reason;
 	@Override
 	public <T> void submitReplacement(Reference<T> target, T newValue) {

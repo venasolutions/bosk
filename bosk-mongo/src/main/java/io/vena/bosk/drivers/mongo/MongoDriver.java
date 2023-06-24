@@ -51,8 +51,6 @@ public interface MongoDriver<R extends Entity> extends BoskDriver<R> {
 	) {
 		switch (driverSettings.experimental().implementationKind()) {
 			case RESILIENT:
-				return (b, d) -> new io.vena.bosk.drivers.mongo.v2.MainDriver<>(b, clientSettings, driverSettings, bsonPlugin, d);
-			case RESILIENT3:
 				return (b, d) -> new MainDriver<>(b, clientSettings, driverSettings, bsonPlugin, d);
 			default:
 				return (b, d) -> new SingleDocumentMongoDriver<>(b, clientSettings, driverSettings, bsonPlugin, d);

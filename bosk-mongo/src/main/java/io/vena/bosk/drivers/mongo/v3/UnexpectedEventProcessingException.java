@@ -8,7 +8,7 @@ import com.mongodb.client.model.changestream.ChangeStreamDocument;
  *
  * @see UnprocessableEventException
  */
-public class UnexpectedEventProcessingException extends Exception {
+class UnexpectedEventProcessingException extends Exception {
 	public UnexpectedEventProcessingException(Throwable cause) {
 		super(cause);
 	}

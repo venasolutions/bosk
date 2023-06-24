@@ -15,7 +15,7 @@ import io.vena.bosk.exceptions.FlushFailureException;
  * detected by {@link ChangeReceiver} itself. This is somewhat analogous
  * to an {@link UnprocessableEventException} but without an "event".
  */
-public class RevisionFieldDisruptedException extends FlushFailureException {
+class RevisionFieldDisruptedException extends FlushFailureException {
 	public RevisionFieldDisruptedException(String message) {
 		super(message);
 	}
