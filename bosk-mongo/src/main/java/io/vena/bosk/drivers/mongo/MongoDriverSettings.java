@@ -25,7 +25,7 @@ public class MongoDriverSettings {
 	@Value
 	@Builder
 	public static class Experimental {
-		@Default ImplementationKind implementationKind = ImplementationKind.STABLE;
+		@Default ImplementationKind implementationKind = ImplementationKind.RESILIENT;
 		@Default FlushMode flushMode = FlushMode.ECHO;
 		@Default long changeStreamInitialWaitMS = 20;
 	}
