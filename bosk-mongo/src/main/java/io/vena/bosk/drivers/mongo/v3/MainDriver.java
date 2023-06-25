@@ -354,6 +354,8 @@ public class MainDriver<R extends Entity> implements MongoDriver<R> {
 			} else {
 				LOGGER.debug("Running initialRoot action");
 				runInitialRootAction(initialRootAction);
+				//TODO: Both branches of this "if" end with calls to onRevisionToSKip and publishFormatDriver.
+				// Is there a way to rearrange the code so those calls can be in one place?
 			}
 		}
 
