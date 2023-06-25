@@ -102,10 +102,6 @@ public class MainDriver<R extends Entity> implements MongoDriver<R> {
 	@Override
 	public R initialRoot(Type rootType) throws InvalidTypeException, InterruptedException, IOException {
 		try (MDCScope __ = beginDriverOperation("initialRoot({})", rootType)) {
-			if (driverSettings.testing().eventDelayMS() < 0) {
-				LOGGER.debug("Sleeping");
-				Thread.sleep(-driverSettings.testing().eventDelayMS());
-			}
 			FutureTask<R> task = listener.taskRef.get();
 			if (task == null) {
 				throw new IllegalStateException("initialRoot has already run");
@@ -438,6 +434,14 @@ public class MainDriver<R extends Entity> implements MongoDriver<R> {
 		}
 		MDCScope ex = setupMDC(bosk.name());
 		LOGGER.debug(description, args);
+		if (driverSettings.testing().eventDelayMS() < 0) {
+			LOGGER.debug("Sleeping");
+			try {
+				Thread.sleep(-driverSettings.testing().eventDelayMS());
+			} catch (InterruptedException e) {
+				LOGGER.debug("Sleep interrupted", e);
+			}
+		}
 		return ex;
 	}
 
