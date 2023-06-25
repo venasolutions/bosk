@@ -25,7 +25,7 @@ You don't need to trust Bosk to get all these details right:
 all we do is send updates to MongoDB, and maintain the in-memory replica by following the MongoDB change stream.
 
 ## Documentation
-- [User's Guide](docs/guide.md)
+- [User's Guide](docs/USERS.md)
 
 ## Getting Started
 
@@ -239,4 +239,3 @@ In the long run, we'll use the usual semantic versioning.
 For the 0.x.y releases, treat x as a major release number.
 
 For the 0.0.x releases, all bets are off, and no backward compatibility is guaranteed.
-

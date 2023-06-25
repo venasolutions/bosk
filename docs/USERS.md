@@ -639,6 +639,22 @@ As a special exception to this philosophy, `MongoDriver` will throw a fatal exce
 The rationale is that such connectivity errors are far more likely to result from a misconfiguration than from a temporary database outage,
 making it counterproductive for the driver to behave as though initialization was successful.
 
+##### Logging
+
+Like the rest of bosk, the `bosk-mongo` module logs via the SLF4J framework.
+The logs emitted assume that applications will use log level `WARN` for bosk.
+Additional detail is available at higher logging levels:
+`INFO` will contain details likely to be useful for bosk users, while
+`DEBUG` is more likely to be useful for the maintainers of the bosk library.
+(`TRACE` can produce a large amount of output and isn't generally recommended for production.)
+
+The logs make use of the Mapped Diagnostic Context (MDC) feature of SLF4J to provide a `MongoDriver` MDC key.
+If you might find this useful, you can configure your logging system to emit this key;
+for example, using Logback, you can add `%X{MongoDriver}` to your appender's encoder pattern.
+When present, the string associated with the `MongoDriver` MDC key always starts with a single space character,
+so you can append it to your existing log strings with no whitespace,
+meaning it takes up no space at all when it's not present.
+
 ##### Database format & layout
 
 The current database layout stores the entire bosk state in a single document in a single collection.
