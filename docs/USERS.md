@@ -635,10 +635,6 @@ For example, suppose the bosk database were to be deleted.
 Perhaps the operator takes the database offline entirely, then reboots it and restores the last known good state from a backup.
 `MongoDriver` would respond by reconnecting to the database (possibly after some period of time) and reloading the database state to re-sync the in-memory state with the database.
 
-As a special exception to this philosophy, `MongoDriver` will throw a fatal exception if it cannot connect to MongoDB during startup.
-The rationale is that such connectivity errors are far more likely to result from a misconfiguration than from a temporary database outage,
-making it counterproductive for the driver to behave as though initialization was successful.
-
 ##### Logging
 
 Like the rest of bosk, the `bosk-mongo` module logs via the SLF4J framework.
