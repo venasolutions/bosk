@@ -22,17 +22,17 @@ Drivers are expected to implement the `BoskDriver` semantics, describing the des
 From this description alone, a driver that simply forwarded all method calls to the downstream driver would be a valid implementation, but not an interesting one.
 Real drivers aim to imbue a bosk with additional attributes it would not otherwise have.
 In the case of `MongoDriver`, these additional attributes are:
-- _persistence_: `MongoDriver` allows an application to be shut down and restarted, and will find the bosk restored to the state it had at the time it shut down; and
-- _replication_: multiple bosks can connect to the same MongoDB database, and any updates made by one bosk will be reflected in all of them.
+- _replication_: multiple bosks can connect to the same MongoDB database, and any updates made by one bosk will be reflected in all of them; and
+- _persistence_: `MongoDriver` allows an application to be shut down and restarted, and will find the bosk restored to the state it had at the time it shut down.
 
 `MongoDriver` achieves these goals by implementing each update in two steps:
 1. The bosk update is translated into a database update, and written to MongoDB. (It is _not_ forwarded to the downstream driver!)
 2. Change stream events from MongoDB are translated back into bosk updates, and sent to the downstream driver.
 
-To implement persistence,
-`MongoDriver` reads the initial bosk state from the database during `Bosk` initialization (in the `initialRoot` method);
-and replication is achieved naturally by MongoDB when two or more `MongoDriver`s connect to the same database,
-since the change stream will include all updates from all drivers.
+Replication is achieved naturally by MongoDB when two or more `MongoDriver`s connect to the same database,
+since the change stream will include all updates from all drivers; and
+to implement persistence,
+`MongoDriver` reads the initial bosk state from the database during `Bosk` initialization (in the `initialRoot` method).
 
 While conceptually simple, the real complexity lies in fault tolerance.
 An important goal of `MongoDriver` is that if the database is somehow damaged and then repaired,
