@@ -93,7 +93,6 @@ public class MainDriver<R extends Entity> implements MongoDriver<R> {
 				.getDatabase(driverSettings.database())
 				.getCollection(COLLECTION_NAME);
 
-			LOGGER.debug("Initializing Listener with doInitialRootTask so that it blocks until initialRoot runs");
 			Type rootType = bosk.rootReference().targetType();
 			this.listener = new Listener(new FutureTask<>(() -> doInitialRoot(rootType)));
 			this.receiver = new ChangeReceiver(bosk.name(), listener, driverSettings, collection);
@@ -103,6 +102,10 @@ public class MainDriver<R extends Entity> implements MongoDriver<R> {
 	@Override
 	public R initialRoot(Type rootType) throws InvalidTypeException, InterruptedException, IOException {
 		try (MDCScope __ = beginDriverOperation("initialRoot({})", rootType)) {
+			if (driverSettings.testing().eventDelayMS() < 0) {
+				LOGGER.debug("Sleeping");
+				Thread.sleep(-driverSettings.testing().eventDelayMS());
+			}
 			FutureTask<R> task = listener.taskRef.get();
 			if (task == null) {
 				throw new IllegalStateException("initialRoot has already run");
@@ -131,6 +134,12 @@ public class MainDriver<R extends Entity> implements MongoDriver<R> {
 				} else {
 					throw new AssertionError("Exception from initialRoot was not wrapped in DownstreamInitialRootException: " + e.getClass().getSimpleName(), e);
 				}
+			} finally {
+				// For better or worse, we're done initialRoot. Clear taskRef so that Listener
+				// enters its normal steady-state mode where onConnectionSucceeded events cause the state
+				// to be loaded from the database and submitted downstream.
+				LOGGER.debug("Done initialRoot");
+				listener.taskRef.set(null);
 			}
 		}
 	}
@@ -179,12 +188,6 @@ public class MainDriver<R extends Entity> implements MongoDriver<R> {
 				default:
 					throw new AssertionError("Unknown " + InitialDatabaseUnavailableMode.class.getSimpleName() + ": " + driverSettings.initialDatabaseUnavailableMode());
 			}
-		} finally {
-			// For better or worse, we're done initialRoot. Clear taskRef so that Listener
-			// enters its normal steady-state mode where onConnectionSucceeded events cause the state
-			// to be loaded from the database and submitted downstream.
-			LOGGER.debug("Done initialRoot");
-			listener.taskRef.set(null);
 		}
 		return root;
 	}
