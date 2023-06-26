@@ -34,8 +34,7 @@ jobs:
 
       - name: Run Gradle Test
         run: |
-          ./gradlew spotlessCheck spotBugsMain test \
-            --info --fail-fast
+          ./gradlew spotlessCheck spotBugsMain test --fail-fast
         env:
           ORG_GRADLE_PROJECT_ossrhUsername: ${{secrets.OSSRH_USERNAME}}
           ORG_GRADLE_PROJECT_ossrhPassword: ${{secrets.OSSRH_TOKEN}}
