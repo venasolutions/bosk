@@ -18,8 +18,8 @@ jobs:
       - uses: actions/checkout@v3
         with:
           fetch-depth: 0
-      - name: Set up Maven Central
-        uses: actions/setup-java@v3
+
+      - uses: actions/setup-java@v3
         with:
           java-version: '17'
           distribution: temurin
@@ -28,11 +28,13 @@ jobs:
           server-password: ${{ secrets.OSSRH_TOKEN }}
           gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
 
+      - uses: gradle/gradle-build-action@v2
+
       - name: Run Gradle Publish
         run: |
           ./gradlew spotlessCheck spotBugsMain test publish \
             -Pversion="${{github.event.release.tag_name}}" \
-            --no-daemon -i
+            --info
         env:
           ORG_GRADLE_PROJECT_ossrhUsername: ${{secrets.OSSRH_USERNAME}}
           ORG_GRADLE_PROJECT_ossrhPassword: ${{secrets.OSSRH_TOKEN}}
