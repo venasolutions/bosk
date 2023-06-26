@@ -10,6 +10,7 @@ on:
       - '**'
     tags-ignore: # already run when a commit is pushed; no need to also run when it's tagged
       - '**'
+  pull_request:
 
 jobs:
   build_and_test:
