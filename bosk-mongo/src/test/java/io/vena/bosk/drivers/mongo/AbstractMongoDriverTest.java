@@ -1,5 +1,6 @@
 package io.vena.bosk.drivers.mongo;
 
+import ch.qos.logback.classic.Level;
 import com.mongodb.MongoClientSettings;
 import io.vena.bosk.Bosk;
 import io.vena.bosk.Catalog;
@@ -19,6 +20,7 @@ import java.lang.reflect.Method;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -83,6 +85,26 @@ abstract class AbstractMongoDriverTest {
 		logTest("\\=== Done", testInfo);
 	}
 
+	// We'd like to use SLF4J's "Level" but that doesn't support OFF
+	protected void setLogging(Level level, Logger logger) {
+		ch.qos.logback.classic.Logger logbackLogger = (ch.qos.logback.classic.Logger) logger;
+		Level originalLevel = logbackLogger.getLevel();
+		if (originalLevel == null) {
+			tearDownActions.addFirst(()->logbackLogger.setLevel(originalLevel));
+			logbackLogger.setLevel(level);
+		} else if (!ALREADY_WARNED.getAndSet(true)){
+			LOGGER.warn("Logging level has been overridden by the user; ignoring the recommended setting from the testcase itself");
+		}
+	}
+
+	protected void setLogging(Level level, Class<?> logger) {
+		setLogging(level, LoggerFactory.getLogger(logger));
+	}
+
+	protected void setLogging(Level level, Package logger) {
+		setLogging(level, LoggerFactory.getLogger(logger.getName()));
+	}
+
 	private static void logTest(String verb, TestInfo testInfo) {
 		String method =
 			testInfo.getTestClass().map(Class::getSimpleName).orElse(null)
@@ -137,5 +159,6 @@ abstract class AbstractMongoDriverTest {
 		CatalogReference<TestEntity> childCatalog(Identifier child);
 	}
 
+	private static final AtomicBoolean ALREADY_WARNED = new AtomicBoolean(false);
 	private static final Logger LOGGER = LoggerFactory.getLogger(AbstractMongoDriverTest.class);
 }
