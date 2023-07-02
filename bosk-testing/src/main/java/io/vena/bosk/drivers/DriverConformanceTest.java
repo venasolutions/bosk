@@ -17,6 +17,7 @@ import io.vena.bosk.exceptions.InvalidTypeException;
 import io.vena.bosk.junit.ParametersByName;
 import java.io.IOException;
 import java.time.temporal.ChronoUnit;
+import java.util.Optional;
 import java.util.stream.Stream;
 
 import static io.vena.bosk.ListingEntry.LISTING_ENTRY;
@@ -242,7 +243,7 @@ public abstract class DriverConformanceTest extends AbstractDriverTest {
 		driver.submitReplacement(ref, TestValues.blank().withString("changed"));
 		assertCorrectBoskContents();
 
-		assertThrows(NullPointerException.class, ()->driver.submitReplacement(ref, null));
+		assertThrows(NullPointerException.class, ()->driver.submitReplacement(ref, Optional.of(null)));
 		assertCorrectBoskContents();
 
 		driver.submitDeletion(ref);
@@ -258,7 +259,7 @@ public abstract class DriverConformanceTest extends AbstractDriverTest {
 		driver.submitReplacement(stringRef, "changed");
 		assertCorrectBoskContents();
 
-		assertThrows(NullPointerException.class, ()->driver.submitReplacement(stringRef, null));
+		assertThrows(NullPointerException.class, ()->driver.submitReplacement(stringRef, Optional.of(null)));
 		assertCorrectBoskContents();
 		assertThrows(IllegalArgumentException.class, ()->driver.submitDeletion(stringRef));
 		assertCorrectBoskContents();
@@ -271,7 +272,7 @@ public abstract class DriverConformanceTest extends AbstractDriverTest {
 		driver.submitReplacement(enumRef, MINUTES);
 		assertCorrectBoskContents();
 
-		assertThrows(NullPointerException.class, ()->driver.submitReplacement(enumRef, null));
+		assertThrows(NullPointerException.class, ()->driver.submitReplacement(enumRef, Optional.of(null)));
 		assertCorrectBoskContents();
 		assertThrows(IllegalArgumentException.class, ()->driver.submitDeletion(enumRef));
 		assertCorrectBoskContents();
@@ -286,7 +287,7 @@ public abstract class DriverConformanceTest extends AbstractDriverTest {
 		driver.submitReplacement(listRef, ListValue.of("that", "this"));
 		assertCorrectBoskContents();
 
-		assertThrows(NullPointerException.class, ()->driver.submitReplacement(listRef, null));
+		assertThrows(NullPointerException.class, ()->driver.submitReplacement(listRef, Optional.of(null)));
 		assertCorrectBoskContents();
 		assertThrows(IllegalArgumentException.class, ()->driver.submitDeletion(listRef));
 		assertCorrectBoskContents();
@@ -319,7 +320,7 @@ public abstract class DriverConformanceTest extends AbstractDriverTest {
 		assertCorrectBoskContents();
 
 		// Check that the right submission-time exceptions are thrown
-		assertThrows(NullPointerException.class, ()->driver.submitReplacement(mapRef, null));
+		assertThrows(NullPointerException.class, ()->driver.submitReplacement(mapRef, Optional.of(null)));
 		assertCorrectBoskContents();
 		assertThrows(IllegalArgumentException.class, ()->driver.submitDeletion(mapRef));
 		assertCorrectBoskContents();

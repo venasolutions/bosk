@@ -6,6 +6,7 @@ import io.vena.bosk.exceptions.FlushFailureException;
 import io.vena.bosk.exceptions.InvalidTypeException;
 import java.io.IOException;
 import java.lang.reflect.Type;
+import java.util.Optional;
 
 /**
  * Receives update requests for some {@link Bosk}.
@@ -58,6 +59,24 @@ public interface BoskDriver<R extends Entity> {
 	<T> void submitReplacement(Reference<T> target, T newValue);
 
 	/**
+	 * If <code>newValue</code> is present, requests that the object referenced by <code>target</code> be changed to <code>newValue</code>.
+	 *
+	 * If <code>newValue</code> is empty, requests that the object referenced by <code>target</code> be deleted.
+	 *
+	 * <p>
+	 * Changes will not be visible in the {@link io.vena.bosk.Bosk.ReadContext} in which this method
+	 * was called. If <code>target</code> is inside an enclosing object that does not exist at the
+	 * time the update is applied, it is silently ignored.
+	 */
+	default <T> void submitReplacement(Reference<T> target, Optional<T> newValue) {
+		if (newValue.isPresent()) {
+			submitReplacement(target, newValue.get());
+		} else {
+			submitDeletion(target);
+		}
+	}
+
+	/**
 	 * Like {@link #submitReplacement}, but has no effect unless
 	 * <code>precondition.valueIfExists()</code> is equal to <code>requiredValue</code>
 	 * immediately before the deletion.  <code>requiredValue</code> must not be null.
@@ -65,6 +84,25 @@ public interface BoskDriver<R extends Entity> {
 	 * @see #submitReplacement
 	 */
 	<T> void submitConditionalReplacement(Reference<T> target, T newValue, Reference<Identifier> precondition, Identifier requiredValue);
+
+	/**
+	 * If <code>newValue</code> is present, requests that the object referenced by <code>target</code> be changed to <code>newValue</code>.
+	 *
+	 * If <code>newValue</code> is empty, requests that the object referenced by <code>target</code> be deleted.
+	 *
+	 * Like {@link #submitReplacement}, but has no effect unless
+	 * <code>precondition.valueIfExists()</code> is equal to <code>requiredValue</code>
+	 * immediately before the deletion.  <code>requiredValue</code> must not be null.
+	 *
+	 * @see #submitReplacement
+	 */
+	default <T> void submitConditionalReplacement(Reference<T> target, Optional<T> newValue, Reference<Identifier> precondition, Identifier requiredValue) {
+		if (newValue.isPresent()) {
+			submitConditionalReplacement(target, newValue.get(), precondition, requiredValue);
+		} else {
+			submitConditionalDeletion(target, precondition, requiredValue);
+		}
+	}
 
 	/**
 	 * Like {@link #submitReplacement}, but has no effect if the target object already exists.
