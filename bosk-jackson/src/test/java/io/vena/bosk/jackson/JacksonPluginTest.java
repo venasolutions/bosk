@@ -106,7 +106,7 @@ class JacksonPluginTest extends AbstractBoskTest {
 
 		// Build the expected JSON structure
 		List<Map<String, Object>> expected = new ArrayList<>();
-		entities.forEach(e1 -> expected.add(singletonMap(e1.id().toString(), plainObjectFor(e1, TypeFactory.defaultInstance().constructType(e1.getClass())))));
+		entities.forEach(e1 -> expected.add(singletonMap(e1.id().toString(), plainObjectFor(e1))));
 
 		assertJacksonWorks(expected, catalog, new TypeReference<Catalog<TestEntity>>(){}, Path.just(TestRoot.Fields.entities));
 	}
@@ -460,31 +460,31 @@ class JacksonPluginTest extends AbstractBoskTest {
 
 	private void assertJacksonWorks(Map<String,?> plainObject, Object boskObject, TypeReference<?> boskObjectTypeRef, Path path) {
 		JavaType boskObjectType = TypeFactory.defaultInstance().constructType(boskObjectTypeRef);
-		Map<String, Object> actualPlainObject = plainObjectFor(boskObject, boskObjectType);
+		Map<String, Object> actualPlainObject = plainObjectFor(boskObject);
 		assertEquals(plainObject, actualPlainObject, "Serialized object should match expected");
 
 		Object deserializedBoskObject = boskObjectFor(plainObject, boskObjectType, path);
 		assertEquals(boskObject, deserializedBoskObject, "Deserialized object should match expected");
 
-		Map<String, Object> roundTripPlainObject = plainObjectFor(deserializedBoskObject, boskObjectType);
+		Map<String, Object> roundTripPlainObject = plainObjectFor(deserializedBoskObject);
 		assertEquals(plainObject, roundTripPlainObject, "Round-trip serialized object should match expected");
 
 	}
 
 	private void assertJacksonWorks(List<?> plainList, Object boskObject, TypeReference<?> boskObjectTypeRef, Path path) {
 		JavaType boskObjectType = TypeFactory.defaultInstance().constructType(boskObjectTypeRef);
-		List<Object> actualPlainList = plainListFor(boskObject, boskObjectType);
+		List<Object> actualPlainList = plainListFor(boskObject);
 		assertEquals(plainList, actualPlainList, "Serialized object should match expected");
 
 		Object deserializedBoskObject = boskListFor(plainList, boskObjectType, path);
 		assertEquals(boskObject, deserializedBoskObject, "Deserialized object should match expected");
 
-		List<Object> roundTripPlainObject = plainListFor(deserializedBoskObject, boskObjectType);
+		List<Object> roundTripPlainObject = plainListFor(deserializedBoskObject);
 		assertEquals(plainList, roundTripPlainObject, "Round-trip serialized object should match expected");
 
 	}
 
-	private Map<String, Object> plainObjectFor(Object boskObject, JavaType boskObjectType) {
+	private Map<String, Object> plainObjectFor(Object boskObject) {
 		try {
 			JavaType mapJavaType = TypeFactory.defaultInstance().constructParametricType(Map.class, String.class, Object.class);
 			String json = boskMapper.writeValueAsString(boskObject);
@@ -494,7 +494,7 @@ class JacksonPluginTest extends AbstractBoskTest {
 		}
 	}
 
-	private List<Object> plainListFor(Object boskObject, JavaType boskObjectType) {
+	private List<Object> plainListFor(Object boskObject) {
 		try {
 			JavaType listJavaType = TypeFactory.defaultInstance().constructParametricType(List.class, Object.class);
 			String json = boskMapper.writeValueAsString(boskObject);
