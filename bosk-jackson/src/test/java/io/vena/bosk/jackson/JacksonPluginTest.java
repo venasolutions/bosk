@@ -16,6 +16,7 @@ import io.vena.bosk.Identifier;
 import io.vena.bosk.ListValue;
 import io.vena.bosk.Listing;
 import io.vena.bosk.ListingEntry;
+import io.vena.bosk.MapValue;
 import io.vena.bosk.Path;
 import io.vena.bosk.Reference;
 import io.vena.bosk.ReflectiveEntity;
@@ -42,6 +43,7 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Value;
 import lombok.experimental.FieldNameConstants;
+import lombok.var;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -259,6 +261,46 @@ class JacksonPluginTest extends AbstractBoskTest {
 	private static Arguments listValueCase(Type entryType, Object...entries) {
 		JavaType entryJavaType = TypeFactory.defaultInstance().constructType(entryType);
 		return Arguments.of(asList(entries), TypeFactory.defaultInstance().constructParametricType(ListValue.class, entryJavaType));
+	}
+
+	@ParameterizedTest
+	@MethodSource("mapValueArguments")
+	void mapValue_serializationWorks(Map<String,?> map, JavaType type) throws JsonProcessingException {
+		MapValue<?> mapValue = MapValue.fromOrderedMap(map);
+		String expected = plainMapper.writeValueAsString(map);
+		assertEquals(expected, boskMapper.writerFor(type).writeValueAsString(mapValue));
+	}
+
+	@ParameterizedTest
+	@MethodSource("mapValueArguments")
+	void mapValue_deserializationWorks(Map<String,?> map, JavaType type) throws JsonProcessingException {
+		MapValue<?> expected = MapValue.fromOrderedMap(map);
+		String json = plainMapper.writeValueAsString(map);
+		Object actual = boskMapper.readerFor(type).readValue(json);
+		assertEquals(expected, actual);
+		assertTrue(actual instanceof MapValue);
+	}
+
+	private static Stream<Arguments> mapValueArguments() {
+		return Stream.of(
+			mapValueCase(String.class),
+			mapValueCase(String.class, kv("key1", "Hello")),
+			mapValueCase(String.class, kv("first", "firstValue"), kv("second", "secondValue"))
+		);
+	}
+
+	@SafeVarargs
+	private static Arguments mapValueCase(Type entryType, Map<String, Object>...entries) {
+		JavaType entryJavaType = TypeFactory.defaultInstance().constructType(entryType);
+		Map<String, Object> map = new LinkedHashMap<>();
+		for (var entry: entries) {
+			map.putAll(entry);
+		}
+		return Arguments.of(map, TypeFactory.defaultInstance().constructParametricType(MapValue.class, entryJavaType));
+	}
+
+	private static Map<String, Object> kv(String key, Object value) {
+		return singletonMap(key, value);
 	}
 
 	/**
