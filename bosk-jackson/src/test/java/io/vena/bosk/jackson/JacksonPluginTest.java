@@ -16,6 +16,7 @@ import io.vena.bosk.Identifier;
 import io.vena.bosk.ListValue;
 import io.vena.bosk.Listing;
 import io.vena.bosk.ListingEntry;
+import io.vena.bosk.MapValue;
 import io.vena.bosk.Path;
 import io.vena.bosk.Reference;
 import io.vena.bosk.ReflectiveEntity;
@@ -42,6 +43,7 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Value;
 import lombok.experimental.FieldNameConstants;
+import lombok.var;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -94,7 +96,7 @@ class JacksonPluginTest extends AbstractBoskTest {
 
 	@ParameterizedTest
 	@MethodSource("catalogArguments")
-	void testToJson_catalog(List<String> ids) {
+	void catalog_works(List<String> ids) {
 		// Build entities and put them in a Catalog
 		List<TestEntity> entities = new ArrayList<>();
 		for (String id : ids) {
@@ -104,7 +106,7 @@ class JacksonPluginTest extends AbstractBoskTest {
 
 		// Build the expected JSON structure
 		List<Map<String, Object>> expected = new ArrayList<>();
-		entities.forEach(e1 -> expected.add(singletonMap(e1.id().toString(), plainObjectFor(e1, TypeFactory.defaultInstance().constructType(e1.getClass())))));
+		entities.forEach(e1 -> expected.add(singletonMap(e1.id().toString(), plainObjectFor(e1))));
 
 		assertJacksonWorks(expected, catalog, new TypeReference<Catalog<TestEntity>>(){}, Path.just(TestRoot.Fields.entities));
 	}
@@ -122,7 +124,7 @@ class JacksonPluginTest extends AbstractBoskTest {
 
 	@ParameterizedTest
 	@MethodSource("listingArguments")
-	void testToJson_listing(List<String> strings, List<Identifier> ids) {
+	void listing_works(List<String> strings, List<Identifier> ids) {
 		Listing<TestEntity> listing = Listing.of(entitiesRef, ids);
 
 		Map<String, Object> expected = new LinkedHashMap<>();
@@ -144,14 +146,14 @@ class JacksonPluginTest extends AbstractBoskTest {
 	}
 
 	@Test
-	void testListingEntry() throws JsonProcessingException {
+	void listingEntry_works() throws JsonProcessingException {
 		assertEquals("true", boskMapper.writeValueAsString(LISTING_ENTRY));
 		Assertions.assertEquals(LISTING_ENTRY, boskMapper.readValue("true", ListingEntry.class));
 	}
 
 	@ParameterizedTest
 	@MethodSource("sideTableArguments")
-	void testToJson_sideTable(List<String> keys, Map<String,String> valuesByString, Map<Identifier, String> valuesById) {
+	void sideTable_works(List<String> keys, Map<String,String> valuesByString, Map<Identifier, String> valuesById) {
 		SideTable<TestEntity, String> sideTable = SideTable.fromOrderedMap(entitiesRef, valuesById);
 
 		List<Map<String, Object>> expectedList = new ArrayList<>();
@@ -193,21 +195,21 @@ class JacksonPluginTest extends AbstractBoskTest {
 	}
 
 	@Test
-	void testPhantomIsOmitted() throws InvalidTypeException, JsonProcessingException {
+	void phantom_isOmitted() throws InvalidTypeException, JsonProcessingException {
 		TestEntity entity = makeEntityWithOptionalString(Optional.empty());
 		String json = boskMapper.writeValueAsString(entity);
 		assertThat(json, not(containsString(Phantoms.Fields.phantomString)));
 	}
 
 	@Test
-	void testOptionalIsOmitted() throws InvalidTypeException, JsonProcessingException {
+	void optional_isOmitted() throws InvalidTypeException, JsonProcessingException {
 		TestEntity entity = makeEntityWithOptionalString(Optional.empty());
 		String json = boskMapper.writeValueAsString(entity);
 		assertThat(json, not(containsString(Optionals.Fields.optionalString)));
 	}
 
 	@Test
-	void testOptionalIsIncluded() throws InvalidTypeException, JsonProcessingException {
+	void optional_isIncluded() throws InvalidTypeException, JsonProcessingException {
 		String contents = "OPTIONAL STRING CONTENTS";
 		TestEntity entity = makeEntityWithOptionalString(Optional.of(contents));
 		String json = boskMapper.writeValueAsString(entity);
@@ -216,22 +218,22 @@ class JacksonPluginTest extends AbstractBoskTest {
 	}
 
 	@Test
-	void testRootReference() throws JsonProcessingException {
+	void rootReference_works() throws JsonProcessingException {
 		String json = boskMapper.writeValueAsString(bosk.rootReference());
 		assertEquals("\"/\"", json);
 	}
 
 	@ParameterizedTest
 	@MethodSource("listValueArguments")
-	void testToJson_listValue(List<?> list, JavaType type) throws JsonProcessingException {
+	void listValue_serializationWorks(List<?> list, JavaType type) throws JsonProcessingException {
 		ListValue<?> listValue = ListValue.from(list);
 		String expected = plainMapper.writeValueAsString(list);
-		assertEquals(expected, boskMapper.writerFor(type).writeValueAsString(listValue));
+		assertEquals(expected, boskMapper.writeValueAsString(listValue));
 	}
 
 	@ParameterizedTest
 	@MethodSource("listValueArguments")
-	void testFromJson_listValue(List<?> list, JavaType type) throws JsonProcessingException {
+	void listValue_deserializationWorks(List<?> list, JavaType type) throws JsonProcessingException {
 		ListValue<?> expected = ListValue.from(list);
 		String json = plainMapper.writeValueAsString(list);
 		Object actual = boskMapper.readerFor(type).readValue(json);
@@ -244,15 +246,6 @@ class JacksonPluginTest extends AbstractBoskTest {
 			listValueCase(String.class),
 			listValueCase(String.class, "Hello"),
 			listValueCase(String.class, "first", "second")
-			/*
-			TODO: We can't yet handle parameterized node types!
-			Can't tell that inside NodeWithGenerics<Double, Integer> the field listOfA has type ListValue<Double>.
-			We currently don't do parameter substitution on type variables.
-
-			listValueCase(
-				parameterizedType(NodeWithGenerics.class, Double.class, Integer.class),
-				new NodeWithGenerics<>(ListValue.of(1.0, 2.0), ListValue.of(3, 4)))
-			 */
 		);
 	}
 
@@ -261,17 +254,79 @@ class JacksonPluginTest extends AbstractBoskTest {
 		return Arguments.of(asList(entries), TypeFactory.defaultInstance().constructParametricType(ListValue.class, entryJavaType));
 	}
 
-	/**
-	 * Exercise the type-parameter handling a bit
-	 */
+	@Test
+	void listValue_parameterizedElement_works() {
+		var actual = new NodeWithGenerics<>(
+			ListValue.of(1, 2),
+			ListValue.of(
+				new NodeWithGenerics<>(
+					ListValue.of(3.0, 4.0),
+					ListValue.of("string1, string2")
+				)
+			)
+		);
+		LinkedHashMap<Object, Object> expectedB = new LinkedHashMap<>();
+		expectedB.put("listOfA", asList(3.0, 4.0));
+		expectedB.put("listOfB", asList("string1, string2"));
+		Map<String, Object> expected = new LinkedHashMap<>();
+		expected.put("listOfA", asList(1, 2));
+		expected.put("listOfB", singletonList(expectedB));
+
+		assertJacksonWorks(
+			expected,
+			actual,
+			new TypeReference<NodeWithGenerics<Integer, NodeWithGenerics<Double, String>>>() {},
+			Path.empty());
+	}
+
 	@Value
-	private static class NodeWithGenerics<A,B> implements StateTreeNode {
+	public static class NodeWithGenerics<A,B> implements StateTreeNode {
 		ListValue<A> listOfA;
 		ListValue<B> listOfB;
 	}
 
+	@ParameterizedTest
+	@MethodSource("mapValueArguments")
+	void mapValue_serializationWorks(Map<String,?> map, JavaType type) throws JsonProcessingException {
+		MapValue<?> mapValue = MapValue.fromOrderedMap(map);
+		String expected = plainMapper.writeValueAsString(map);
+		assertEquals(expected, boskMapper.writeValueAsString(mapValue));
+	}
+
+	@ParameterizedTest
+	@MethodSource("mapValueArguments")
+	void mapValue_deserializationWorks(Map<String,?> map, JavaType type) throws JsonProcessingException {
+		MapValue<?> expected = MapValue.fromOrderedMap(map);
+		String json = plainMapper.writeValueAsString(map);
+		Object actual = boskMapper.readerFor(type).readValue(json);
+		assertEquals(expected, actual);
+		assertTrue(actual instanceof MapValue);
+	}
+
+	private static Stream<Arguments> mapValueArguments() {
+		return Stream.of(
+			mapValueCase(String.class),
+			mapValueCase(String.class, kv("key1", "Hello")),
+			mapValueCase(String.class, kv("first", "firstValue"), kv("second", "secondValue"))
+		);
+	}
+
+	@SafeVarargs
+	private static Arguments mapValueCase(Type entryType, Map<String, Object>...entries) {
+		JavaType entryJavaType = TypeFactory.defaultInstance().constructType(entryType);
+		Map<String, Object> map = new LinkedHashMap<>();
+		for (var entry: entries) {
+			map.putAll(entry);
+		}
+		return Arguments.of(map, TypeFactory.defaultInstance().constructParametricType(MapValue.class, entryJavaType));
+	}
+
+	private static Map<String, Object> kv(String key, Object value) {
+		return singletonMap(key, value);
+	}
+
 	@Test
-	void testImplicitsAreOmitted() throws InvalidTypeException, JsonProcessingException {
+	void implicitRefs_omitted() throws InvalidTypeException, JsonProcessingException {
 		TestEntity entity = makeEntityWithOptionalString(Optional.empty());
 		String json = boskMapper.writeValueAsString(entity);
 		assertThat(json, not(containsString(ImplicitRefs.Fields.reference)));
@@ -279,7 +334,7 @@ class JacksonPluginTest extends AbstractBoskTest {
 	}
 
 	@Test
-	void testBasicDerivedRecord() throws InvalidTypeException, JsonProcessingException {
+	void derivedRecord_basic_works() throws InvalidTypeException, JsonProcessingException {
 		Reference<ImplicitRefs> iref = parentRef.then(ImplicitRefs.class, TestEntity.Fields.implicitRefs);
 		ImplicitRefs reflectiveEntity;
 		try (ReadContext context = bosk.readContext()) {
@@ -334,7 +389,7 @@ class JacksonPluginTest extends AbstractBoskTest {
 	}
 
 	@Test
-	void testDerivedRecordList() throws InvalidTypeException, JsonProcessingException {
+	void derivedRecord_list_works() throws InvalidTypeException, JsonProcessingException {
 		Reference<ImplicitRefs> iref = parentRef.then(ImplicitRefs.class, TestEntity.Fields.implicitRefs);
 		ImplicitRefs reflectiveEntity;
 		try (ReadContext context = bosk.readContext()) {
@@ -364,7 +419,7 @@ class JacksonPluginTest extends AbstractBoskTest {
 	}
 
 	@Test
-	void testDeserializationPath() throws InvalidTypeException {
+	void deserializationPath_works() throws InvalidTypeException {
 		Reference<ImplicitRefs> anyImplicitRefs = bosk.reference(ImplicitRefs.class, Path.of(TestRoot.Fields.entities, "-entity-", TestEntity.Fields.implicitRefs));
 		Reference<ImplicitRefs> ref1 = anyImplicitRefs.boundTo(Identifier.from("123"));
 		ImplicitRefs firstObject = new ImplicitRefs(
@@ -418,46 +473,44 @@ class JacksonPluginTest extends AbstractBoskTest {
 
 	private void assertJacksonWorks(Map<String,?> plainObject, Object boskObject, TypeReference<?> boskObjectTypeRef, Path path) {
 		JavaType boskObjectType = TypeFactory.defaultInstance().constructType(boskObjectTypeRef);
-		Map<String, Object> actualPlainObject = plainObjectFor(boskObject, boskObjectType);
+		Map<String, Object> actualPlainObject = plainObjectFor(boskObject);
 		assertEquals(plainObject, actualPlainObject, "Serialized object should match expected");
 
 		Object deserializedBoskObject = boskObjectFor(plainObject, boskObjectType, path);
 		assertEquals(boskObject, deserializedBoskObject, "Deserialized object should match expected");
 
-		Map<String, Object> roundTripPlainObject = plainObjectFor(deserializedBoskObject, boskObjectType);
+		Map<String, Object> roundTripPlainObject = plainObjectFor(deserializedBoskObject);
 		assertEquals(plainObject, roundTripPlainObject, "Round-trip serialized object should match expected");
 
 	}
 
 	private void assertJacksonWorks(List<?> plainList, Object boskObject, TypeReference<?> boskObjectTypeRef, Path path) {
 		JavaType boskObjectType = TypeFactory.defaultInstance().constructType(boskObjectTypeRef);
-		List<Object> actualPlainList = plainListFor(boskObject, boskObjectType);
+		List<Object> actualPlainList = plainListFor(boskObject);
 		assertEquals(plainList, actualPlainList, "Serialized object should match expected");
 
 		Object deserializedBoskObject = boskListFor(plainList, boskObjectType, path);
 		assertEquals(boskObject, deserializedBoskObject, "Deserialized object should match expected");
 
-		List<Object> roundTripPlainObject = plainListFor(deserializedBoskObject, boskObjectType);
+		List<Object> roundTripPlainObject = plainListFor(deserializedBoskObject);
 		assertEquals(plainList, roundTripPlainObject, "Round-trip serialized object should match expected");
 
 	}
 
-	private Map<String, Object> plainObjectFor(Object boskObject, JavaType boskObjectType) {
+	private Map<String, Object> plainObjectFor(Object boskObject) {
 		try {
-			JavaType boskJavaType = TypeFactory.defaultInstance().constructType(boskObjectType);
 			JavaType mapJavaType = TypeFactory.defaultInstance().constructParametricType(Map.class, String.class, Object.class);
-			String json = boskMapper.writerFor(boskJavaType).writeValueAsString(boskObject);
+			String json = boskMapper.writeValueAsString(boskObject);
 			return plainMapper.readerFor(mapJavaType).readValue(json);
 		} catch (JsonProcessingException e) {
 			throw new AssertionError(e);
 		}
 	}
 
-	private List<Object> plainListFor(Object boskObject, JavaType boskObjectType) {
+	private List<Object> plainListFor(Object boskObject) {
 		try {
-			JavaType boskJavaType = TypeFactory.defaultInstance().constructType(boskObjectType);
 			JavaType listJavaType = TypeFactory.defaultInstance().constructParametricType(List.class, Object.class);
-			String json = boskMapper.writerFor(boskJavaType).writeValueAsString(boskObject);
+			String json = boskMapper.writeValueAsString(boskObject);
 			return plainMapper.readerFor(listJavaType).readValue(json);
 		} catch (JsonProcessingException e) {
 			throw new AssertionError(e);
@@ -493,7 +546,7 @@ class JacksonPluginTest extends AbstractBoskTest {
 	// Sad paths
 
 	@Test
-	void testBadJson_badReference() {
+	void nonexistentPath_throws() {
 		assertThrows(UnexpectedPathException.class, () ->
 			boskMapper
 				.readerFor(TypeFactory.defaultInstance().constructParametricType(Reference.class, String.class))
@@ -501,67 +554,67 @@ class JacksonPluginTest extends AbstractBoskTest {
 	}
 
 	@Test
-	void testBadJson_catalogFromEmptyMap() {
+	void catalogFromEmptyMap_throws() {
 		assertJsonException("{}", Catalog.class, TestEntity.class);
 	}
 
 	@Test
-	void testBadJson_catalogWithContentsArray() {
+	void catalogWithContentsArray_throws() {
 		assertJsonException("{ \"contents\": [] }", Catalog.class, TestEntity.class);
 	}
 
 	@Test
-	void testBadJson_listingWithNoCatalog() {
+	void listingWithoutDomain_throws() {
 		assertJsonException("{ \"ids\": [] }", Listing.class, TestEntity.class);
 	}
 
 	@Test
-	void testBadJson_listingWithNoIds() {
+	void listingWithoutIDs_throws() {
 		assertJsonException("{ \"domain\": \"/entities\" }", Listing.class, TestEntity.class);
 	}
 
 	@Test
-	void testBadJson_listingWithExtraneousField() {
+	void listingWithExtraneousField_throws() {
 		assertJsonException("{ \"domain\": \"/entities\", \"extraneous\": 0, \"ids\": [] }", Listing.class, TestEntity.class);
 	}
 
 	@Test
-	void testBadJson_listingWithTwoDomains() {
+	void listingWithTwoDomains_throws() {
 		assertJsonException("{ \"domain\": \"/entities\", \"domain\": \"/entities\", \"ids\": [] }", Listing.class, TestEntity.class);
 	}
 
 	@Test
-	void testBadJson_listingWithTwoIdsFields() {
+	void listingWithTwoIDsFields_throws() {
 		assertJsonException("{ \"domain\": \"/entities\", \"ids\": [], \"ids\": [] }", Listing.class, TestEntity.class);
 	}
 
 	@Test
-	void testBadJson_sideTableWithNoDomain() {
+	void sideTableWithNoDomain_throws() {
 		assertJsonException("{ \"valuesById\": [] }", SideTable.class, TestEntity.class, String.class);
 	}
 
 	@Test
-	void testBadJson_sideTableWithNoValues() {
+	void sideTableWithNoValues_throws() {
 		assertJsonException("{ \"domain\": \"/entities\" }", SideTable.class, TestEntity.class, String.class);
 	}
 
 	@Test
-	void testBadJson_sideTableWithExtraneousField() {
+	void sideTableWithExtraneousField_throws() {
 		assertJsonException("{ \"domain\": \"/entities\", \"valuesById\": [], \"extraneous\": 0 }", SideTable.class, TestEntity.class, String.class);
 	}
 
 	@Test
-	void testBadJson_sideTableWithTwoDomains() {
+	void sideTableWithTwoDomains_throws() {
 		assertJsonException("{ \"domain\": \"/entities\", \"domain\": \"/entities\", \"valuesById\": [] }", SideTable.class, TestEntity.class, String.class);
 	}
 
 	@Test
-	void testBadJson_sideTableWithValuesMap() {
+	void sideTableWithValuesMap_throws() {
 		assertJsonException("{ \"domain\": \"/entities\", \"valuesById\": {} }", SideTable.class, TestEntity.class, String.class);
 	}
 
 	@Test
-	void testBadJson_sideTableWithTwoValuesFields() {
+	void sideTableWithTwoValuesFields_throws() {
 		assertJsonException("{ \"domain\": \"/entities\", \"valuesById\": [], \"valuesById\": [] }", SideTable.class, TestEntity.class, String.class);
 	}
 
@@ -575,7 +628,7 @@ class JacksonPluginTest extends AbstractBoskTest {
 	}
 
 	@Test
-	void testBadDeserializationPath_wrongType() {
+	void deserializationPath_wrongType_throws() {
 		assertThrows(UnexpectedPathException.class, () -> {
 			boskMapper.readerFor(WrongType.class).readValue("{ \"notAString\": { \"id\": \"123\" } }");
 		});
@@ -588,7 +641,7 @@ class JacksonPluginTest extends AbstractBoskTest {
 	}
 
 	@Test
-	void testBadDeserializationPath_parameterUnbound() {
+	void deserializationPath_parameterUnbound_throws() {
 		assertThrows(ParameterUnboundException.class, () -> {
 			boskMapper.readerFor(EntityParameter.class).readValue("{ \"field\": { \"id\": \"123\" } }");
 		});
@@ -601,7 +654,7 @@ class JacksonPluginTest extends AbstractBoskTest {
 	}
 
 	@Test
-	void testBadDeserializationPath_malformedPath() {
+	void deserializationPath_malformedPath() {
 		assertThrows(MalformedPathException.class, () -> {
 			boskMapper.readerFor(MalformedPath.class).readValue("{ \"field\": { \"id\": \"123\" } }");
 		});
@@ -614,7 +667,7 @@ class JacksonPluginTest extends AbstractBoskTest {
 	}
 
 	@Test
-	void testBadDeserializationPath_nonexistentPath() {
+	void deserializationPath_nonexistentPath_throws() {
 		assertThrows(UnexpectedPathException.class, () -> {
 			boskMapper.readerFor(NonexistentPath.class).readValue("{ \"field\": { \"id\": \"123\" } }");
 		});

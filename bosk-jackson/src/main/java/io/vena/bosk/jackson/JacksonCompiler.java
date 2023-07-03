@@ -82,7 +82,7 @@ final class JacksonCompiler {
 			ClassBuilder<Codec> cb = new ClassBuilder<>("BOSK_JACKSON_" + nodeClass.getSimpleName(), JacksonCodecRuntime.class, nodeClass.getClassLoader(), here());
 			cb.beginClass();
 
-			generate_writeFields(nodeClass, parameters, cb);
+			generate_writeFields(nodeType, parameters, cb);
 			generate_instantiateFrom(constructor, parameters, cb);
 
 			Codec codec = cb.buildInstance();
@@ -90,7 +90,7 @@ final class JacksonCompiler {
 			// Return a CodecWrapper for the codec
 			LinkedHashMap<String, Parameter> parametersByName = new LinkedHashMap<>();
 			parameters.forEach(p -> parametersByName.put(p.getName(), p));
-			return new CodecWrapper<>(codec, bosk, nodeClass, parametersByName, moderator);
+			return new CodecWrapper<>(codec, bosk, nodeType, parametersByName, moderator);
 		} finally {
 			Type removed = compilationsInProgress.get().removeLast();
 			assert removed.equals(nodeType);
@@ -119,7 +119,9 @@ final class JacksonCompiler {
 	/**
 	 * Generates the body of the {@link Codec#writeFields} method.
 	 */
-	private void generate_writeFields(Class<?> nodeClass, List<Parameter> parameters, ClassBuilder<Codec> cb) {
+	private void generate_writeFields(Type nodeType, List<Parameter> parameters, ClassBuilder<Codec> cb) {
+		JavaType nodeJavaType = TypeFactory.defaultInstance().constructType(nodeType);
+		Class<?> nodeClass = nodeJavaType.getRawClass();
 		cb.beginMethod(CODEC_WRITE_FIELDS);
 		// Incoming arguments
 		final LocalVariable node = cb.parameter(1);
@@ -141,7 +143,7 @@ final class JacksonCompiler {
 			// building the plan. The plan should be straightforward and "obviously
 			// correct". The execution of the plan should contain the sophistication.
 			FieldWritePlan plan;
-			JavaType parameterType = TypeFactory.defaultInstance().constructType(parameter.getParameterizedType());
+			JavaType parameterType = TypeFactory.defaultInstance().resolveMemberType(parameter.getParameterizedType(), nodeJavaType.getBindings());
 			// TODO: Is the static optimization possible??
 //			if (compilationsInProgress.get().contains(parameterType)) {
 //				// Avoid infinite recursion - look up this field's adapter dynamically
@@ -378,7 +380,7 @@ final class JacksonCompiler {
 	private class CodecWrapper<T> implements SerDes<T> {
 		Codec codec;
 		Bosk<?> bosk;
-		Class<T> nodeClass;
+		JavaType nodeJavaType;
 		LinkedHashMap<String, Parameter> parametersByName;
 		FieldModerator moderator;
 
@@ -402,9 +404,9 @@ final class JacksonCompiler {
 					// Performance-critical. Pre-compute as much as possible outside this method.
 					// Note: the reading side can't be as efficient as the writing side
 					// because we need to tolerate the fields arriving in arbitrary order.
-					Map<String, Object> valueMap = jacksonPlugin.gatherParameterValuesByName(nodeClass, parametersByName, moderator, p, ctxt);
+					Map<String, Object> valueMap = jacksonPlugin.gatherParameterValuesByName(nodeJavaType, parametersByName, moderator, p, ctxt);
 
-					List<Object> parameterValues = jacksonPlugin.parameterValueList(nodeClass, valueMap, parametersByName, bosk);
+					List<Object> parameterValues = jacksonPlugin.parameterValueList(nodeJavaType.getRawClass(), valueMap, parametersByName, bosk);
 
 					@SuppressWarnings("unchecked")
 					T result = (T)codec.instantiateFrom(parameterValues);
