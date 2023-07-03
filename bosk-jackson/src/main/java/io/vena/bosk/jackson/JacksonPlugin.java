@@ -106,33 +106,73 @@ public final class JacksonPlugin extends SerializationPlugin {
 		public JsonSerializer<?> findSerializer(SerializationConfig config, JavaType type, BeanDescription beanDesc) {
 			Class theClass = type.getRawClass();
 			if (theClass.isAnnotationPresent(DerivedRecord.class)) {
-				return derivedRecordSerDes(type, beanDesc, bosk).serializer(config);
+				return derivedRecordSerializer(config, type, beanDesc);
 			} else if (Catalog.class.isAssignableFrom(theClass)) {
-				return catalogSerDes(type, beanDesc, bosk).serializer(config);
+				return catalogSerializer(config, type, beanDesc);
 			} else if (Listing.class.isAssignableFrom(theClass)) {
-				return listingSerDes(type, beanDesc, bosk).serializer(config);
+				return listingSerializer(config, type, beanDesc);
 			} else if (Reference.class.isAssignableFrom(theClass)) {
-				return referenceSerDes(type, beanDesc, bosk).serializer(config);
+				return referenceSerializer(config, type, beanDesc);
 			} else if (Identifier.class.isAssignableFrom(theClass)) {
-				return identifierSerDes(type, beanDesc, bosk).serializer(config);
+				return identifierSerializer(config, type, beanDesc);
 			} else if (ListingEntry.class.isAssignableFrom(theClass)) {
-				return listingEntrySerDes(type, beanDesc, bosk).serializer(config);
+				return listingEntrySerializer(config, type, beanDesc);
 			} else if (SideTable.class.isAssignableFrom(theClass)) {
-				return sideTableSerDes(type, beanDesc, bosk).serializer(config);
+				return sideTableSerializer(config, type, beanDesc);
 			} else if (StateTreeNode.class.isAssignableFrom(theClass)) {
-				return stateTreeNodeSerDes(type, beanDesc, bosk).serializer(config);
+				return stateTreeNodeSerializer(config, type, beanDesc);
 			} else if (Optional.class.isAssignableFrom(theClass)) {
 				// Optional.empty() can't be serialized on its own because the field name itself must also be omitted
 				throw new IllegalArgumentException("Cannot serialize an Optional on its own; only as a field of another object");
 			} else if (Phantom.class.isAssignableFrom(theClass)) {
 				throw new IllegalArgumentException("Cannot serialize a Phantom on its own; only as a field of another object");
 			} else if (ListValue.class.isAssignableFrom(theClass)) {
-				return listValueSerDes(type, beanDesc, bosk).serializer(config);
+				return listValueSerializer(config, type, beanDesc);
 			} else if (MapValue.class.isAssignableFrom(theClass)) {
-				return mapValueSerDes(type, beanDesc, bosk).serializer(config);
+				return mapValueSerializer(config, type, beanDesc);
 			} else {
 				return null;
 			}
+		}
+
+		private JsonSerializer<Object> derivedRecordSerializer(SerializationConfig config, JavaType type, BeanDescription beanDesc) {
+			return derivedRecordSerDes(type, beanDesc, bosk).serializer(config);
+		}
+
+		private JsonSerializer<Catalog<Entity>> catalogSerializer(SerializationConfig config, JavaType type, BeanDescription beanDesc) {
+			return catalogSerDes(type, beanDesc, bosk).serializer(config);
+		}
+
+		private JsonSerializer<Listing<Entity>> listingSerializer(SerializationConfig config, JavaType type, BeanDescription beanDesc) {
+			return listingSerDes(type, beanDesc, bosk).serializer(config);
+		}
+
+		private JsonSerializer<Reference<?>> referenceSerializer(SerializationConfig config, JavaType type, BeanDescription beanDesc) {
+			return referenceSerDes(type, beanDesc, bosk).serializer(config);
+		}
+
+		private JsonSerializer<Identifier> identifierSerializer(SerializationConfig config, JavaType type, BeanDescription beanDesc) {
+			return identifierSerDes(type, beanDesc, bosk).serializer(config);
+		}
+
+		private JsonSerializer<ListingEntry> listingEntrySerializer(SerializationConfig config, JavaType type, BeanDescription beanDesc) {
+			return listingEntrySerDes(type, beanDesc, bosk).serializer(config);
+		}
+
+		private JsonSerializer<SideTable<Entity, Object>> sideTableSerializer(SerializationConfig config, JavaType type, BeanDescription beanDesc) {
+			return sideTableSerDes(type, beanDesc, bosk).serializer(config);
+		}
+
+		private JsonSerializer<StateTreeNode> stateTreeNodeSerializer(SerializationConfig config, JavaType type, BeanDescription beanDesc) {
+			return stateTreeNodeSerDes(type, beanDesc, bosk).serializer(config);
+		}
+
+		private JsonSerializer<ListValue<Object>> listValueSerializer(SerializationConfig config, JavaType type, BeanDescription beanDesc) {
+			return listValueSerDes(type, beanDesc, bosk).serializer(config);
+		}
+
+		private JsonSerializer<MapValue<Object>> mapValueSerializer(SerializationConfig config, JavaType type, BeanDescription beanDesc) {
+			return mapValueSerDes(type, beanDesc, bosk).serializer(config);
 		}
 
 		// Thanks but no thanks, Jackson. We don't need your help.
@@ -160,33 +200,73 @@ public final class JacksonPlugin extends SerializationPlugin {
 		public JsonDeserializer<?> findBeanDeserializer(JavaType type, DeserializationConfig config, BeanDescription beanDesc) {
 			Class theClass = type.getRawClass();
 			if (theClass.isAnnotationPresent(DerivedRecord.class)) {
-				return derivedRecordSerDes(type, beanDesc, bosk).deserializer(config);
+				return derivedRecordDeserializer(type, config, beanDesc);
 			} else if (Catalog.class.isAssignableFrom(theClass)) {
-				return catalogSerDes(type, beanDesc, bosk).deserializer(config);
+				return catalogDeserializer(type, config, beanDesc);
 			} else if (Listing.class.isAssignableFrom(theClass)) {
-				return listingSerDes(type, beanDesc, bosk).deserializer(config);
+				return listingDeserializer(type, config, beanDesc);
 			} else if (Reference.class.isAssignableFrom(theClass)) {
-				return referenceSerDes(type, beanDesc, bosk).deserializer(config);
+				return referenceDeserializer(type, config, beanDesc);
 			} else if (Identifier.class.isAssignableFrom(theClass)) {
-				return identifierSerDes(type, beanDesc, bosk).deserializer(config);
+				return identifierDeserialier(type, config, beanDesc);
 			} else if (ListingEntry.class.isAssignableFrom(theClass)) {
-				return listingEntrySerDes(type, beanDesc, bosk).deserializer(config);
+				return listingEntryDeserializer(type, config, beanDesc);
 			} else if (SideTable.class.isAssignableFrom(theClass)) {
-				return sideTableSerDes(type, beanDesc, bosk).deserializer(config);
+				return sideTableDeserializer(type, config, beanDesc);
 			} else if (StateTreeNode.class.isAssignableFrom(theClass)) {
-				return stateTreeNodeSerDes(type, beanDesc, bosk).deserializer(config);
+				return stateTreeNodeDeserializer(type, config, beanDesc);
 			} else if (Optional.class.isAssignableFrom(theClass)) {
 				// Optional.empty() can't be serialized on its own because the field name itself must also be omitted
 				throw new IllegalArgumentException("Cannot serialize an Optional on its own; only as a field of another object");
 			} else if (Phantom.class.isAssignableFrom(theClass)) {
 				throw new IllegalArgumentException("Cannot serialize a Phantom on its own; only as a field of another object");
 			} else if (ListValue.class.isAssignableFrom(theClass)) {
-				return listValueSerDes(type, beanDesc, bosk).deserializer(config);
+				return listValueDeserializer(type, config, beanDesc);
 			} else if (MapValue.class.isAssignableFrom(theClass)) {
-				return mapValueSerDes(type, beanDesc, bosk).deserializer(config);
+				return mapValueDeserializer(type, config, beanDesc);
 			} else {
 				return null;
 			}
+		}
+
+		private JsonDeserializer<Object> derivedRecordDeserializer(JavaType type, DeserializationConfig config, BeanDescription beanDesc) {
+			return derivedRecordSerDes(type, beanDesc, bosk).deserializer(config);
+		}
+
+		private JsonDeserializer<Catalog<Entity>> catalogDeserializer(JavaType type, DeserializationConfig config, BeanDescription beanDesc) {
+			return catalogSerDes(type, beanDesc, bosk).deserializer(config);
+		}
+
+		private JsonDeserializer<Listing<Entity>> listingDeserializer(JavaType type, DeserializationConfig config, BeanDescription beanDesc) {
+			return listingSerDes(type, beanDesc, bosk).deserializer(config);
+		}
+
+		private JsonDeserializer<Reference<?>> referenceDeserializer(JavaType type, DeserializationConfig config, BeanDescription beanDesc) {
+			return referenceSerDes(type, beanDesc, bosk).deserializer(config);
+		}
+
+		private JsonDeserializer<Identifier> identifierDeserialier(JavaType type, DeserializationConfig config, BeanDescription beanDesc) {
+			return identifierSerDes(type, beanDesc, bosk).deserializer(config);
+		}
+
+		private JsonDeserializer<ListingEntry> listingEntryDeserializer(JavaType type, DeserializationConfig config, BeanDescription beanDesc) {
+			return listingEntrySerDes(type, beanDesc, bosk).deserializer(config);
+		}
+
+		private JsonDeserializer<SideTable<Entity, Object>> sideTableDeserializer(JavaType type, DeserializationConfig config, BeanDescription beanDesc) {
+			return sideTableSerDes(type, beanDesc, bosk).deserializer(config);
+		}
+
+		private JsonDeserializer<StateTreeNode> stateTreeNodeDeserializer(JavaType type, DeserializationConfig config, BeanDescription beanDesc) {
+			return stateTreeNodeSerDes(type, beanDesc, bosk).deserializer(config);
+		}
+
+		private JsonDeserializer<ListValue<Object>> listValueDeserializer(JavaType type, DeserializationConfig config, BeanDescription beanDesc) {
+			return listValueSerDes(type, beanDesc, bosk).deserializer(config);
+		}
+
+		private JsonDeserializer<MapValue<Object>> mapValueDeserializer(JavaType type, DeserializationConfig config, BeanDescription beanDesc) {
+			return mapValueSerDes(type, beanDesc, bosk).deserializer(config);
 		}
 
 		// Thanks but no thanks, Jackson. We don't need your help.
