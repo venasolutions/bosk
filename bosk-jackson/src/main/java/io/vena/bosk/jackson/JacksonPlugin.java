@@ -144,7 +144,6 @@ public final class JacksonPlugin extends SerializationPlugin {
 
 			return new JsonSerializer<Catalog<Entity>>() {
 				@Override
-				@SuppressWarnings({"rawtypes", "unchecked"})
 				public void serialize(Catalog<Entity> value, JsonGenerator gen, SerializerProvider serializers) throws IOException {
 					JsonSerializer valueSerializer = serializers.findContentValueSerializer(entryType, null);
 					writeMapEntries(gen, value.asMap().entrySet(), valueSerializer, serializers);
@@ -495,8 +494,7 @@ public final class JacksonPlugin extends SerializationPlugin {
 					while (p.nextToken() != END_OBJECT) {
 						p.nextValue();
 						String key = p.currentName();
-						@SuppressWarnings("unchecked")
-						Object value = (Object) ctxt.findContextualValueDeserializer(valueType, null)
+						Object value = ctxt.findContextualValueDeserializer(valueType, null)
 							.deserialize(p, ctxt);
 						Object old = result1.put(key, value);
 						if (old != null) {
