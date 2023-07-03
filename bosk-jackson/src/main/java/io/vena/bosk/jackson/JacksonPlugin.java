@@ -723,7 +723,8 @@ public final class JacksonPlugin extends SerializationPlugin {
 	 * Returns the fields present in the JSON, with value objects deserialized
 	 * using type information from <code>parametersByName</code>.
 	 */
-	public Map<String, Object> gatherParameterValuesByName(Class<?> nodeClass, Map<String, Parameter> parametersByName, FieldModerator moderator, JsonParser p, DeserializationContext ctxt) throws IOException {
+	public Map<String, Object> gatherParameterValuesByName(JavaType nodeJavaType, Map<String, Parameter> parametersByName, FieldModerator moderator, JsonParser p, DeserializationContext ctxt) throws IOException {
+		Class<?> nodeClass = nodeJavaType.getRawClass();
 		Map<String, Object> parameterValuesByName = new HashMap<>();
 		expect(START_OBJECT, p);
 		while (p.nextToken() != END_OBJECT) {
@@ -733,7 +734,7 @@ public final class JacksonPlugin extends SerializationPlugin {
 			if (parameter == null) {
 				throw new JsonParseException(p, "No such parameter in constructor for " + nodeClass.getSimpleName() + ": " + name);
 			} else {
-				JavaType parameterType = TypeFactory.defaultInstance().constructType(parameter.getParameterizedType());
+				JavaType parameterType = TypeFactory.defaultInstance().resolveMemberType(parameter.getParameterizedType(), nodeJavaType.getBindings());
 				Object deserializedValue;
 				try (@SuppressWarnings("unused") DeserializationScope scope = nodeFieldDeserializationScope(nodeClass, name)) {
 					deserializedValue = readField(name, p, ctxt, parameterType, moderator);
