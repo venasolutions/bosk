@@ -145,8 +145,7 @@ public final class JacksonPlugin extends SerializationPlugin {
 			return new JsonSerializer<Catalog<Entity>>() {
 				@Override
 				public void serialize(Catalog<Entity> value, JsonGenerator gen, SerializerProvider serializers) throws IOException {
-					JsonSerializer valueSerializer = serializers.findContentValueSerializer(entryType, null);
-					writeMapEntries(gen, value.asMap().entrySet(), valueSerializer, serializers);
+					writeMapEntries(gen, value.asMap().entrySet(), entryType, serializers);
 				}
 			};
 		}
@@ -214,9 +213,7 @@ public final class JacksonPlugin extends SerializationPlugin {
 					gen.writeStartObject();
 
 					gen.writeFieldName("valuesById");
-					@SuppressWarnings("unchecked")
-					JsonSerializer<Object> contentValueSerializer = (JsonSerializer<Object>) serializers.findContentValueSerializer(valueType, null);
-					writeMapEntries(gen, value.idEntrySet(), contentValueSerializer, serializers);
+					writeMapEntries(gen, value.idEntrySet(), valueType, serializers);
 
 					gen.writeFieldName("domain");
 					serializers
@@ -532,7 +529,8 @@ public final class JacksonPlugin extends SerializationPlugin {
 		@Override public boolean isCachable() { return true; }
 	}
 
-	private <V> void writeMapEntries(JsonGenerator gen, Set<Entry<Identifier,V>> entries, JsonSerializer<V> valueSerializer, SerializerProvider serializers) throws IOException {
+	private <V> void writeMapEntries(JsonGenerator gen, Set<Entry<Identifier,V>> entries, JavaType entryType, SerializerProvider serializers) throws IOException {
+		JsonSerializer<Object> valueSerializer = serializers.findContentValueSerializer(entryType, null);
 		gen.writeStartArray();
 		for (Entry<Identifier, V> entry: entries) {
 			gen.writeStartObject();
