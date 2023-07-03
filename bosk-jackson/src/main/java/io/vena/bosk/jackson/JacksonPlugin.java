@@ -140,39 +140,127 @@ public final class JacksonPlugin extends SerializationPlugin {
 		}
 
 		private JsonSerializer<Catalog<Entity>> catalogSerializer(SerializationConfig config, JavaType type, BeanDescription beanDesc) {
-			return catalogSerDes(type, beanDesc, bosk).serializer(config);
+			JavaType entryType = catalogEntryType(type);
+
+			return new JsonSerializer<Catalog<Entity>>() {
+				@Override
+				@SuppressWarnings({"rawtypes", "unchecked"})
+				public void serialize(Catalog<Entity> value, JsonGenerator gen, SerializerProvider serializers) throws IOException {
+					JsonSerializer valueSerializer = serializers.findContentValueSerializer(entryType, null);
+					writeMapEntries(gen, value.asMap().entrySet(), valueSerializer, serializers);
+				}
+			};
 		}
 
 		private JsonSerializer<Listing<Entity>> listingSerializer(SerializationConfig config, JavaType type, BeanDescription beanDesc) {
-			return listingSerDes(type, beanDesc, bosk).serializer(config);
+			return new JsonSerializer<Listing<Entity>>() {
+				@Override
+				public void serialize(Listing<Entity> value, JsonGenerator gen, SerializerProvider serializers) throws IOException {
+					gen.writeStartObject();
+
+					gen.writeFieldName("ids");
+					serializers
+						.findContentValueSerializer(ID_LIST_TYPE, null)
+						.serialize(new ArrayList<>(value.ids()), gen, serializers);
+
+					gen.writeFieldName("domain");
+					serializers
+						.findContentValueSerializer(Reference.class, null)
+						.serialize(value.domain(), gen, serializers);
+
+					gen.writeEndObject();
+				}
+			};
 		}
 
 		private JsonSerializer<Reference<?>> referenceSerializer(SerializationConfig config, JavaType type, BeanDescription beanDesc) {
-			return referenceSerDes(type, beanDesc, bosk).serializer(config);
+			return new JsonSerializer<Reference<?>>() {
+				@Override
+				public void serialize(Reference<?> value, JsonGenerator gen, SerializerProvider serializers) throws IOException {
+					gen.writeString(value.path().urlEncoded());
+				}
+			};
 		}
 
 		private JsonSerializer<Identifier> identifierSerializer(SerializationConfig config, JavaType type, BeanDescription beanDesc) {
-			return identifierSerDes(type, beanDesc, bosk).serializer(config);
+			return new JsonSerializer<Identifier>() {
+				@Override
+				public void serialize(Identifier value, JsonGenerator gen, SerializerProvider serializers) throws IOException {
+					gen.writeString(value.toString());
+				}
+			};
 		}
 
 		private JsonSerializer<ListingEntry> listingEntrySerializer(SerializationConfig config, JavaType type, BeanDescription beanDesc) {
-			return listingEntrySerDes(type, beanDesc, bosk).serializer(config);
+			// We serialize ListingEntry as a boolean `true` with the following rationale:
+			// - The only "unit type" in JSON is null
+			// - `null` is not suitable because many systems treat that as being equivalent to an absent field
+			// - Of the other types, boolean seems the most likely to be efficiently processed in every system
+			// - `false` gives the wrong impression
+			// Hence, by a process of elimination, `true` it is
+
+			return new JsonSerializer<ListingEntry>() {
+				@Override
+				public void serialize(ListingEntry value, JsonGenerator gen, SerializerProvider serializers) throws IOException {
+					gen.writeBoolean(true);
+				}
+			};
 		}
 
 		private JsonSerializer<SideTable<Entity, Object>> sideTableSerializer(SerializationConfig config, JavaType type, BeanDescription beanDesc) {
-			return sideTableSerDes(type, beanDesc, bosk).serializer(config);
+			JavaType valueType = sideTableValueType(type);
+			return new JsonSerializer<SideTable<Entity, Object>>() {
+				@Override
+				public void serialize(SideTable<Entity, Object> value, JsonGenerator gen, SerializerProvider serializers) throws IOException {
+					gen.writeStartObject();
+
+					gen.writeFieldName("valuesById");
+					@SuppressWarnings("unchecked")
+					JsonSerializer<Object> contentValueSerializer = (JsonSerializer<Object>) serializers.findContentValueSerializer(valueType, null);
+					writeMapEntries(gen, value.idEntrySet(), contentValueSerializer, serializers);
+
+					gen.writeFieldName("domain");
+					serializers
+						.findContentValueSerializer(Reference.class, null)
+						.serialize(value.domain(), gen, serializers);
+
+					gen.writeEndObject();
+				}
+			};
 		}
 
 		private JsonSerializer<StateTreeNode> stateTreeNodeSerializer(SerializationConfig config, JavaType type, BeanDescription beanDesc) {
-			return stateTreeNodeSerDes(type, beanDesc, bosk).serializer(config);
+			StateTreeNodeFieldModerator moderator = new StateTreeNodeFieldModerator(type);
+			return compiler.<StateTreeNode>compiled(type, bosk, moderator).serializer(config);
 		}
 
 		private JsonSerializer<ListValue<Object>> listValueSerializer(SerializationConfig config, JavaType type, BeanDescription beanDesc) {
-			return listValueSerDes(type, beanDesc, bosk).serializer(config);
+			JavaType listType = listValueEquivalentListType(type);
+			return new JsonSerializer<ListValue<Object>>() {
+				@Override
+				public void serialize(ListValue<Object> value, JsonGenerator gen, SerializerProvider serializers) throws IOException {
+					// Note that a ListValue<String> can actually contain an Object[],
+					// which Jackson won't serialize as a String[], so we can't use arrayType.
+					serializers.findValueSerializer(listType, null)
+						.serialize(value, gen, serializers);
+				}
+			};
 		}
 
 		private JsonSerializer<MapValue<Object>> mapValueSerializer(SerializationConfig config, JavaType type, BeanDescription beanDesc) {
-			return mapValueSerDes(type, beanDesc, bosk).serializer(config);
+			JavaType valueType = mapValueValueType(type);
+			return new JsonSerializer<MapValue<Object>>() {
+				@Override
+				public void serialize(MapValue<Object> value, JsonGenerator gen, SerializerProvider serializers) throws IOException {
+					JsonSerializer<Object> valueSerializer = serializers.findValueSerializer(valueType);
+					gen.writeStartObject();
+					for (Entry<String, Object> element : value.entrySet()) {
+						gen.writeFieldName(requireNonNull(element.getKey()));
+						valueSerializer.serialize(requireNonNull(element.getValue()), gen, serializers);
+					}
+					gen.writeEndObject();
+				}
+			};
 		}
 
 		// Thanks but no thanks, Jackson. We don't need your help.
@@ -234,39 +322,191 @@ public final class JacksonPlugin extends SerializationPlugin {
 		}
 
 		private JsonDeserializer<Catalog<Entity>> catalogDeserializer(JavaType type, DeserializationConfig config, BeanDescription beanDesc) {
-			return catalogSerDes(type, beanDesc, bosk).deserializer(config);
+			JavaType entryType = catalogEntryType(type);
+
+			return new BoskDeserializer<Catalog<Entity>>() {
+				@Override
+				@SuppressWarnings({"rawtypes", "unchecked"})
+				public Catalog<Entity> deserialize(JsonParser p, DeserializationContext ctxt) throws IOException {
+					JsonDeserializer valueDeserializer = ctxt.findContextualValueDeserializer(entryType, null);
+					LinkedHashMap<Identifier, Entity> entries = readMapEntries(p, valueDeserializer, ctxt);
+					return Catalog.of(entries.values());
+				}
+			};
 		}
 
 		private JsonDeserializer<Listing<Entity>> listingDeserializer(JavaType type, DeserializationConfig config, BeanDescription beanDesc) {
-			return listingSerDes(type, beanDesc, bosk).deserializer(config);
+			return new BoskDeserializer<Listing<Entity>>() {
+				@Override
+				@SuppressWarnings("unchecked")
+				public Listing<Entity> deserialize(JsonParser p, DeserializationContext ctxt) throws IOException {
+					Reference<Catalog<Entity>> domain = null;
+					List<Identifier> ids = null;
+
+					expect(START_OBJECT, p);
+					while (p.nextToken() != END_OBJECT) {
+						p.nextValue();
+						switch (p.currentName()) {
+							case "ids":
+								if (ids != null) {
+									throw new JsonParseException(p, "'ids' field appears twice");
+								}
+								ids = (List<Identifier>) ctxt
+									.findContextualValueDeserializer(ID_LIST_TYPE, null)
+									.deserialize(p, ctxt);
+								break;
+							case "domain":
+								if (domain != null) {
+									throw new JsonParseException(p, "'domain' field appears twice");
+								}
+								domain = (Reference<Catalog<Entity>>) ctxt
+									.findContextualValueDeserializer(CATALOG_REF_TYPE, null)
+									.deserialize(p, ctxt);
+								break;
+							default:
+								throw new JsonParseException(p, "Unrecognized field in Listing: " + p.currentName());
+						}
+					}
+
+					if (domain == null) {
+						throw new JsonParseException(p, "Missing 'domain' field");
+					} else if (ids == null) {
+						throw new JsonParseException(p, "Missing 'ids' field");
+					} else {
+						return Listing.of(domain, ids);
+					}
+				}
+			};
 		}
 
 		private JsonDeserializer<Reference<?>> referenceDeserializer(JavaType type, DeserializationConfig config, BeanDescription beanDesc) {
-			return referenceSerDes(type, beanDesc, bosk).deserializer(config);
+			return new BoskDeserializer<Reference<?>>() {
+				@Override
+				public Reference<?> deserialize(JsonParser p, DeserializationContext ctxt) throws IOException {
+					try {
+						return bosk.reference(Object.class, Path.parse(p.getText()));
+					} catch (InvalidTypeException e) {
+						throw new UnexpectedPathException(e);
+					}
+				}
+			};
 		}
 
 		private JsonDeserializer<Identifier> identifierDeserialier(JavaType type, DeserializationConfig config, BeanDescription beanDesc) {
-			return identifierSerDes(type, beanDesc, bosk).deserializer(config);
+			return new BoskDeserializer<Identifier>() {
+				@Override
+				public Identifier deserialize(JsonParser p, DeserializationContext ctxt) throws IOException {
+					return Identifier.from(p.getText());
+				}
+			};
 		}
 
 		private JsonDeserializer<ListingEntry> listingEntryDeserializer(JavaType type, DeserializationConfig config, BeanDescription beanDesc) {
-			return listingEntrySerDes(type, beanDesc, bosk).deserializer(config);
+			return new BoskDeserializer<ListingEntry>() {
+				@Override
+				public ListingEntry deserialize(JsonParser p, DeserializationContext ctxt) throws IOException {
+					if (p.getBooleanValue()) {
+						return LISTING_ENTRY;
+					} else {
+						throw new JsonParseException(p, "Unexpected Listing entry value: " + p.getBooleanValue());
+					}
+				}
+			};
 		}
 
 		private JsonDeserializer<SideTable<Entity, Object>> sideTableDeserializer(JavaType type, DeserializationConfig config, BeanDescription beanDesc) {
-			return sideTableSerDes(type, beanDesc, bosk).deserializer(config);
+			JavaType valueType = sideTableValueType(type);
+			return new BoskDeserializer<SideTable<Entity, Object>>() {
+				@Override
+				public SideTable<Entity, Object> deserialize(JsonParser p, DeserializationContext ctxt) throws IOException {
+					Reference<Catalog<Entity>> domain = null;
+					LinkedHashMap<Identifier, Object> valuesById = null;
+
+					JsonDeserializer<Object> valueDeserializer = (JsonDeserializer<Object>) ctxt.findContextualValueDeserializer(valueType, null);
+
+					expect(START_OBJECT, p);
+					while (p.nextToken() != END_OBJECT) {
+						p.nextValue();
+						switch (p.currentName()) {
+							case "valuesById":
+								if (valuesById == null) {
+									valuesById = readMapEntries(p, valueDeserializer, ctxt);
+								} else {
+									throw new JsonParseException(p, "'valuesById' field appears twice");
+								}
+								break;
+							case "domain":
+								if (domain == null) {
+									domain = (Reference<Catalog<Entity>>) ctxt
+										.findContextualValueDeserializer(CATALOG_REF_TYPE, null)
+										.deserialize(p, ctxt);
+								} else {
+									throw new JsonParseException(p, "'domain' field appears twice");
+								}
+								break;
+							default:
+								throw new JsonParseException(p, "Unrecognized field in SideTable: " + p.currentName());
+						}
+					}
+					expect(END_OBJECT, p);
+
+					if (domain == null) {
+						throw new JsonParseException(p, "Missing 'domain' field");
+					} else if (valuesById == null) {
+						throw new JsonParseException(p, "Missing 'valuesById' field");
+					} else {
+						return SideTable.fromOrderedMap(domain, valuesById);
+					}
+				}
+			};
 		}
 
 		private JsonDeserializer<StateTreeNode> stateTreeNodeDeserializer(JavaType type, DeserializationConfig config, BeanDescription beanDesc) {
-			return stateTreeNodeSerDes(type, beanDesc, bosk).deserializer(config);
+			StateTreeNodeFieldModerator moderator = new StateTreeNodeFieldModerator(type);
+			return compiler.<StateTreeNode>compiled(type, bosk, moderator).deserializer(config);
 		}
 
 		private JsonDeserializer<ListValue<Object>> listValueDeserializer(JavaType type, DeserializationConfig config, BeanDescription beanDesc) {
-			return listValueSerDes(type, beanDesc, bosk).deserializer(config);
+			Constructor<?> ctor = theOnlyConstructorFor(type.getRawClass());
+			JavaType arrayType = listValueEquivalentArrayType(type);
+			return new BoskDeserializer<ListValue<Object>>() {
+				@Override
+				@SuppressWarnings({"unchecked"})
+				public ListValue<Object> deserialize(JsonParser p, DeserializationContext ctxt) throws IOException {
+					Object elementArray = ctxt
+						.findContextualValueDeserializer(arrayType, null)
+						.deserialize(p, ctxt);
+					try {
+						return (ListValue<Object>) ctor.newInstance(elementArray);
+					} catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
+						throw new IOException("Failed to instantiate " + type.getRawClass().getSimpleName() + ": " + e.getMessage(), e);
+					}
+				}
+			};
 		}
 
 		private JsonDeserializer<MapValue<Object>> mapValueDeserializer(JavaType type, DeserializationConfig config, BeanDescription beanDesc) {
-			return mapValueSerDes(type, beanDesc, bosk).deserializer(config);
+			JavaType valueType = mapValueValueType(type);
+			return new BoskDeserializer<MapValue<Object>>() {
+				@Override
+				public MapValue<Object> deserialize(JsonParser p, DeserializationContext ctxt) throws IOException {
+					LinkedHashMap<String, Object> result1 = new LinkedHashMap<>();
+					expect(START_OBJECT, p);
+					while (p.nextToken() != END_OBJECT) {
+						p.nextValue();
+						String key = p.currentName();
+						@SuppressWarnings("unchecked")
+						Object value = (Object) ctxt.findContextualValueDeserializer(valueType, null)
+							.deserialize(p, ctxt);
+						Object old = result1.put(key, value);
+						if (old != null) {
+							throw new JsonParseException(p, "MapValue key appears twice: \"" + key + "\"");
+						}
+					}
+					expect(END_OBJECT, p);
+					return MapValue.fromOrderedMap(result1);
+				}
+			};
 		}
 
 		// Thanks but no thanks, Jackson. We don't need your help.
@@ -292,264 +532,6 @@ public final class JacksonPlugin extends SerializationPlugin {
 	 */
 	private abstract static class BoskDeserializer<T> extends JsonDeserializer<T> {
 		@Override public boolean isCachable() { return true; }
-	}
-
-	private <V> SerDes<ListValue<V>> listValueSerDes(JavaType type, BeanDescription beanDesc, Bosk<?> bosk) {
-		Constructor<?> ctor = theOnlyConstructorFor(type.getRawClass());
-		JavaType arrayType = listValueEquivalentArrayType(type);
-		JavaType listType = listValueEquivalentListType(type);
-		return new SerDes<ListValue<V>>() {
-			@Override
-			public JsonSerializer<ListValue<V>> serializer(SerializationConfig serializationConfig) {
-				return new JsonSerializer<ListValue<V>>() {
-					@Override
-					public void serialize(ListValue<V> value, JsonGenerator gen, SerializerProvider serializers) throws IOException {
-						// Note that a ListValue<String> can actually contain an Object[],
-						// which Jackson won't serialize as a String[], so we can't use arrayType.
-						serializers.findValueSerializer(listType, null)
-							.serialize(value, gen, serializers);
-					}
-				};
-			}
-
-			@Override
-			public JsonDeserializer<ListValue<V>> deserializer(DeserializationConfig deserializationConfig) {
-				return new BoskDeserializer<ListValue<V>>() {
-					@Override
-					@SuppressWarnings({"unchecked"})
-					public ListValue<V> deserialize(JsonParser p, DeserializationContext ctxt) throws IOException {
-						Object elementArray = ctxt
-							.findContextualValueDeserializer(arrayType, null)
-							.deserialize(p, ctxt);
-						try {
-							return (ListValue<V>) ctor.newInstance(elementArray);
-						} catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
-							throw new IOException("Failed to instantiate " + type.getRawClass().getSimpleName() + ": " + e.getMessage(), e);
-						}
-					}
-				};
-			}
-		};
-	}
-
-	private <V> SerDes<MapValue<V>> mapValueSerDes(JavaType type, BeanDescription beanDesc, Bosk<?> bosk) {
-		JavaType valueType = mapValueValueType(type);
-		return new SerDes<MapValue<V>>() {
-			@Override
-			public JsonSerializer<MapValue<V>> serializer(SerializationConfig serializationConfig) {
-				return new JsonSerializer<MapValue<V>>() {
-					@Override
-					public void serialize(MapValue<V> value, JsonGenerator gen, SerializerProvider serializers) throws IOException {
-						JsonSerializer<Object> valueSerializer = serializers.findValueSerializer(valueType);
-						gen.writeStartObject();
-						for (Entry<String, V> element : value.entrySet()) {
-							gen.writeFieldName(requireNonNull(element.getKey()));
-							valueSerializer.serialize(requireNonNull(element.getValue()), gen, serializers);
-						}
-						gen.writeEndObject();
-					}
-				};
-			}
-
-			@Override
-			public JsonDeserializer<MapValue<V>> deserializer(DeserializationConfig deserializationConfig) {
-				return new BoskDeserializer<MapValue<V>>() {
-					@Override
-					public MapValue<V> deserialize(JsonParser p, DeserializationContext ctxt) throws IOException {
-						LinkedHashMap<String, V> result = new LinkedHashMap<>();
-						expect(START_OBJECT, p);
-						while (p.nextToken() != END_OBJECT) {
-							p.nextValue();
-							String key = p.currentName();
-							@SuppressWarnings("unchecked")
-							V value = (V) ctxt.findContextualValueDeserializer(valueType, null)
-								.deserialize(p, ctxt);
-							V old = result.put(key, value);
-							if (old != null) {
-								throw new JsonParseException(p, "MapValue key appears twice: \"" + key + "\"");
-							}
-						}
-						expect(END_OBJECT, p);
-						return MapValue.fromOrderedMap(result);
-					}
-				};
-			}
-		};
-	}
-
-	private SerDes<Reference<?>> referenceSerDes(JavaType type, BeanDescription beanDesc, Bosk<?> bosk) {
-		return new SerDes<Reference<?>>() {
-			@Override
-			public JsonSerializer<Reference<?>> serializer(SerializationConfig config) {
-				return new JsonSerializer<Reference<?>>() {
-					@Override
-					public void serialize(Reference<?> value, JsonGenerator gen, SerializerProvider serializers) throws IOException {
-						gen.writeString(value.path().urlEncoded());
-					}
-				};
-			}
-
-			@Override
-			public JsonDeserializer<Reference<?>> deserializer(DeserializationConfig config) {
-				return new BoskDeserializer<Reference<?>>() {
-					@Override
-					public Reference<?> deserialize(JsonParser p, DeserializationContext ctxt) throws IOException {
-						try {
-							return bosk.reference(Object.class, Path.parse(p.getText()));
-						} catch (InvalidTypeException e) {
-							throw new UnexpectedPathException(e);
-						}
-					}
-				};
-			}
-		};
-	}
-
-	private <E extends Entity> SerDes<Listing<E>> listingSerDes(JavaType type, BeanDescription beanDesc, Bosk<?> bosk) {
-		return new SerDes<Listing<E>>() {
-			@Override
-			public JsonSerializer<Listing<E>> serializer(SerializationConfig config) {
-				return new JsonSerializer<Listing<E>>() {
-					@Override
-					public void serialize(Listing<E> value, JsonGenerator gen, SerializerProvider serializers) throws IOException {
-						gen.writeStartObject();
-
-						gen.writeFieldName("ids");
-						serializers
-							.findContentValueSerializer(ID_LIST_TYPE, null)
-							.serialize(new ArrayList<>(value.ids()), gen, serializers);
-
-						gen.writeFieldName("domain");
-						serializers
-							.findContentValueSerializer(Reference.class, null)
-							.serialize(value.domain(), gen, serializers);
-
-						gen.writeEndObject();
-					}
-				};
-			}
-
-			@Override
-			public JsonDeserializer<Listing<E>> deserializer(DeserializationConfig config) {
-				return new BoskDeserializer<Listing<E>>() {
-					@Override
-					@SuppressWarnings("unchecked")
-					public Listing<E> deserialize(JsonParser p, DeserializationContext ctxt) throws IOException {
-						Reference<Catalog<E>> domain = null;
-						List<Identifier> ids = null;
-
-						expect(START_OBJECT, p);
-						while (p.nextToken() != END_OBJECT) {
-							p.nextValue();
-							switch (p.currentName()) {
-								case "ids":
-									if (ids != null) {
-										throw new JsonParseException(p, "'ids' field appears twice");
-									}
-									ids = (List<Identifier>) ctxt
-										.findContextualValueDeserializer(ID_LIST_TYPE, null)
-										.deserialize(p, ctxt);
-									break;
-								case "domain":
-									if (domain != null) {
-										throw new JsonParseException(p, "'domain' field appears twice");
-									}
-									domain = (Reference<Catalog<E>>) ctxt
-										.findContextualValueDeserializer(CATALOG_REF_TYPE, null)
-										.deserialize(p, ctxt);
-									break;
-								default:
-									throw new JsonParseException(p, "Unrecognized field in Listing: " + p.currentName());
-							}
-						}
-
-						if (domain == null) {
-							throw new JsonParseException(p, "Missing 'domain' field");
-						} else if (ids == null) {
-							throw new JsonParseException(p, "Missing 'ids' field");
-						} else {
-							return Listing.of(domain, ids);
-						}
-					}
-				};
-			}
-		};
-	}
-
-	private <K extends Entity, V> SerDes<SideTable<K,V>> sideTableSerDes(JavaType type, BeanDescription beanDesc, Bosk<?> bosk) {
-		JavaType valueType = sideTableValueType(type);
-		return new SerDes<SideTable<K,V>>() {
-			@Override
-			public JsonSerializer<SideTable<K, V>> serializer(SerializationConfig config) {
-				return new JsonSerializer<SideTable<K, V>>() {
-					@Override
-					public void serialize(SideTable<K, V> value, JsonGenerator gen, SerializerProvider serializers) throws IOException {
-						gen.writeStartObject();
-
-						gen.writeFieldName("valuesById");
-						@SuppressWarnings("unchecked")
-						JsonSerializer<V> contentValueSerializer = (JsonSerializer<V>) serializers.findContentValueSerializer(valueType, null);
-						writeMapEntries(gen, value.idEntrySet(), contentValueSerializer, serializers);
-
-						gen.writeFieldName("domain");
-						serializers
-							.findContentValueSerializer(Reference.class, null)
-							.serialize(value.domain(), gen, serializers);
-
-						gen.writeEndObject();
-					}
-				};
-			}
-
-			@Override
-			@SuppressWarnings("unchecked")
-			public JsonDeserializer<SideTable<K, V>> deserializer(DeserializationConfig config) {
-				return new BoskDeserializer<SideTable<K, V>>() {
-					@Override
-					public SideTable<K, V> deserialize(JsonParser p, DeserializationContext ctxt) throws IOException {
-						Reference<Catalog<K>> domain = null;
-						LinkedHashMap<Identifier, V> valuesById = null;
-
-						JsonDeserializer<V> valueDeserializer = (JsonDeserializer<V>) ctxt.findContextualValueDeserializer(valueType, null);
-
-						expect(START_OBJECT, p);
-						while (p.nextToken() != END_OBJECT) {
-							p.nextValue();
-							switch (p.currentName()) {
-								case "valuesById":
-									if (valuesById == null) {
-										valuesById = readMapEntries(p, valueDeserializer, ctxt);
-									} else {
-										throw new JsonParseException(p, "'valuesById' field appears twice");
-									}
-									break;
-								case "domain":
-									if (domain == null) {
-										domain = (Reference<Catalog<K>>) ctxt
-											.findContextualValueDeserializer(CATALOG_REF_TYPE, null)
-											.deserialize(p, ctxt);
-									} else {
-										throw new JsonParseException(p, "'domain' field appears twice");
-									}
-									break;
-								default:
-									throw new JsonParseException(p, "Unrecognized field in SideTable: " + p.currentName());
-							}
-						}
-						expect(END_OBJECT, p);
-
-						if (domain == null) {
-							throw new JsonParseException(p, "Missing 'domain' field");
-						} else if (valuesById == null) {
-							throw new JsonParseException(p, "Missing 'valuesById' field");
-						} else {
-							return SideTable.fromOrderedMap(domain, valuesById);
-						}
-					}
-				};
-			}
-
-		};
 	}
 
 	private <V> void writeMapEntries(JsonGenerator gen, Set<Entry<Identifier,V>> entries, JsonSerializer<V> valueSerializer, SerializerProvider serializers) throws IOException {
@@ -588,106 +570,11 @@ public final class JacksonPlugin extends SerializationPlugin {
 		return result;
 	}
 
-	private <E extends Entity> SerDes<Catalog<E>> catalogSerDes(JavaType type, BeanDescription beanDesc, Bosk<?> bosk) {
-		JavaType entryType = catalogEntryType(type);
-
-		return new SerDes<Catalog<E>>() {
-			@Override
-			public JsonSerializer<Catalog<E>> serializer(SerializationConfig config) {
-				return new JsonSerializer<Catalog<E>>() {
-					@Override
-					@SuppressWarnings({"rawtypes", "unchecked"})
-					public void serialize(Catalog<E> value, JsonGenerator gen, SerializerProvider serializers) throws IOException {
-						JsonSerializer valueSerializer = serializers.findContentValueSerializer(entryType, null);
-						writeMapEntries(gen, value.asMap().entrySet(), valueSerializer, serializers);
-					}
-				};
-			}
-
-			@Override
-			public JsonDeserializer<Catalog<E>> deserializer(DeserializationConfig config) {
-				return new BoskDeserializer<Catalog<E>>() {
-					@Override
-					@SuppressWarnings({"rawtypes", "unchecked"})
-					public Catalog<E> deserialize(JsonParser p, DeserializationContext ctxt) throws IOException {
-						JsonDeserializer valueDeserializer = ctxt.findContextualValueDeserializer(entryType, null);
-						LinkedHashMap<Identifier, E> entries = readMapEntries(p, valueDeserializer, ctxt);
-						return Catalog.of(entries.values());
-					}
-				};
-			}
-		};
-	}
-
 	private static final JavaType ID_LIST_TYPE = TypeFactory.defaultInstance().constructType(new TypeReference<
 		List<Identifier>>() {});
 
 	private static final JavaType CATALOG_REF_TYPE = TypeFactory.defaultInstance().constructType(new TypeReference<
 		Reference<Catalog<?>>>() {});
-
-	private SerDes<Identifier> identifierSerDes(JavaType type, BeanDescription beanDesc, Bosk<?> bosk) {
-		return new SerDes<Identifier>() {
-			@Override
-			public JsonSerializer<Identifier> serializer(SerializationConfig config) {
-				return new JsonSerializer<Identifier>() {
-					@Override
-					public void serialize(Identifier value, JsonGenerator gen, SerializerProvider serializers) throws IOException {
-						gen.writeString(value.toString());
-					}
-				};
-			}
-
-			@Override
-			public JsonDeserializer<Identifier> deserializer(DeserializationConfig config) {
-				return new BoskDeserializer<Identifier>() {
-					@Override
-					public Identifier deserialize(JsonParser p, DeserializationContext ctxt) throws IOException {
-						return Identifier.from(p.getText());
-					}
-				};
-			}
-		};
-	}
-
-	private SerDes<ListingEntry> listingEntrySerDes(JavaType type, BeanDescription beanDesc, Bosk<?> bosk) {
-		// We serialize ListingEntry as a boolean `true` with the following rationale:
-		// - The only "unit type" in JSON is null
-		// - `null` is not suitable because many systems treat that as being equivalent to an absent field
-		// - Of the other types, boolean seems the most likely to be efficiently processed in every system
-		// - `false` gives the wrong impression
-		// Hence, by a process of elimination, `true` it is
-
-		return new SerDes<ListingEntry>() {
-			@Override
-			public JsonSerializer<ListingEntry> serializer(SerializationConfig config) {
-				return new JsonSerializer<ListingEntry>() {
-					@Override
-					public void serialize(ListingEntry value, JsonGenerator gen, SerializerProvider serializers) throws IOException {
-						gen.writeBoolean(true);
-					}
-				};
-			}
-
-			@Override
-			public JsonDeserializer<ListingEntry> deserializer(DeserializationConfig config) {
-				return new BoskDeserializer<ListingEntry>() {
-					@Override
-					public ListingEntry deserialize(JsonParser p, DeserializationContext ctxt) throws IOException {
-						if (p.getBooleanValue()) {
-							return LISTING_ENTRY;
-						} else {
-							throw new JsonParseException(p, "Unexpected Listing entry value: " + p.getBooleanValue());
-						}
-					}
-				};
-			}
-		};
-	}
-
-	private <N extends StateTreeNode> SerDes<N> stateTreeNodeSerDes(JavaType type, BeanDescription beanDesc, Bosk<?> bosk) {
-		StateTreeNodeFieldModerator moderator = new StateTreeNodeFieldModerator(type);
-		return compiler.compiled(type, bosk, moderator);
-	}
 
 	private <T> SerDes<T> derivedRecordSerDes(JavaType objType, BeanDescription beanDesc, Bosk<?> bosk) {
 		// Check for special cases
