@@ -108,17 +108,17 @@ public final class JacksonPlugin extends SerializationPlugin {
 			if (theClass.isAnnotationPresent(DerivedRecord.class)) {
 				return derivedRecordSerializer(config, type, beanDesc);
 			} else if (Catalog.class.isAssignableFrom(theClass)) {
-				return catalogSerializer(config, type, beanDesc);
+				return catalogSerializer(config, beanDesc);
 			} else if (Listing.class.isAssignableFrom(theClass)) {
-				return listingSerializer(config, type, beanDesc);
+				return listingSerializer(config, beanDesc);
 			} else if (Reference.class.isAssignableFrom(theClass)) {
-				return referenceSerializer(config, type, beanDesc);
+				return referenceSerializer(config, beanDesc);
 			} else if (Identifier.class.isAssignableFrom(theClass)) {
-				return identifierSerializer(config, type, beanDesc);
+				return identifierSerializer(config, beanDesc);
 			} else if (ListingEntry.class.isAssignableFrom(theClass)) {
-				return listingEntrySerializer(config, type, beanDesc);
+				return listingEntrySerializer(config, beanDesc);
 			} else if (SideTable.class.isAssignableFrom(theClass)) {
-				return sideTableSerializer(config, type, beanDesc);
+				return sideTableSerializer(config, beanDesc);
 			} else if (StateTreeNode.class.isAssignableFrom(theClass)) {
 				return stateTreeNodeSerializer(config, type, beanDesc);
 			} else if (Optional.class.isAssignableFrom(theClass)) {
@@ -127,7 +127,7 @@ public final class JacksonPlugin extends SerializationPlugin {
 			} else if (Phantom.class.isAssignableFrom(theClass)) {
 				throw new IllegalArgumentException("Cannot serialize a Phantom on its own; only as a field of another object");
 			} else if (MapValue.class.isAssignableFrom(theClass)) {
-				return mapValueSerializer(config, type, beanDesc);
+				return mapValueSerializer(config, beanDesc);
 			} else {
 				return null;
 			}
@@ -137,7 +137,7 @@ public final class JacksonPlugin extends SerializationPlugin {
 			return derivedRecordSerDes(type, beanDesc, bosk).serializer(config);
 		}
 
-		private JsonSerializer<Catalog<Entity>> catalogSerializer(SerializationConfig config, JavaType type, BeanDescription beanDesc) {
+		private JsonSerializer<Catalog<Entity>> catalogSerializer(SerializationConfig config, BeanDescription beanDesc) {
 			return new JsonSerializer<Catalog<Entity>>() {
 				@Override
 				public void serialize(Catalog<Entity> value, JsonGenerator gen, SerializerProvider serializers) throws IOException {
@@ -146,7 +146,7 @@ public final class JacksonPlugin extends SerializationPlugin {
 			};
 		}
 
-		private JsonSerializer<Listing<Entity>> listingSerializer(SerializationConfig config, JavaType type, BeanDescription beanDesc) {
+		private JsonSerializer<Listing<Entity>> listingSerializer(SerializationConfig config, BeanDescription beanDesc) {
 			return new JsonSerializer<Listing<Entity>>() {
 				@Override
 				public void serialize(Listing<Entity> value, JsonGenerator gen, SerializerProvider serializers) throws IOException {
@@ -167,7 +167,7 @@ public final class JacksonPlugin extends SerializationPlugin {
 			};
 		}
 
-		private JsonSerializer<Reference<?>> referenceSerializer(SerializationConfig config, JavaType type, BeanDescription beanDesc) {
+		private JsonSerializer<Reference<?>> referenceSerializer(SerializationConfig config, BeanDescription beanDesc) {
 			return new JsonSerializer<Reference<?>>() {
 				@Override
 				public void serialize(Reference<?> value, JsonGenerator gen, SerializerProvider serializers) throws IOException {
@@ -176,7 +176,7 @@ public final class JacksonPlugin extends SerializationPlugin {
 			};
 		}
 
-		private JsonSerializer<Identifier> identifierSerializer(SerializationConfig config, JavaType type, BeanDescription beanDesc) {
+		private JsonSerializer<Identifier> identifierSerializer(SerializationConfig config, BeanDescription beanDesc) {
 			return new JsonSerializer<Identifier>() {
 				@Override
 				public void serialize(Identifier value, JsonGenerator gen, SerializerProvider serializers) throws IOException {
@@ -185,7 +185,7 @@ public final class JacksonPlugin extends SerializationPlugin {
 			};
 		}
 
-		private JsonSerializer<ListingEntry> listingEntrySerializer(SerializationConfig config, JavaType type, BeanDescription beanDesc) {
+		private JsonSerializer<ListingEntry> listingEntrySerializer(SerializationConfig config, BeanDescription beanDesc) {
 			// We serialize ListingEntry as a boolean `true` with the following rationale:
 			// - The only "unit type" in JSON is null
 			// - `null` is not suitable because many systems treat that as being equivalent to an absent field
@@ -201,7 +201,7 @@ public final class JacksonPlugin extends SerializationPlugin {
 			};
 		}
 
-		private JsonSerializer<SideTable<Entity, Object>> sideTableSerializer(SerializationConfig config, JavaType type, BeanDescription beanDesc) {
+		private JsonSerializer<SideTable<Entity, Object>> sideTableSerializer(SerializationConfig config, BeanDescription beanDesc) {
 			return new JsonSerializer<SideTable<Entity, Object>>() {
 				@Override
 				public void serialize(SideTable<Entity, Object> value, JsonGenerator gen, SerializerProvider serializers) throws IOException {
@@ -225,8 +225,7 @@ public final class JacksonPlugin extends SerializationPlugin {
 			return compiler.<StateTreeNode>compiled(type, bosk, moderator).serializer(config);
 		}
 
-		private JsonSerializer<MapValue<Object>> mapValueSerializer(SerializationConfig config, JavaType type, BeanDescription beanDesc) {
-			JavaType valueType = mapValueValueType(type);
+		private JsonSerializer<MapValue<Object>> mapValueSerializer(SerializationConfig config, BeanDescription beanDesc) {
 			return new JsonSerializer<MapValue<Object>>() {
 				@Override
 				public void serialize(MapValue<Object> value, JsonGenerator gen, SerializerProvider serializers) throws IOException {
