@@ -248,10 +248,10 @@ public final class JacksonPlugin extends SerializationPlugin {
 			return new JsonSerializer<MapValue<Object>>() {
 				@Override
 				public void serialize(MapValue<Object> value, JsonGenerator gen, SerializerProvider serializers) throws IOException {
-					JsonSerializer<Object> valueSerializer = serializers.findValueSerializer(valueType);
 					gen.writeStartObject();
 					for (Entry<String, Object> element : value.entrySet()) {
 						gen.writeFieldName(requireNonNull(element.getKey()));
+						JsonSerializer<Object> valueSerializer = serializers.findValueSerializer(valueType);
 						valueSerializer.serialize(requireNonNull(element.getValue()), gen, serializers);
 					}
 					gen.writeEndObject();
@@ -530,11 +530,11 @@ public final class JacksonPlugin extends SerializationPlugin {
 	}
 
 	private <V> void writeMapEntries(JsonGenerator gen, Set<Entry<Identifier,V>> entries, JavaType entryType, SerializerProvider serializers) throws IOException {
-		JsonSerializer<Object> valueSerializer = serializers.findContentValueSerializer(entryType, null);
 		gen.writeStartArray();
 		for (Entry<Identifier, V> entry: entries) {
 			gen.writeStartObject();
 			gen.writeFieldName(entry.getKey().toString());
+			JsonSerializer<Object> valueSerializer = serializers.findContentValueSerializer(entryType, null);
 			valueSerializer.serialize(entry.getValue(), gen, serializers);
 			gen.writeEndObject();
 		}
