@@ -246,21 +246,43 @@ class JacksonPluginTest extends AbstractBoskTest {
 			listValueCase(String.class),
 			listValueCase(String.class, "Hello"),
 			listValueCase(String.class, "first", "second")
-			/*
-			TODO: We can't yet handle parameterized node types!
-			Can't tell that inside NodeWithGenerics<Double, Integer> the field listOfA has type ListValue<Double>.
-			We currently don't do parameter substitution on type variables.
-
-			listValueCase(
-				parameterizedType(NodeWithGenerics.class, Double.class, Integer.class),
-				new NodeWithGenerics<>(ListValue.of(1.0, 2.0), ListValue.of(3, 4)))
-			 */
 		);
 	}
 
 	private static Arguments listValueCase(Type entryType, Object...entries) {
 		JavaType entryJavaType = TypeFactory.defaultInstance().constructType(entryType);
 		return Arguments.of(asList(entries), TypeFactory.defaultInstance().constructParametricType(ListValue.class, entryJavaType));
+	}
+
+	@Test
+	void listValue_parameterizedElement_works() {
+		var actual = new NodeWithGenerics<>(
+			ListValue.of(1, 2),
+			ListValue.of(
+				new NodeWithGenerics<>(
+					ListValue.of(3.0, 4.0),
+					ListValue.of("string1, string2")
+				)
+			)
+		);
+		LinkedHashMap<Object, Object> expectedB = new LinkedHashMap<>();
+		expectedB.put("listOfA", asList(3.0, 4.0));
+		expectedB.put("listOfB", asList("string1, string2"));
+		Map<String, Object> expected = new LinkedHashMap<>();
+		expected.put("listOfA", asList(1, 2));
+		expected.put("listOfB", singletonList(expectedB));
+
+		assertJacksonWorks(
+			expected,
+			actual,
+			new TypeReference<NodeWithGenerics<Integer, NodeWithGenerics<Double, String>>>() {},
+			Path.empty());
+	}
+
+	@Value
+	public static class NodeWithGenerics<A,B> implements StateTreeNode {
+		ListValue<A> listOfA;
+		ListValue<B> listOfB;
 	}
 
 	@ParameterizedTest
@@ -301,15 +323,6 @@ class JacksonPluginTest extends AbstractBoskTest {
 
 	private static Map<String, Object> kv(String key, Object value) {
 		return singletonMap(key, value);
-	}
-
-	/**
-	 * Exercise the type-parameter handling a bit
-	 */
-	@Value
-	private static class NodeWithGenerics<A,B> implements StateTreeNode {
-		ListValue<A> listOfA;
-		ListValue<B> listOfB;
 	}
 
 	@Test
