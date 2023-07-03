@@ -126,8 +126,6 @@ public final class JacksonPlugin extends SerializationPlugin {
 				throw new IllegalArgumentException("Cannot serialize an Optional on its own; only as a field of another object");
 			} else if (Phantom.class.isAssignableFrom(theClass)) {
 				throw new IllegalArgumentException("Cannot serialize a Phantom on its own; only as a field of another object");
-			} else if (ListValue.class.isAssignableFrom(theClass)) {
-				return listValueSerializer(config, type, beanDesc);
 			} else if (MapValue.class.isAssignableFrom(theClass)) {
 				return mapValueSerializer(config, type, beanDesc);
 			} else {
@@ -228,19 +226,6 @@ public final class JacksonPlugin extends SerializationPlugin {
 		private JsonSerializer<StateTreeNode> stateTreeNodeSerializer(SerializationConfig config, JavaType type, BeanDescription beanDesc) {
 			StateTreeNodeFieldModerator moderator = new StateTreeNodeFieldModerator(type);
 			return compiler.<StateTreeNode>compiled(type, bosk, moderator).serializer(config);
-		}
-
-		private JsonSerializer<ListValue<Object>> listValueSerializer(SerializationConfig config, JavaType type, BeanDescription beanDesc) {
-			JavaType listType = listValueEquivalentListType(type);
-			return new JsonSerializer<ListValue<Object>>() {
-				@Override
-				public void serialize(ListValue<Object> value, JsonGenerator gen, SerializerProvider serializers) throws IOException {
-					// Note that a ListValue<String> can actually contain an Object[],
-					// which Jackson won't serialize as a String[], so we can't use arrayType.
-					serializers.findValueSerializer(listType, null)
-						.serialize(value, gen, serializers);
-				}
-			};
 		}
 
 		private JsonSerializer<MapValue<Object>> mapValueSerializer(SerializationConfig config, JavaType type, BeanDescription beanDesc) {
@@ -789,10 +774,6 @@ public final class JacksonPlugin extends SerializationPlugin {
 
 	private static JavaType sideTableValueType(JavaType sideTableType) {
 		return javaParameterType(sideTableType, SideTable.class, 1);
-	}
-
-	private static JavaType listValueEquivalentListType(JavaType listValueType) {
-		return TypeFactory.defaultInstance().constructCollectionType(List.class, javaParameterType(listValueType, ListValue.class, 0));
 	}
 
 	private static JavaType listValueEquivalentArrayType(JavaType listValueType) {
