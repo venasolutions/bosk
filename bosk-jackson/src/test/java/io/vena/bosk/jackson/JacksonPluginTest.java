@@ -228,7 +228,7 @@ class JacksonPluginTest extends AbstractBoskTest {
 	void listValue_serializationWorks(List<?> list, JavaType type) throws JsonProcessingException {
 		ListValue<?> listValue = ListValue.from(list);
 		String expected = plainMapper.writeValueAsString(list);
-		assertEquals(expected, boskMapper.writerFor(type).writeValueAsString(listValue));
+		assertEquals(expected, boskMapper.writeValueAsString(listValue));
 	}
 
 	@ParameterizedTest
@@ -268,7 +268,7 @@ class JacksonPluginTest extends AbstractBoskTest {
 	void mapValue_serializationWorks(Map<String,?> map, JavaType type) throws JsonProcessingException {
 		MapValue<?> mapValue = MapValue.fromOrderedMap(map);
 		String expected = plainMapper.writeValueAsString(map);
-		assertEquals(expected, boskMapper.writerFor(type).writeValueAsString(mapValue));
+		assertEquals(expected, boskMapper.writeValueAsString(mapValue));
 	}
 
 	@ParameterizedTest
@@ -486,9 +486,8 @@ class JacksonPluginTest extends AbstractBoskTest {
 
 	private Map<String, Object> plainObjectFor(Object boskObject, JavaType boskObjectType) {
 		try {
-			JavaType boskJavaType = TypeFactory.defaultInstance().constructType(boskObjectType);
 			JavaType mapJavaType = TypeFactory.defaultInstance().constructParametricType(Map.class, String.class, Object.class);
-			String json = boskMapper.writerFor(boskJavaType).writeValueAsString(boskObject);
+			String json = boskMapper.writeValueAsString(boskObject);
 			return plainMapper.readerFor(mapJavaType).readValue(json);
 		} catch (JsonProcessingException e) {
 			throw new AssertionError(e);
@@ -497,9 +496,8 @@ class JacksonPluginTest extends AbstractBoskTest {
 
 	private List<Object> plainListFor(Object boskObject, JavaType boskObjectType) {
 		try {
-			JavaType boskJavaType = TypeFactory.defaultInstance().constructType(boskObjectType);
 			JavaType listJavaType = TypeFactory.defaultInstance().constructParametricType(List.class, Object.class);
-			String json = boskMapper.writerFor(boskJavaType).writeValueAsString(boskObject);
+			String json = boskMapper.writeValueAsString(boskObject);
 			return plainMapper.readerFor(listJavaType).readValue(json);
 		} catch (JsonProcessingException e) {
 			throw new AssertionError(e);
