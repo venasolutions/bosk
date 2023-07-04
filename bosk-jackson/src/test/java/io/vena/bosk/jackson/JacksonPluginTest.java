@@ -94,6 +94,14 @@ class JacksonPluginTest extends AbstractBoskTest {
 			.enable(INDENT_OUTPUT);
 	}
 
+	@Test
+	void identifier_works() throws JsonProcessingException {
+		Identifier id = Identifier.from("testID");
+		String expected = "\"testID\"";
+		assertEquals(expected, boskMapper.writeValueAsString(id));
+		assertEquals(id, boskMapper.readerFor(Identifier.class).readValue(expected));
+	}
+
 	@ParameterizedTest
 	@MethodSource("catalogArguments")
 	void catalog_works(List<String> ids) {
