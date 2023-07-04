@@ -109,8 +109,12 @@ public class ExampleBosk extends Bosk<ExampleState> {
 			driverFactory());
 	}
 
-	// Typically, you add a bunch of useful references here, like this one:
-	public final Reference<String> nameRef = reference(String.class, Path.parse("/name"));
+	public interface Refs {
+		// Typically, you add a bunch of useful references here, like this one:
+		@ReferencePath("/name") Reference<String> name();
+	}
+
+	public final Refs refs = buildReferences(Refs.class);
 
 	// Start off simple
 	private static DriverFactory<ExampleState> driverFactory() {
