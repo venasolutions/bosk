@@ -130,7 +130,7 @@ To read state, acquire a `ReadContext`:
 
 ```
 try (var __ = bosk.readContext()) {
-	System.out.println("Hello, " + bosk.nameRef.value());
+	System.out.println("Hello, " + bosk.refs.name.value());
 }
 ```
 
@@ -141,13 +141,13 @@ It is an antipattern to use many small read contexts during the course of a sing
 To modify state, use the `BoskDriver` interface:
 
 ```
-bosk.driver().submitReplacement(bosk.nameRef, "everybody");
+bosk.driver().submitReplacement(bosk.refs.name(), "everybody");
 ```
 
 During your application's initialization, register a hook to perform an action whenever state changes:
 
 ```
-bosk.registerHook("Name update", bosk.nameRef, ref -> {
+bosk.registerHook("Name update", bosk.refs.name(), ref -> {
 	System.out.println("Name is now: " + ref.value());
 });
 ```
