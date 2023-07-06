@@ -4,7 +4,6 @@ import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
-import com.fasterxml.jackson.core.Version;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.BeanDescription;
 import com.fasterxml.jackson.databind.DeserializationConfig;
@@ -13,7 +12,6 @@ import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.JsonSerializer;
 import com.fasterxml.jackson.databind.KeyDeserializer;
-import com.fasterxml.jackson.databind.Module;
 import com.fasterxml.jackson.databind.SerializationConfig;
 import com.fasterxml.jackson.databind.SerializerProvider;
 import com.fasterxml.jackson.databind.deser.Deserializers;
@@ -74,18 +72,8 @@ import static java.util.Objects.requireNonNull;
 public final class JacksonPlugin extends SerializationPlugin {
 	private final JacksonCompiler compiler = new JacksonCompiler(this);
 
-	public Module moduleFor(Bosk<?> bosk) {
-		return new Module() {
-			@Override
-			public String getModuleName() {
-				return JacksonPlugin.class.getSimpleName();
-			}
-
-			@Override
-			public Version version() {
-				return Version.unknownVersion();
-			}
-
+	public BoskJacksonModule moduleFor(Bosk<?> bosk) {
+		return new BoskJacksonModule() {
 			@Override
 			public void setupModule(SetupContext context) {
 				context.addSerializers(new BoskSerializers(bosk));
