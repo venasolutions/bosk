@@ -6,6 +6,11 @@ plugins {
 	id 'com.diffplug.gradle.spotless' version '3.25.0'
 }
 
+java {
+	sourceCompatibility = '8'
+	targetCompatibility = '8'
+}
+
 dependencies {
 	api 'com.fasterxml.jackson.core:jackson-databind:2.15.1'
 	api project(":bosk-core")

@@ -7,6 +7,11 @@ plugins {
 	id 'com.diffplug.gradle.spotless' version '3.25.0'
 }
 
+java {
+	sourceCompatibility = '8'
+	targetCompatibility = '8'
+}
+
 dependencies {
 	implementation group: 'org.ow2.asm', name: 'asm', version: '9.4'
 	implementation 'org.pcollections:pcollections:4.0.1'

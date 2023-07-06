@@ -6,16 +6,18 @@ plugins {
 	id 'com.diffplug.gradle.spotless' version '3.25.0'
 }
 
-archivesBaseName = 'bosk-mongo'
-
 java {
-	sourceCompatibility = '8'
-	targetCompatibility = '8'
+	sourceCompatibility = '17'
+	targetCompatibility = '17'
 }
 
 dependencies {
-	api project(":bosk-core")
-	api 'org.mongodb:mongodb-driver-sync:4.1.2'
+	api project(":bosk-jackson")
+	implementation 'org.springframework.boot:spring-boot-starter-web:3.1.1'
 	testImplementation project(":bosk-testing")
 	testImplementation project(":lib-testing")
+}
+
+repositories {
+	mavenCentral()
 }

@@ -6,6 +6,11 @@ plugins {
 	id 'com.diffplug.gradle.spotless' version '3.25.0'
 }
 
+java {
+	sourceCompatibility = '8'
+	targetCompatibility = '8'
+}
+
 dependencies {
 	api project(":bosk-core")
 	testImplementation project(":lib-testing")
