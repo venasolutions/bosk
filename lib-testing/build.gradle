@@ -4,6 +4,11 @@ plugins {
 	id 'com.diffplug.gradle.spotless' version '3.25.0'
 }
 
+java {
+	sourceCompatibility = '8'
+	targetCompatibility = '8'
+}
+
 dependencies {
 	// Tests from other projects can depend on this one,
 	// which in turn can depend on the main code from other projects.

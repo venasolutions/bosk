@@ -8,6 +8,11 @@ plugins {
 
 archivesBaseName = 'bosk-mongo'
 
+java {
+	sourceCompatibility = '8'
+	targetCompatibility = '8'
+}
+
 dependencies {
 	api project(":bosk-core")
 	api 'org.mongodb:mongodb-driver-sync:4.1.2'
