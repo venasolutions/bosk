@@ -140,6 +140,13 @@ public interface Reference<T> {
 	}
 
 	/**
+	 * @return The equivalent of {@link Bosk#rootReference()} on the <code>bosk</code> to which this Reference applies,
+	 * but without static type checking; the intent is that you'd call {@link #then} on the resulting reference,
+	 * and that's when type checking occurs.
+	 */
+	RootReference<?> root();
+
+	/**
 	 * @param <U> The type of <code>targetClass</code>
 	 * @param targetClass The class of the object being referenced
 	 * @param segments The {@link Path#segment(int) segments} to add to {@link #path()}
