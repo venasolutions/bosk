@@ -57,7 +57,7 @@ class ListingTest {
 						Bosk<TestEntity> bosk = new Bosk<>("Test Bosk", TestEntity.class, root, Bosk::simpleDriver);
 						CatalogReference<TestEntity> catalog;
 						try {
-							catalog = bosk.catalogReference(TestEntity.class, Path.just(TestEntity.Fields.children));
+							catalog = bosk.rootReference().thenCatalog(TestEntity.class, Path.just(TestEntity.Fields.children));
 						} catch (InvalidTypeException e) {
 							throw new AssertionError(e);
 						}
@@ -74,7 +74,7 @@ class ListingTest {
 			List<TestEntity> children = singletonList(child);
 			TestEntity root = new TestEntity(Identifier.unique("parent"), Catalog.of(children));
 			Bosk<TestEntity> bosk = new Bosk<>("Test Bosk", TestEntity.class, root, Bosk::simpleDriver);
-			CatalogReference<TestEntity> childrenRef = bosk.catalogReference(TestEntity.class, Path.just(TestEntity.Fields.children));
+			CatalogReference<TestEntity> childrenRef = bosk.rootReference().thenCatalog(TestEntity.class, Path.just(TestEntity.Fields.children));
 			return idStreams().map(list -> Arguments.of(list.map(Identifier::from).collect(toList()), childrenRef, bosk));
 		}
 
@@ -249,7 +249,7 @@ class ListingTest {
 		List<TestEntity> children = singletonList(child);
 		TestEntity root = new TestEntity(Identifier.unique("parent"), Catalog.of(children));
 		Bosk<TestEntity> bosk = new Bosk<>("Test Bosk", TestEntity.class, root, Bosk::simpleDriver);
-		CatalogReference<TestEntity> childrenRef = bosk.catalogReference(TestEntity.class, Path.just(TestEntity.Fields.children));
+		CatalogReference<TestEntity> childrenRef = bosk.rootReference().thenCatalog(TestEntity.class, Path.just(TestEntity.Fields.children));
 
 		Listing<TestEntity> actual = Listing.empty(childrenRef);
 		assertTrue(actual.isEmpty());
@@ -382,7 +382,7 @@ class ListingTest {
 	@ParameterizedTest
 	@ArgumentsSource(ListingArgumentProvider.class)
 	void testScope(Listing<TestEntity> listing, List<TestEntity> children, Bosk<TestEntity> bosk) throws InvalidTypeException {
-		Reference<Catalog<TestEntity>> expected = bosk.catalogReference(TestEntity.class, Path.just(TestEntity.Fields.children));
+		Reference<Catalog<TestEntity>> expected = bosk.rootReference().thenCatalog(TestEntity.class, Path.just(TestEntity.Fields.children));
 		assertEquals(expected, listing.domain());
 	}
 

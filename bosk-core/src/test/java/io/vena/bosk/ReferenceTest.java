@@ -46,7 +46,7 @@ class ReferenceTest extends AbstractBoskTest {
 
 	@Test
 	void rootFields_referenceValue_returnsCorrectObject() throws InvalidTypeException {
-		assertSame(root.entities(), bosk.catalogReference(TestEntity.class, Path.just(
+		assertSame(root.entities(), bosk.rootReference().thenCatalog(TestEntity.class, Path.just(
 			TestRoot.Fields.entities
 		)).value());
 		assertSame(root.someStrings(), bosk.rootReference().then(StringListValueSubclass.class, Path.just(

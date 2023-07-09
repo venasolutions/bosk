@@ -832,22 +832,22 @@ try (ReadContext originalThReadContext = bosk.readContext()) {
 
 		@Override
 		public final <U extends Entity> CatalogReference<U> thenCatalog(Class<U> entryClass, String... segments) throws InvalidTypeException {
-			return catalogReference(entryClass, path.then(segments));
+			return rootReference().thenCatalog(entryClass, path.then(segments));
 		}
 
 		@Override
 		public final <U extends Entity> ListingReference<U> thenListing(Class<U> entryClass, String... segments) throws InvalidTypeException {
-			return listingReference(entryClass, path.then(segments));
+			return rootReference().thenListing(entryClass, path.then(segments));
 		}
 
 		@Override
 		public final <K extends Entity, V> SideTableReference<K, V> thenSideTable(Class<K> keyClass, Class<V> valueClass, String... segments) throws InvalidTypeException {
-			return sideTableReference(keyClass, valueClass, path.then(segments));
+			return rootReference().thenSideTable(keyClass, valueClass, path.then(segments));
 		}
 
 		@Override
 		public final <TT> Reference<Reference<TT>> thenReference(Class<TT> targetClass, String... segments) throws InvalidTypeException {
-			return referenceReference(targetClass, path.then(segments));
+			return rootReference().thenReference(targetClass, path.then(segments));
 		}
 
 		@SuppressWarnings("unchecked")

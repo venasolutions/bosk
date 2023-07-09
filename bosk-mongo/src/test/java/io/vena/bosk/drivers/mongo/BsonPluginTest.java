@@ -44,7 +44,7 @@ class BsonPluginTest {
 	}
 
 	private Root defaultRoot(Bosk<Root> bosk) throws InvalidTypeException {
-		CatalogReference<Item> catalogRef = bosk.catalogReference(Item.class, Path.just(Root.Fields.items));
+		CatalogReference<Item> catalogRef = bosk.rootReference().thenCatalog(Item.class, Path.just(Root.Fields.items));
 		return new Root(Catalog.empty(), SideTable.empty(catalogRef));
 	}
 

@@ -82,7 +82,7 @@ class JacksonPluginTest extends AbstractBoskTest {
 	void setUpJackson() throws Exception {
 		bosk = setUpBosk(Bosk::simpleDriver);
 		teb = new TestEntityBuilder(bosk);
-		entitiesRef = bosk.catalogReference(TestEntity.class, Path.just(TestRoot.Fields.entities));
+		entitiesRef = bosk.rootReference().thenCatalog(TestEntity.class, Path.just(TestRoot.Fields.entities));
 		parentRef = entitiesRef.then(Identifier.from("parent"));
 
 		plainMapper = new ObjectMapper()

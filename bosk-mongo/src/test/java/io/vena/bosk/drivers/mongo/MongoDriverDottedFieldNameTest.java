@@ -31,7 +31,7 @@ class MongoDriverDottedFieldNameTest extends AbstractDriverTest {
 	}
 
 	private CatalogReference<TestEntity> rootCatalogRef(Bosk<TestEntity> bosk) throws InvalidTypeException {
-		return bosk.catalogReference(TestEntity.class, Path.just( TestEntity.Fields.catalog));
+		return bosk.rootReference().thenCatalog(TestEntity.class, Path.just( TestEntity.Fields.catalog));
 	}
 
 	static class PathArgumentProvider implements ArgumentsProvider {
