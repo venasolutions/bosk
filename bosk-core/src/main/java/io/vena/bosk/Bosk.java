@@ -647,9 +647,9 @@ public class Bosk<R extends Entity> {
 		 * Hence, a recommended idiom for scope inheritance looks like this:
 		 *
 		 * <blockquote><pre>
-try (ReadContext originalThReadContext = bosk.new ReadContext()) {
+try (ReadContext originalThReadContext = bosk.readContext()) {
 	workQueue.submit(() -> {
-		try (ReadContext workerThReadContext = bosk.new ReadContext(originalThReadContext)) {
+		try (ReadContext workerThReadContext = bosk.adopt(originalThReadContext)) {
 			// Code in here can read from the bosk just like the original thread.
 		}
 	});
