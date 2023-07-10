@@ -633,44 +633,6 @@ public class Bosk<R extends Entity> {
 			}
 		}
 
-		/**
-		 * Creates a {@link ReadContext} for the current thread, inheriting state
-		 * from another thread.
-		 *
-		 * <p>
-		 * Because nested scopes behave like their outer scope, you can always
-		 * make another ReadContext at any time on some thread in order to
-		 * "capture" whatever scope may be in effect on that thread (or to
-		 * create a new one if there is no active scope on that thread).
-		 *
-		 * <p>
-		 * Hence, a recommended idiom for scope inheritance looks like this:
-		 *
-		 * <blockquote><pre>
-try (ReadContext originalThReadContext = bosk.readContext()) {
-	workQueue.submit(() -> {
-		try (ReadContext workerThReadContext = bosk.adopt(originalThReadContext)) {
-			// Code in here can read from the bosk just like the original thread.
-		}
-	});
-}
-		 * </pre></blockquote>
-		 *
-		 * Note, though, that this will prevent the garbage collector from
-		 * collecting the ReadContext's state snapshot until the worker thread's
-		 * scope is finished.  Hence, you want to use this technique if you want
-		 * to ensure that the worker thread sees the same bosk state snapshot as
-		 * the original thread. This is usually a good idea. However, if the
-		 * worker thread is to run after the original thread would have exited
-		 * its own scope, then use this idiom only if the worker thread must see
-		 * the same state snapshot as the original thread <em>and</em> you're
-		 * willing to prevent that snapshot from being garbage-collected until
-		 * the worker thread finishes.
-		 *
-		 * @param toInherit a {@link ReadContext} created by another original
-		 * thread, causing {@link Reference#value()} on this thread to behave as
-		 * though it were called on the original thread.
-		 */
 		private ReadContext(ReadContext toInherit) {
 			R snapshotToInherit = requireNonNull(toInherit.snapshot);
 			originalRoot = rootSnapshot.get();
@@ -701,8 +663,40 @@ try (ReadContext originalThReadContext = bosk.readContext()) {
 		}
 
 		/**
-		 * Establish a new context on the current thread using the same state
-		 * as <code>this</code> context.
+		 * Creates a {@link ReadContext} for the current thread, inheriting state
+		 * from another thread.
+		 * Any calls to {@link Reference#value()} on the current thread will return
+		 * the same value they would have returned on the thread where
+		 * <code>this</code> context was created.
+		 *
+		 * <p>
+		 * Because nested scopes behave like their outer scope, you can always
+		 * make another ReadContext at any time on some thread in order to
+		 * "capture" whatever scope may be in effect on that thread (or to
+		 * create a new one if there is no active scope on that thread).
+		 *
+		 * <p>
+		 * Hence, a recommended idiom for scope inheritance looks like this:
+		 *
+		 * <blockquote><pre>
+try (ReadContext originalThReadContext = bosk.readContext()) {
+	workQueue.submit(() -> {
+		try (ReadContext workerThReadContext = bosk.adopt(originalThReadContext)) {
+			// Code in here can read from the bosk just like the original thread.
+		}
+	});
+}
+		 * </pre></blockquote>
+		 *
+		 * Note, though, that this will prevent the garbage collector from
+		 * collecting the ReadContext's state snapshot until the worker thread's
+		 * scope is finished. Therefore, if the worker thread is to continue running
+		 * after the original thread would have exited its own scope,
+		 * then use this idiom only if the worker thread must see
+		 * the same state snapshot as the original thread <em>and</em> you're
+		 * willing to prevent that snapshot from being garbage-collected until
+		 * the worker thread finishes.
+		 *
 		 * @return a <code>ReadContext</code> representing the new context.
 		 */
 		public ReadContext adopt() {
