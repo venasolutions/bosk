@@ -705,6 +705,7 @@ try (ReadContext originalThReadContext = bosk.readContext()) {
 
 		@Override
 		public void close() {
+			// TODO: Enforce the closing rules described in readContext javadocs?
 			LOGGER.trace("Exiting {}; restoring {}", this, System.identityHashCode(originalRoot));
 			rootSnapshot.set(originalRoot);
 		}
@@ -715,6 +716,25 @@ try (ReadContext originalThReadContext = bosk.readContext()) {
 		}
 	}
 
+	/**
+	 * Establishes a {@link ReadContext} for the calling thread,
+	 * allowing {@link Reference#value()} to return values from this bosk's state tree,
+	 * from a snapshot taken at the moment this method was called.
+	 * The snapshot is held stable until the returned context is {@link ReadContext#close() closed}.
+	 *
+	 * <p>
+	 * If the calling thread has an active read context already,
+	 * the returned <code>ReadContext</code> has no effect:
+	 * the state snapshot from the existing context will continue to be used on the calling thread
+	 * until both contexts (the returned one and the existing one) are closed.
+	 *
+	 * <p>
+	 * <code>ReadContext</code>s must be closed on the same thread on which they were opened,
+	 * and must be closed in reverse order.
+	 * We recommend using them in <i>try-with-resources</i> statements;
+	 * otherwise, you could end up with some read contexts ending prematurely,
+	 * and others persisting for the remainder of the thread's lifetime.
+	 */
 	public final ReadContext readContext() {
 		return new ReadContext();
 	}
