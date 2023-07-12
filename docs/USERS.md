@@ -147,9 +147,14 @@ A `Listing` establishes a one-to-many reference relationship between nodes.
 The `Listing` object does not contain its entries; rather, it references entries contained in the domain `Catalog` in the bosk.
 This means you need a `ReadContext` to access the referenced objects themselves.
 
+The domain of a `Listing` plays a role similar to a datatype: it indicates the set of possible values to which a `Listing` may refer.
+
 Just as a `Reference` points to a node that may or may not exist,
 the entities pointed to by a `Listing` may or may not exist within the domain catalog;
 that is, an entry can be added to a `Listing` even if the corresponding `Catalog` entry does not exist.
+In fact, the `Catalog` itself need not exist either,
+and it's not uncommon for the `domain` of a `Listing` to be a `Phantom` catalog,
+in which case the `domain` is even more like a datatype, specifying a set of allowed values in an abstract manner.
 
 Formally speaking, a listing entry carries no information besides its existence.
 A `Reference` to a listing entry is of type `Reference<ListingEntry>` and, if the entry exists,
@@ -161,10 +166,16 @@ A `SideTable` is an ordered map from nodes in a particular `Catalog`, referred t
 to some specified type of _value_ node.
 A `SideTable` allows you to associate additional information with entities without adding fields to those entities.
 
+The domain of a `SideTable` plays a role similar to a datatype for the `SideTable`'s keys:
+it indicates the set of possible values from which the `SideTable`'s keys may be taken.
+
 The `SideTable` object does not contain its keys, but _does_ contain its values.
 The keys are contained in the domain `Catalog` in the bosk.
 This means you need a `ReadContext` to access the referenced key objects themselves.
 Accessing the value objects, on the other hand, does not require a `ReadContext`.
+
+Just as a `Reference` points to a node that may or may not exist,
+the keys referenced by a `SideTable` may or may not exist within the `domain` catalog.
 
 ##### `Phantom`
 
