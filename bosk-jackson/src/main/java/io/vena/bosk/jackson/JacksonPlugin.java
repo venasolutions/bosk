@@ -350,7 +350,7 @@ public final class JacksonPlugin extends SerializationPlugin {
 				@Override
 				public Reference<?> deserialize(JsonParser p, DeserializationContext ctxt) throws IOException {
 					try {
-						return bosk.reference(Object.class, Path.parse(p.getText()));
+						return bosk.rootReference().then(Object.class, Path.parse(p.getText()));
 					} catch (InvalidTypeException e) {
 						throw new UnexpectedPathException(e);
 					}

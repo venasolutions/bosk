@@ -50,7 +50,7 @@ class ReferenceBuilder {
 					Type valueType = parameterType(returnType, SideTableReference.class, 1);
 					result = bosk.sideTableReference((Class) rawClass(keyType), (Class) rawClass(valueType), path);
 				} else {
-					result = bosk.reference(rawClass(targetType), path);
+					result = bosk.rootReference().then(rawClass(targetType), path);
 				}
 			} catch (InvalidTypeException e) {
 				// Add some troubleshooting info for the user

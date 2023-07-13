@@ -38,7 +38,7 @@ class ReferenceTest extends AbstractBoskTest {
 
 	@Test
 	void root_matches() throws InvalidTypeException {
-		Reference<TestEntity> parentRef = bosk.reference(TestEntity.class, Path.of(
+		Reference<TestEntity> parentRef = bosk.rootReference().then(TestEntity.class, Path.of(
 			TestRoot.Fields.entities, "parent"
 		));
 		assertEquals(bosk.rootReference(), parentRef.root());
@@ -49,17 +49,17 @@ class ReferenceTest extends AbstractBoskTest {
 		assertSame(root.entities(), bosk.catalogReference(TestEntity.class, Path.just(
 			TestRoot.Fields.entities
 		)).value());
-		assertSame(root.someStrings(), bosk.reference(StringListValueSubclass.class, Path.just(
+		assertSame(root.someStrings(), bosk.rootReference().then(StringListValueSubclass.class, Path.just(
 			TestRoot.Fields.someStrings
 		)).value());
-		assertSame(root.someMappedStrings(), bosk.reference(mapValue(String.class), Path.just(
+		assertSame(root.someMappedStrings(), bosk.rootReference().then(mapValue(String.class), Path.just(
 			TestRoot.Fields.someMappedStrings
 		)).value());
 	}
 
 	@Test
 	void parentFields_referenceValue_returnsCorrectObject() throws InvalidTypeException {
-		Reference<TestEntity> parentRef = bosk.reference(TestEntity.class, Path.of(
+		Reference<TestEntity> parentRef = bosk.rootReference().then(TestEntity.class, Path.of(
 			TestRoot.Fields.entities, "parent"
 		));
 		TestEntity parent = root.entities().get(Identifier.from("parent"));
@@ -77,7 +77,7 @@ class ReferenceTest extends AbstractBoskTest {
 
 	@Test
 	void phantomFields_reference_nonexistent() throws InvalidTypeException {
-		Reference<Phantoms> phantomsRef = bosk.reference(Phantoms.class, Path.of(
+		Reference<Phantoms> phantomsRef = bosk.rootReference().then(Phantoms.class, Path.of(
 			TestRoot.Fields.entities, "parent", TestEntity.Fields.phantoms
 		));
 		Phantoms phantoms = root.entities().get(Identifier.from("parent")).phantoms();
@@ -93,7 +93,7 @@ class ReferenceTest extends AbstractBoskTest {
 
 	@Test
 	void optionalFields_referenceValueIfExists_returnsCorrectResult() throws InvalidTypeException {
-		Reference<Optionals> optionalsRef = bosk.reference(Optionals.class, Path.of(
+		Reference<Optionals> optionalsRef = bosk.rootReference().then(Optionals.class, Path.of(
 			TestRoot.Fields.entities, "parent", TestEntity.Fields.optionals
 		));
 		Optionals optionals = root.entities().get(Identifier.from("parent")).optionals();
@@ -110,7 +110,7 @@ class ReferenceTest extends AbstractBoskTest {
 	@Test
 	void forEach_definiteReference_noMatches() throws InvalidTypeException {
 		assertForEachValueWorks(
-			bosk.reference(TestEntity.class, Path.of(
+			bosk.rootReference().then(TestEntity.class, Path.of(
 				TestRoot.Fields.entities, "nonexistent")),
 			emptyList(),
 			emptyList()
@@ -120,7 +120,7 @@ class ReferenceTest extends AbstractBoskTest {
 	@Test
 	void forEach_definiteReference_oneMatch() throws InvalidTypeException {
 		assertForEachValueWorks(
-			bosk.reference(TestEntity.class, Path.of(
+			bosk.rootReference().then(TestEntity.class, Path.of(
 				TestRoot.Fields.entities, "parent")),
 			singletonList(root.entities().get(Identifier.from("parent"))),
 			singletonList(BindingEnvironment.empty())
@@ -130,7 +130,7 @@ class ReferenceTest extends AbstractBoskTest {
 	@Test
 	void forEach_indefiniteReference_noMatches() throws InvalidTypeException {
 		assertForEachValueWorks(
-			bosk.reference(String.class, Path.of(
+			bosk.rootReference().then(String.class, Path.of(
 				TestRoot.Fields.entities, "nonexistent", TestEntity.Fields.stringSideTable, "-child-")),
 			emptyList(),
 			emptyList()
@@ -140,7 +140,7 @@ class ReferenceTest extends AbstractBoskTest {
 	@Test
 	void forEach_indefiniteReference_oneMatch() throws InvalidTypeException {
 		assertForEachValueWorks(
-			bosk.reference(String.class, Path.of(
+			bosk.rootReference().then(String.class, Path.of(
 				TestRoot.Fields.entities, "parent", TestEntity.Fields.stringSideTable, "-child-")),
 			singletonList(root.entities().get(Identifier.from("parent")).stringSideTable().get(Identifier.from("child2"))),
 			singletonList(BindingEnvironment.singleton("child", Identifier.from("child2")))
@@ -151,7 +151,7 @@ class ReferenceTest extends AbstractBoskTest {
 	void forEach_indefiniteReference_multipleMatches() throws InvalidTypeException {
 		Catalog<TestChild> children = root.entities().get(Identifier.from("parent")).children();
 		assertForEachValueWorks(
-			bosk.reference(TestChild.class, Path.of(
+			bosk.rootReference().then(TestChild.class, Path.of(
 				TestRoot.Fields.entities, "parent", TestEntity.Fields.children, "-child-")),
 			children.stream().collect(toList()),
 			children.idStream().map(id -> BindingEnvironment.singleton("child", id)).collect(toList())

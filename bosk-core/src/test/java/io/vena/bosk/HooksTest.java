@@ -43,7 +43,7 @@ public class HooksTest extends AbstractBoskTest {
 	@BeforeEach
 	void setupBosk() throws InvalidTypeException {
 		bosk = setUpBosk(Bosk::simpleDriver);
-		refs = bosk.buildReferences(Refs.class);
+		refs = bosk.rootReference().buildReferences(Refs.class);
 		try (val __ = bosk.readContext()) {
 			originalRoot = bosk.rootReference().value();
 			originalParent = refs.parent().value();

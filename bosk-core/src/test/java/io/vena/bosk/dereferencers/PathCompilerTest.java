@@ -273,7 +273,7 @@ public class PathCompilerTest extends AbstractBoskTest {
 			initialRoot,
 			Bosk::simpleDriver
 		);
-		Reference<Identifier> idRef = differentBosk.reference(Identifier.class, Path.parse(
+		Reference<Identifier> idRef = differentBosk.rootReference().then(Identifier.class, Path.parse(
 			"/id" ));
 
 		try (Bosk<?>.ReadContext context = differentBosk.readContext()) {
@@ -387,7 +387,7 @@ public class PathCompilerTest extends AbstractBoskTest {
 			// Because this is a test of PathCompiler, we want this to look like
 			// a test failure, not an initialization error, especially because
 			// pitest doesn't count initialization errors as "killed mutations".
-			ref = bosk.reference(Object.class, path);
+			ref = bosk.rootReference().then(Object.class, path);
 			actual = pathCompiler.compiled(path);
 		} catch (Exception | AssertionError e) {
 			return singletonList(DynamicTest.dynamicTest(description + ": PathCompiler should not throw", () -> { throw new AssertionError("PathCompiler exception", e); }));

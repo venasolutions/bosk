@@ -66,7 +66,7 @@ public class MirroringDriver<R extends Entity> implements BoskDriver<R> {
 	@SuppressWarnings("unchecked")
 	private <T> Reference<T> correspondingReference(Reference<T> original) {
 		try {
-			return (Reference<T>)mirror.reference(Object.class, original.path());
+			return (Reference<T>) mirror.rootReference().then(Object.class, original.path());
 		} catch (InvalidTypeException e) {
 			throw new AssertionError("References are expected to be compatible: " + original, e);
 		}

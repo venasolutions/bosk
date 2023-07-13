@@ -392,7 +392,7 @@ public final class BsonPlugin extends SerializationPlugin {
 			public Reference<?> decode(BsonReader reader, DecoderContext decoderContext) {
 				String urlEncoded = reader.readString();
 				try {
-					return bosk.reference(Object.class, Path.parse(urlEncoded));
+					return bosk.rootReference().then(Object.class, Path.parse(urlEncoded));
 				} catch (InvalidTypeException e) {
 					throw new UnexpectedPathException(e);
 				}

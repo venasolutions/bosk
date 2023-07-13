@@ -120,7 +120,7 @@ public class ServiceEndpoints {
 			boskPath = "/";
 		}
 		try {
-			return bosk.reference(Object.class, Path.parse(boskPath));
+			return bosk.rootReference().then(Object.class, Path.parse(boskPath));
 		} catch (InvalidTypeException e) {
 			throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Invalid path: " + path, e);
 		}

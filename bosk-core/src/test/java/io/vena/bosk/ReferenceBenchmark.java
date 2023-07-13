@@ -41,7 +41,7 @@ public class ReferenceBenchmark extends AbstractBoskTest {
 			rootRef = bosk.rootReference();
 			TestRoot localRoot = root = rootRef.value();
 			threadLocalRoot = ThreadLocal.withInitial(() -> localRoot);
-			ref5Segments = bosk.reference(TestEnum.class, Path.of(
+			ref5Segments = bosk.rootReference().then(TestEnum.class, Path.of(
 				TestRoot.Fields.entities, "parent",
 				TestEntity.Fields.children, "child1",
 				TestChild.Fields.testEnum
