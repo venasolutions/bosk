@@ -24,6 +24,7 @@ import io.vena.bosk.StateTreeNode;
 import io.vena.bosk.TestEntityBuilder;
 import io.vena.bosk.annotations.DerivedRecord;
 import io.vena.bosk.annotations.DeserializationPath;
+import io.vena.bosk.annotations.ReferencePath;
 import io.vena.bosk.exceptions.InvalidTypeException;
 import io.vena.bosk.exceptions.MalformedPathException;
 import io.vena.bosk.exceptions.ParameterUnboundException;
@@ -63,11 +64,19 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class GsonPluginTest extends AbstractBoskTest {
 	private Bosk<TestRoot> bosk;
+	private Refs refs;
 	private TestEntityBuilder teb;
 	private GsonPlugin gsonPlugin;
 	private Gson boskGson;
-	private CatalogReference<TestEntity> entitiesRef;
-	private Reference<TestEntity> parentRef;
+
+	public interface Refs {
+		@ReferencePath("/entities") CatalogReference<TestEntity> entities();
+		@ReferencePath("/entities/-entity-") Reference<TestEntity> entity(Identifier entity);
+		@ReferencePath("/entities/-entity-/children") CatalogReference<TestChild> children(Identifier entity);
+		@ReferencePath("/entities/-entity-/implicitRefs") Reference<ImplicitRefs> implicitRefs(Identifier entity);
+	}
+
+	private static final Identifier parent = Identifier.from("parent");
 
 	/**
 	 * Not configured by GsonPlugin. Only for checking the properties of the generated JSON.
@@ -77,9 +86,8 @@ class GsonPluginTest extends AbstractBoskTest {
 	@BeforeEach
 	void setUpGson() throws Exception {
 		bosk = setUpBosk(Bosk::simpleDriver);
+		refs = bosk.buildReferences(Refs.class);
 		teb = new TestEntityBuilder(bosk);
-		entitiesRef = bosk.catalogReference(TestEntity.class, Path.just(TestRoot.Fields.entities));
-		parentRef = entitiesRef.then(Identifier.from("parent"));
 
 		plainGson = new GsonBuilder()
 				.setPrettyPrinting()
@@ -125,11 +133,11 @@ class GsonPluginTest extends AbstractBoskTest {
 	@ParameterizedTest
 	@MethodSource("listingArguments")
 	void testToJson_listing(List<String> strings, List<Identifier> ids) {
-		Listing<TestEntity> listing = Listing.of(entitiesRef, ids);
+		Listing<TestEntity> listing = Listing.of(refs.entities(), ids);
 
 		Map<String, Object> expected = new LinkedHashMap<>();
 		expected.put("ids", strings);
-		expected.put("domain", entitiesRef.pathString());
+		expected.put("domain", refs.entities().pathString());
 
 		assertGsonWorks(expected, listing, new TypeToken<Listing<TestEntity>>(){}.getType(), Path.just("doesn't matter"));
 	}
@@ -154,14 +162,14 @@ class GsonPluginTest extends AbstractBoskTest {
 	@ParameterizedTest
 	@MethodSource("sideTableArguments")
 	void testToJson_sideTable(List<String> keys, Map<String,String> valuesByString, Map<Identifier, String> valuesById) {
-		SideTable<TestEntity, String> sideTable = SideTable.fromOrderedMap(entitiesRef, valuesById);
+		SideTable<TestEntity, String> sideTable = SideTable.fromOrderedMap(refs.entities(), valuesById);
 
 		List<Map<String, Object>> expectedList = new ArrayList<>();
 		valuesByString.forEach((key, value) -> expectedList.add(singletonMap(key, value)));
 
 		Map<String, Object> expected = new LinkedHashMap<>();
 		expected.put("valuesById", expectedList);
-		expected.put("domain", entitiesRef.pathString());
+		expected.put("domain", refs.entities().pathString());
 
 		assertGsonWorks(
 			expected,
@@ -281,7 +289,7 @@ class GsonPluginTest extends AbstractBoskTest {
 
 	@Test
 	void testBasicDerivedRecord() throws InvalidTypeException {
-		Reference<ImplicitRefs> iref = parentRef.then(ImplicitRefs.class, TestEntity.Fields.implicitRefs);
+		Reference<ImplicitRefs> iref = refs.implicitRefs(parent);
 		ImplicitRefs reflectiveEntity;
 		try (ReadContext context = bosk.readContext()) {
 			reflectiveEntity = iref.value();
@@ -336,7 +344,7 @@ class GsonPluginTest extends AbstractBoskTest {
 
 	@Test
 	void testDerivedRecordList() throws InvalidTypeException {
-		Reference<ImplicitRefs> iref = parentRef.then(ImplicitRefs.class, TestEntity.Fields.implicitRefs);
+		Reference<ImplicitRefs> iref = refs.implicitRefs(parent);
 		ImplicitRefs reflectiveEntity;
 		try (ReadContext context = bosk.readContext()) {
 			reflectiveEntity = iref.value();
@@ -406,11 +414,10 @@ class GsonPluginTest extends AbstractBoskTest {
 	}
 
 	private TestEntity makeEntityWithOptionalString(Optional<String> optionalString) throws InvalidTypeException {
-		CatalogReference<TestEntity> catalogRef = entitiesRef;
 		Identifier entityID = Identifier.unique("testOptional");
-		Reference<TestEntity> entityRef = catalogRef.then(entityID);
-		CatalogReference<TestChild> childrenRef = entityRef.thenCatalog(TestChild.class, TestEntity.Fields.children);
-		Reference<ImplicitRefs> implicitRefsRef = entityRef.then(ImplicitRefs.class, "implicitRefs");
+		Reference<TestEntity> entityRef = refs.entity(entityID);
+		CatalogReference<TestChild> childrenRef = refs.children(entityID);
+		Reference<ImplicitRefs> implicitRefsRef = refs.implicitRefs(entityID);
 		return new TestEntity(entityID, entityID.toString(), OK, Catalog.empty(), Listing.empty(childrenRef), SideTable.empty(childrenRef),
 				Phantoms.empty(Identifier.unique("phantoms")),
 				new Optionals(Identifier.unique("optionals"), optionalString, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()),
