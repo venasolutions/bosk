@@ -18,18 +18,18 @@ public class ExampleTest {
 	@Test
 	void readContext() {
 		try (var __ = bosk.readContext()) {
-			System.out.println("Hello, " + bosk.nameRef.value());
+			System.out.println("Hello, " + bosk.refs.name().value());
 		}
 	}
 
 	@Test
 	void driverUpdate() {
-		bosk.driver().submitReplacement(bosk.nameRef, "everybody");
+		bosk.driver().submitReplacement(bosk.refs.name(), "everybody");
 	}
 
 	@Test
 	void hook() {
-		bosk.registerHook("Greetings", bosk.nameRef, ref -> {
+		bosk.registerHook("Greetings", bosk.refs.name(), ref -> {
 			System.out.println("Name is now: " + ref.value());
 		});
 	}
