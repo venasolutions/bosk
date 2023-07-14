@@ -86,6 +86,7 @@ You can also use classes, especially if you're using Lombok:
 @Accessors(fluent = true)
 public class ExampleState implements Entity {
 	Identifier id;
+	// Add fields here as you need them
 	String name;
 }
 ```

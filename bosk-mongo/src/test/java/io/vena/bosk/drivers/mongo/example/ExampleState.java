@@ -7,5 +7,6 @@ import lombok.Value;
 @Value
 public class ExampleState implements Entity {
 	Identifier id;
+	// Add fields here as you need them
 	String name;
 }

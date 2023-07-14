@@ -134,6 +134,7 @@ public abstract class AbstractBoskTest {
 		@Override public T valueIfExists() { return null; }
 		@Override public void forEachValue(BiConsumer<T, BindingEnvironment> action, BindingEnvironment existingEnvironment) { }
 
+		@Override public RootReference<?> root() { return null; }
 		@Override public <U> Reference<U> then(Class<U> targetClass, String... segments) { return null; }
 		@Override public <E extends Entity> CatalogReference<E> thenCatalog(Class<E> entryClass, String... segments) { return null; }
 		@Override public <E extends Entity> ListingReference<E> thenListing(Class<E> entryClass, String... segments) { return null; }

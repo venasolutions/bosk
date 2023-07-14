@@ -345,7 +345,7 @@ final class SingleDocumentMongoChangeStreamReceiver<R extends Entity> implements
 				// getFullDocument is reliable for INSERT and REPLACE operations:
 				//   https://docs.mongodb.com/v4.0/reference/change-events/#change-stream-output
 				LOGGER.debug("| Replace document - IGNORE");
-				//driver.submitReplacement(rootRef, document2object(event.getFullDocument().get(DocumentFields.root), rootRef));
+				//driver.submitReplacement(rootReference, document2object(event.getFullDocument().get(DocumentFields.root), rootReference));
 				// TODO
 				break;
 			case UPDATE:

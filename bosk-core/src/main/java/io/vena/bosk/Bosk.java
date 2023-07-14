@@ -79,7 +79,7 @@ public class Bosk<R extends Entity> {
 	@Getter private final Identifier instanceID = Identifier.from(randomUUID().toString());
 	@Getter private final BoskDriver<R> driver;
 	private final LocalDriver localDriver;
-	private final Type rootType;
+	private final RootRef rootRef;
 	private final ThreadLocal<R> rootSnapshot = new ThreadLocal<>();
 	private final List<HookRegistration<?>> hooks = new ArrayList<>();
 	private final PathCompiler pathCompiler;
@@ -103,7 +103,7 @@ public class Bosk<R extends Entity> {
 	public Bosk(String name, Type rootType, DefaultRootFunction<R> defaultRootFunction, DriverFactory<R> driverFactory) {
 		this.name = name;
 		this.localDriver = new LocalDriver(defaultRootFunction);
-		this.rootType = rootType;
+		this.rootRef = new RootRef(rootType);
 		this.pathCompiler = PathCompiler.withSourceType(rootType);
 		try {
 			validateType(rootType);
@@ -633,44 +633,6 @@ public class Bosk<R extends Entity> {
 			}
 		}
 
-		/**
-		 * Creates a {@link ReadContext} for the current thread, inheriting state
-		 * from another thread.
-		 *
-		 * <p>
-		 * Because nested scopes behave like their outer scope, you can always
-		 * make another ReadContext at any time on some thread in order to
-		 * "capture" whatever scope may be in effect on that thread (or to
-		 * create a new one if there is no active scope on that thread).
-		 *
-		 * <p>
-		 * Hence, a recommended idiom for scope inheritance looks like this:
-		 *
-		 * <blockquote><pre>
-try (ReadContext originalThReadContext = bosk.new ReadContext()) {
-	workQueue.submit(() -> {
-		try (ReadContext workerThReadContext = bosk.new ReadContext(originalThReadContext)) {
-			// Code in here can read from the bosk just like the original thread.
-		}
-	});
-}
-		 * </pre></blockquote>
-		 *
-		 * Note, though, that this will prevent the garbage collector from
-		 * collecting the ReadContext's state snapshot until the worker thread's
-		 * scope is finished.  Hence, you want to use this technique if you want
-		 * to ensure that the worker thread sees the same bosk state snapshot as
-		 * the original thread. This is usually a good idea. However, if the
-		 * worker thread is to run after the original thread would have exited
-		 * its own scope, then use this idiom only if the worker thread must see
-		 * the same state snapshot as the original thread <em>and</em> you're
-		 * willing to prevent that snapshot from being garbage-collected until
-		 * the worker thread finishes.
-		 *
-		 * @param toInherit a {@link ReadContext} created by another original
-		 * thread, causing {@link Reference#value()} on this thread to behave as
-		 * though it were called on the original thread.
-		 */
 		private ReadContext(ReadContext toInherit) {
 			R snapshotToInherit = requireNonNull(toInherit.snapshot);
 			originalRoot = rootSnapshot.get();
@@ -701,8 +663,40 @@ try (ReadContext originalThReadContext = bosk.new ReadContext()) {
 		}
 
 		/**
-		 * Establish a new context on the current thread using the same state
-		 * as <code>this</code> context.
+		 * Creates a {@link ReadContext} for the current thread, inheriting state
+		 * from another thread.
+		 * Any calls to {@link Reference#value()} on the current thread will return
+		 * the same value they would have returned on the thread where
+		 * <code>this</code> context was created.
+		 *
+		 * <p>
+		 * Because nested scopes behave like their outer scope, you can always
+		 * make another ReadContext at any time on some thread in order to
+		 * "capture" whatever scope may be in effect on that thread (or to
+		 * create a new one if there is no active scope on that thread).
+		 *
+		 * <p>
+		 * Hence, a recommended idiom for scope inheritance looks like this:
+		 *
+		 * <blockquote><pre>
+try (ReadContext originalThReadContext = bosk.readContext()) {
+	workQueue.submit(() -> {
+		try (ReadContext workerThReadContext = bosk.adopt(originalThReadContext)) {
+			// Code in here can read from the bosk just like the original thread.
+		}
+	});
+}
+		 * </pre></blockquote>
+		 *
+		 * Note, though, that this will prevent the garbage collector from
+		 * collecting the ReadContext's state snapshot until the worker thread's
+		 * scope is finished. Therefore, if the worker thread is to continue running
+		 * after the original thread would have exited its own scope,
+		 * then use this idiom only if the worker thread must see
+		 * the same state snapshot as the original thread <em>and</em> you're
+		 * willing to prevent that snapshot from being garbage-collected until
+		 * the worker thread finishes.
+		 *
 		 * @return a <code>ReadContext</code> representing the new context.
 		 */
 		public ReadContext adopt() {
@@ -711,6 +705,7 @@ try (ReadContext originalThReadContext = bosk.new ReadContext()) {
 
 		@Override
 		public void close() {
+			// TODO: Enforce the closing rules described in readContext javadocs?
 			LOGGER.trace("Exiting {}; restoring {}", this, System.identityHashCode(originalRoot));
 			rootSnapshot.set(originalRoot);
 		}
@@ -721,6 +716,25 @@ try (ReadContext originalThReadContext = bosk.new ReadContext()) {
 		}
 	}
 
+	/**
+	 * Establishes a {@link ReadContext} for the calling thread,
+	 * allowing {@link Reference#value()} to return values from this bosk's state tree,
+	 * from a snapshot taken at the moment this method was called.
+	 * The snapshot is held stable until the returned context is {@link ReadContext#close() closed}.
+	 *
+	 * <p>
+	 * If the calling thread has an active read context already,
+	 * the returned <code>ReadContext</code> has no effect:
+	 * the state snapshot from the existing context will continue to be used on the calling thread
+	 * until both contexts (the returned one and the existing one) are closed.
+	 *
+	 * <p>
+	 * <code>ReadContext</code>s must be closed on the same thread on which they were opened,
+	 * and must be closed in reverse order.
+	 * We recommend using them in <i>try-with-resources</i> statements;
+	 * otherwise, you could end up with some read contexts ending prematurely,
+	 * and others persisting for the remainder of the thread's lifetime.
+	 */
 	public final ReadContext readContext() {
 		return new ReadContext();
 	}
@@ -733,6 +747,62 @@ try (ReadContext originalThReadContext = bosk.new ReadContext()) {
 			return pathCompiler.compiled(path);
 		} catch (InvalidTypeException e) {
 			throw new AssertionError("Compiling a vetted path should not throw InvalidTypeException: " + path, e);
+		}
+	}
+
+	private final class RootRef extends DefiniteReference<R> implements RootReference<R> {
+		public RootRef(Type targetType) {
+			super(Path.empty(), targetType);
+		}
+
+		@Override
+		public <U> Reference<U> then(Class<U> requestedClass, Path path) throws InvalidTypeException {
+			Type targetType;
+			try {
+				targetType = pathCompiler.targetTypeOf(path);
+			} catch (InvalidTypeException e) {
+				throw new InvalidTypeException("Invalid path: " + path, e);
+			}
+			Class<?> targetClass = rawClass(targetType);
+			if (Optional.class.isAssignableFrom(requestedClass)) {
+				throw new InvalidTypeException("Reference<Optional<T>> not supported; create a Reference<T> instead and use Reference.optionalValue()");
+			} else if (!requestedClass.isAssignableFrom(targetClass)) {
+				throw new InvalidTypeException("Path from " + targetClass().getSimpleName()
+					+ " returns " + targetClass.getSimpleName()
+					+ ", not " + requestedClass.getSimpleName()
+					+ ": " + path);
+			} else if (Reference.class.isAssignableFrom(requestedClass)) {
+				// TODO: Disallow references to implicit references {Self and Enclosing}
+			}
+			return newReference(path, targetType);
+		}
+
+		@Override
+		public <E extends Entity> CatalogReference<E> thenCatalog(Class<E> entryClass, Path path) throws InvalidTypeException {
+			Reference<Catalog<E>> ref = reference(Classes.catalog(entryClass), path);
+			return new CatalogRef<>(ref, entryClass);
+		}
+
+		@Override
+		public <E extends Entity> ListingReference<E> thenListing(Class<E> entryClass, Path path) throws InvalidTypeException {
+			Reference<Listing<E>> ref = reference(Classes.listing(entryClass), path);
+			return new ListingRef<>(ref);
+		}
+
+		@Override
+		public <K extends Entity, V> SideTableReference<K, V> thenSideTable(Class<K> keyClass, Class<V> valueClass, Path path) throws InvalidTypeException {
+			Reference<SideTable<K,V>> ref = reference(Classes.sideTable(keyClass, valueClass), path);
+			return new SideTableRef<>(ref, keyClass, valueClass);
+		}
+
+		@Override
+		public <TT> Reference<Reference<TT>> thenReference(Class<TT> targetClass, Path path) throws InvalidTypeException {
+			return reference(Classes.reference(targetClass), path);
+		}
+
+		@Override
+		public <T> T buildReferences(Class<T> refsClass) throws InvalidTypeException {
+			return ReferenceBuilder.buildReferences(refsClass, Bosk.this);
 		}
 	}
 
@@ -750,6 +820,11 @@ try (ReadContext originalThReadContext = bosk.new ReadContext()) {
 		@Override
 		public final Reference<T> boundBy(BindingEnvironment bindings) {
 			return newReference(path.boundBy(bindings), targetType);
+		}
+
+		@Override
+		public RootReference<?> root() {
+			return rootReference();
 		}
 
 		@Override
@@ -792,7 +867,7 @@ try (ReadContext originalThReadContext = bosk.new ReadContext()) {
 				throw new InvalidTypeException("Error looking up enclosing " + targetClass.getSimpleName() + " from " + path);
 			}
 			// Might be the root
-			if (targetClass.isAssignableFrom(rawClass(rootType))) {
+			if (targetClass.isAssignableFrom(rawClass(rootRef.targetType()))) {
 				return (Reference<TT>) rootReference();
 			} else {
 				throw new InvalidTypeException("No enclosing " + targetClass.getSimpleName() + " from " + path);
@@ -828,7 +903,7 @@ try (ReadContext originalThReadContext = bosk.new ReadContext()) {
 		}
 
 		private Type rootType() {
-			return Bosk.this.rootType;
+			return Bosk.this.rootRef.targetType();
 		}
 
 		@Override
@@ -841,7 +916,7 @@ try (ReadContext originalThReadContext = bosk.new ReadContext()) {
 	/**
 	 * A {@link Reference} with no unbound parameters.
 	 */
-	private final class DefiniteReference<T> extends ReferenceImpl<T> {
+	private class DefiniteReference<T> extends ReferenceImpl<T> {
 		@Getter(lazy = true) private final Dereferencer dereferencer = compileVettedPath(path);
 
 		public DefiniteReference(Path path, Type targetType) {
@@ -948,84 +1023,55 @@ try (ReadContext originalThReadContext = bosk.new ReadContext()) {
 		}
 	}
 
-	//
-	// Reference factory methods
-	//
-
 	/**
-	 * @return a Reference to the object at the given <code>path</code>. {@link Reference#targetType()} will return the actual type of the target object (which may or may not be <code>requestedClass</code>).
-	 * @throws InvalidTypeException if the {@link Reference#targetType() target type} of the resulting Reference does not conform to <code>requestedClass</code>.
+	 * @deprecated Please inline this method. It will be removed in a future release.
 	 */
 	public final <T> Reference<T> reference(Class<T> requestedClass, Path path) throws InvalidTypeException {
-		Type targetType;
-		try {
-			targetType = pathCompiler.targetTypeOf(path);
-		} catch (InvalidTypeException e) {
-			throw new InvalidTypeException("Invalid path: " + path, e);
-		}
-		Class<?> targetClass = rawClass(targetType);
-		if (Optional.class.isAssignableFrom(requestedClass)) {
-			throw new InvalidTypeException("Reference<Optional<T>> not supported; create a Reference<T> instead and use Reference.optionalValue()");
-		} else if (!requestedClass.isAssignableFrom(targetClass)) {
-			throw new InvalidTypeException("Path from " + rawClass(rootType).getSimpleName()
-				+ " returns " + targetClass.getSimpleName()
-				+ ", not " + requestedClass.getSimpleName()
-				+ ": " + path);
-		} else if (Reference.class.isAssignableFrom(requestedClass)) {
-			// TODO: Disallow references to implicit references {Self and Enclosing}
-		}
-		return newReference(path, targetType);
+		return rootReference().then(requestedClass, path);
 	}
 
 	/**
-	 * Dynamically generates an object that can return {@link Reference}s to this bosk,
-	 * as specified by methods annotated with {@link io.vena.bosk.annotations.ReferencePath}.
-	 *
-	 * <p>
-	 * This method is slow and expensive (possibly tens of milliseconds)
-	 * but the returned object is efficient.
-	 * This is intended to be called during initialization, in order to (for example)
-	 * initialize singletons for dependency injection.
-	 *
-	 * @param refsClass an interface class whose methods are annotated with {@link io.vena.bosk.annotations.ReferencePath}.
-	 * @return an object implementing <code>refsClass</code> with methods that return the desired references.
-	 * @throws InvalidTypeException if any of the requested references are not valid
+	 * @deprecated Please inline this method. It will be removed in a future release.
 	 */
 	public final <T> T buildReferences(Class<T> refsClass) throws InvalidTypeException {
-		return ReferenceBuilder.buildReferences(refsClass, this);
+		return rootReference().buildReferences(refsClass);
 	}
 
-	@SuppressWarnings("unchecked")
-	public final Reference<R> rootReference() {
-		try {
-			return (Reference<R>)reference(rawClass(rootType), Path.empty());
-		} catch (InvalidTypeException e) {
-			throw new AssertionError("Root reference must be of class " + rawClass(rootType).getSimpleName(), e);
-		}
+	public final RootReference<R> rootReference() {
+		return rootRef;
 	}
 
+	/**
+	 * @deprecated Please inline this method. It will be removed in a future release.
+	 */
 	public final <T extends Entity> CatalogReference<T> catalogReference(Class<T> entryClass, Path path) throws InvalidTypeException {
-		Reference<Catalog<T>> ref = reference(Classes.catalog(entryClass), path);
-		return new CatalogRef<>(ref, entryClass);
+		return rootReference().thenCatalog(entryClass, path);
 	}
 
+	/**
+	 * @deprecated Please inline this method. It will be removed in a future release.
+	 */
 	public final <T extends Entity> ListingReference<T> listingReference(Class<T> entryClass, Path path) throws InvalidTypeException {
-		Reference<Listing<T>> ref = reference(Classes.listing(entryClass), path);
-		return new ListingRef<>(ref);
+		return rootReference().thenListing(entryClass, path);
 	}
 
+	/**
+	 * @deprecated Please inline this method. It will be removed in a future release.
+	 */
 	public final <K extends Entity,V> SideTableReference<K,V> sideTableReference(Class<K> keyClass, Class<V> valueClass, Path path) throws InvalidTypeException {
-		Reference<SideTable<K,V>> ref = reference(Classes.sideTable(keyClass, valueClass), path);
-		return new SideTableRef<>(ref, keyClass, valueClass);
+		return rootReference().thenSideTable(keyClass, valueClass, path);
 	}
 
+	/**
+	 * @deprecated Please inline this method. It will be removed in a future release.
+	 */
 	public final <TT> Reference<Reference<TT>> referenceReference(Class<TT> targetClass, Path path) throws InvalidTypeException {
-		return reference(Classes.reference(targetClass), path);
+		return rootReference().thenReference(targetClass, path);
 	}
 
 	@Override
 	public final String toString() {
-		return instanceID() + " \"" + name + "\"::" + rawClass(rootType).getSimpleName();
+		return instanceID() + " \"" + name + "\"::" + rootRef.targetClass().getSimpleName();
 	}
 
 	/**

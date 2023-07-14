@@ -41,8 +41,7 @@ import static lombok.AccessLevel.PACKAGE;
  * Semantically invalid paths
  * (meaning paths that couldn't possibly point to anything in a Bosk's state tree)
  * are explicitly allowed; that kind of validity is checked when a Path is turned
- * into a {@link Reference} via methods such as {@link Bosk#reference(Class, Path)
- * Bosk.reference}.
+ * into a {@link Reference}.
  *
  * <p>
  * Path objects are interned and reused. The {@link #equals} and {@link #hashCode}
