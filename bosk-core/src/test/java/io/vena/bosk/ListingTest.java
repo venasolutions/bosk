@@ -38,6 +38,10 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+/*
+ * TODO: This test is written in a mighty weird style. Change it to set up
+ * the bosk in a more normal manner, and try to use buildReferences too.
+ */
 class ListingTest {
 
 	static class ListingArgumentProvider implements ArgumentsProvider {
