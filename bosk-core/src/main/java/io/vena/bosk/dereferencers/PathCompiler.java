@@ -12,7 +12,6 @@ import io.vena.bosk.SideTable;
 import io.vena.bosk.StateTreeNode;
 import io.vena.bosk.bytecode.LocalVariable;
 import io.vena.bosk.exceptions.InvalidTypeException;
-import io.vena.bosk.exceptions.TunneledCheckedException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
@@ -89,30 +88,18 @@ public final class PathCompiler {
 	}
 
 	public Dereferencer compiled(Path path) throws InvalidTypeException {
-		try {
-			return memoizedDereferencers.computeIfAbsent(builderFor(path), DereferencerBuilder::buildInstance);
-		} catch (TunneledCheckedException e) {
-			throw e.getCause(InvalidTypeException.class);
-		}
+		return memoizedDereferencers.computeIfAbsent(builderFor(path), DereferencerBuilder::buildInstance);
 	}
 
 	public Path fullyParameterizedPathOf(Path path) throws InvalidTypeException {
-		try {
-			return builderFor(path).fullyParameterizedPath();
-		} catch (TunneledCheckedException e) {
-			throw e.getCause(InvalidTypeException.class);
-		}
+		return builderFor(path).fullyParameterizedPath();
 	}
 
 	public Type targetTypeOf(Path path) throws InvalidTypeException {
-		try {
-			return builderFor(path).targetType();
-		} catch (TunneledCheckedException e) {
-			throw e.getCause(InvalidTypeException.class);
-		}
+		return builderFor(path).targetType();
 	}
 
-	private DereferencerBuilder builderFor(Path path) throws TunneledCheckedException {
+	private DereferencerBuilder builderFor(Path path) throws InvalidTypeException {
 		// We'd like to use computeIfAbsent for this, but we can't,
 		// because in some cases we need to add two entries to the map
 		// (for the given path and the fully parameterized one)
@@ -134,10 +121,10 @@ public final class PathCompiler {
 	 * Note: also memoizes the resulting builder under the fully parameterized path
 	 * if different from the given path.
 	 */
-	private DereferencerBuilder getOrCreateBuilder(Path path) throws TunneledCheckedException {
+	private DereferencerBuilder getOrCreateBuilder(Path path) throws InvalidTypeException {
 		if (path.isEmpty()) {
 			return ROOT_BUILDER;
-		} else try {
+		} else {
 			StepwiseDereferencerBuilder candidate = new StepwiseDereferencerBuilder(path, here());
 
 			// If there's already an equivalent one filed under
@@ -150,8 +137,6 @@ public final class PathCompiler {
 				keepAliveFullyParameterizedPaths.add(fullyParameterizedPath);
 			}
 			return result;
-		} catch (InvalidTypeException e) {
-			throw new TunneledCheckedException(e);
 		}
 	}
 
