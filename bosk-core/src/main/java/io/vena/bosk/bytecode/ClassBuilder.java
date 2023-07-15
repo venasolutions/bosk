@@ -60,12 +60,13 @@ public final class ClassBuilder<T> {
 	private final List<CurriedField> curriedFields = new ArrayList<>();
 
 	/**
-	 * @param className The name of the generated class
+	 * @param className The simple name of the generated class;
+	 * 		the actual name will be given the prefix <code>GENERATED_</code> to identify it as not corresponding to any source file
 	 * @param supertype A superclass or interface for the generated class to inherit
 	 * @param parentClassLoader The classloader that should be used as the parent of the one we'll use
-	 *                          to load the newly-compiled class.
+	 * 		to load the newly-compiled class.
 	 * @param sourceFileOrigin Indicates the package in which the generated class should reside, and
-	 *                         the source file to which all debug line number information should refer.
+	 * 		the source file to which all debug line number information should refer.
 	 */
 	public ClassBuilder(String className, Class<? extends T> supertype, ClassLoader parentClassLoader, StackTraceElement sourceFileOrigin) {
 		this.supertype = supertype;
@@ -340,11 +341,17 @@ public final class ClassBuilder<T> {
 		}
 	}
 
+	/**
+	 * Bookkeeping before any instruction that causes a net increase of 1 in the operand stack depth.
+	 */
 	private void beginPush() {
 		emitLineNumberInfo();
 		currentMethod.pushSlots(1);
 	}
 
+	/**
+	 * Bookkeeping after any instruction that causes a net reduction in the operand stack depth.
+	 */
 	private void endPop(int count) {
 		currentMethod.popSlots(count);
 	}
