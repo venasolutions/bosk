@@ -277,17 +277,19 @@ public final class ClassBuilder<T> {
 		String typeName = Type.getInternalName(type);
 		String methodName = method.getName();
 		String signature = getMethodDescriptor(method);
-		int resultSlots = (method.getReturnType() == void.class) ? 0 : 1; // TODO: Won't work for long or double
+		Type methodType = Type.getType(method);
+		int weird = methodType.getArgumentsAndReturnSizes();
+		int argumentSlots = weird >> 2; // NOTE: This is off by 1 for static methods!
+		int resultSlots = weird & 0x3;
 		if (isStatic(method.getModifiers())) {
+			argumentSlots -= 1; // Static methods have no "this" argument
 			methodVisitor().visitMethodInsn(INVOKESTATIC, typeName, methodName, signature, false);
-			endPop(method.getParameterCount() - resultSlots);
 		} else if (type.isInterface()) {
 			methodVisitor().visitMethodInsn(INVOKEINTERFACE, typeName, methodName, signature, true);
-			endPop(1 + method.getParameterCount() - resultSlots);
 		} else {
 			methodVisitor().visitMethodInsn(INVOKEVIRTUAL, typeName, methodName, signature, false);
-			endPop(1 + method.getParameterCount() - resultSlots);
 		}
+		endPop(argumentSlots - resultSlots);
 	}
 
 	/**
