@@ -7,8 +7,13 @@ import java.lang.reflect.Method;
 /**
  * The skeleton of a builder for {@link Dereferencer} objects. Creates a new class,
  * declares its methods, and calls a sequence of abstract methods to generate the
- * method bodies. Provides protected utility methods that can be called to generate
+ * method bodies.
+ * Provides protected utility methods that can be called to generate
  * the desired bytecodes for the method bodies.
+ * The intent is that subclasses won't need to call {@link ClassBuilder} directly,
+ * but can instead call the slightly simpler set of methods provided here.
+ * (The only exception is {@link ClassBuilder#here}, which must be called directly
+ * in order to return the correct stack information.)
  *
  * <p>
  * By "skeleton" here we really mean the GoF "Template Method" pattern inside
@@ -48,7 +53,7 @@ abstract class SkeletonDereferencerBuilder implements DereferencerBuilder {
 	 * Pushes the bosk root object onto the operand stack, and typecasts it to the given class.
 	 */
 	protected final void pushSourceObject(Class<?> expectedType) {
-		cb.pushLocal(cb.parameter(1));
+		cb.pushLocal(cb.parameter(1)); // Parameter 0 is the Dereferencer object itself
 		cb.castTo(expectedType);
 	}
 

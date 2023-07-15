@@ -1,5 +1,6 @@
 package io.vena.bosk.dereferencers;
 
+import io.vena.bosk.BoskDriver;
 import io.vena.bosk.Catalog;
 import io.vena.bosk.Entity;
 import io.vena.bosk.Identifier;
@@ -12,7 +13,6 @@ import io.vena.bosk.SideTable;
 import io.vena.bosk.StateTreeNode;
 import io.vena.bosk.bytecode.LocalVariable;
 import io.vena.bosk.exceptions.InvalidTypeException;
-import io.vena.bosk.exceptions.TunneledCheckedException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
@@ -89,30 +89,18 @@ public final class PathCompiler {
 	}
 
 	public Dereferencer compiled(Path path) throws InvalidTypeException {
-		try {
-			return memoizedDereferencers.computeIfAbsent(builderFor(path), DereferencerBuilder::buildInstance);
-		} catch (TunneledCheckedException e) {
-			throw e.getCause(InvalidTypeException.class);
-		}
+		return memoizedDereferencers.computeIfAbsent(builderFor(path), DereferencerBuilder::buildInstance);
 	}
 
 	public Path fullyParameterizedPathOf(Path path) throws InvalidTypeException {
-		try {
-			return builderFor(path).fullyParameterizedPath();
-		} catch (TunneledCheckedException e) {
-			throw e.getCause(InvalidTypeException.class);
-		}
+		return builderFor(path).fullyParameterizedPath();
 	}
 
 	public Type targetTypeOf(Path path) throws InvalidTypeException {
-		try {
-			return builderFor(path).targetType();
-		} catch (TunneledCheckedException e) {
-			throw e.getCause(InvalidTypeException.class);
-		}
+		return builderFor(path).targetType();
 	}
 
-	private DereferencerBuilder builderFor(Path path) throws TunneledCheckedException {
+	private DereferencerBuilder builderFor(Path path) throws InvalidTypeException {
 		// We'd like to use computeIfAbsent for this, but we can't,
 		// because in some cases we need to add two entries to the map
 		// (for the given path and the fully parameterized one)
@@ -134,10 +122,10 @@ public final class PathCompiler {
 	 * Note: also memoizes the resulting builder under the fully parameterized path
 	 * if different from the given path.
 	 */
-	private DereferencerBuilder getOrCreateBuilder(Path path) throws TunneledCheckedException {
+	private DereferencerBuilder getOrCreateBuilder(Path path) throws InvalidTypeException {
 		if (path.isEmpty()) {
 			return ROOT_BUILDER;
-		} else try {
+		} else {
 			StepwiseDereferencerBuilder candidate = new StepwiseDereferencerBuilder(path, here());
 
 			// If there's already an equivalent one filed under
@@ -150,8 +138,6 @@ public final class PathCompiler {
 				keepAliveFullyParameterizedPaths.add(fullyParameterizedPath);
 			}
 			return result;
-		} catch (InvalidTypeException e) {
-			throw new TunneledCheckedException(e);
 		}
 	}
 
@@ -166,6 +152,9 @@ public final class PathCompiler {
 
 		/**
 		 * @return the segment this step contributes to {@link StepwiseDereferencerBuilder#fullyParameterizedPath()}.
+		 * Note that if the returned string is a segment name (of the form "<code>-name-</code>")
+		 * then it is not guaranteed to be unique within the path.
+		 * @see StepwiseDereferencerBuilder#disambiguateDuplicateParameters
 		 */
 		String fullyParameterizedPathSegment();
 
@@ -186,6 +175,9 @@ public final class PathCompiler {
 		}
 	}
 
+	/**
+	 * A {@link Step} leading to an object for which {@link BoskDriver#submitDeletion} is allowed.
+	 */
 	private interface DeletableStep extends Step {
 		/**
 		 * Initial stack: penultimateObject
@@ -347,6 +339,10 @@ public final class PathCompiler {
 			return Path.of(segments);
 		}
 
+		/**
+		 * Ensures that all parameter names are unique in the given array of segments
+		 * suffixing them with a number if necessary.
+		 */
 		private void disambiguateDuplicateParameters(String[] segments) {
 			Set<String> parametersAlreadyUsed = new HashSet<>();
 			for (int i = 0; i < segments.length; i++) {
@@ -413,8 +409,10 @@ public final class PathCompiler {
 				// Push constructor parameters and invoke
 				for (Parameter parameter: constructor.getParameters()) {
 					if (parameter.getName().equals(name)) {
+						// This is the parameter we're substituting
 						cb.pushLocal(newValue);
 					} else {
+						// All other parameter values come from originalObject
 						cb.pushLocal(originalObject);
 						cb.invoke(gettersByName.get(parameter.getName()));
 					}

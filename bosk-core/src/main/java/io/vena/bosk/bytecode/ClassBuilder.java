@@ -60,12 +60,13 @@ public final class ClassBuilder<T> {
 	private final List<CurriedField> curriedFields = new ArrayList<>();
 
 	/**
-	 * @param className The name of the generated class
+	 * @param className The simple name of the generated class;
+	 * 		the actual name will be given the prefix <code>GENERATED_</code> to identify it as not corresponding to any source file
 	 * @param supertype A superclass or interface for the generated class to inherit
 	 * @param parentClassLoader The classloader that should be used as the parent of the one we'll use
-	 *                          to load the newly-compiled class.
+	 * 		to load the newly-compiled class.
 	 * @param sourceFileOrigin Indicates the package in which the generated class should reside, and
-	 *                         the source file to which all debug line number information should refer.
+	 * 		the source file to which all debug line number information should refer.
 	 */
 	public ClassBuilder(String className, Class<? extends T> supertype, ClassLoader parentClassLoader, StackTraceElement sourceFileOrigin) {
 		this.supertype = supertype;
@@ -276,17 +277,19 @@ public final class ClassBuilder<T> {
 		String typeName = Type.getInternalName(type);
 		String methodName = method.getName();
 		String signature = getMethodDescriptor(method);
-		int resultSlots = (method.getReturnType() == void.class) ? 0 : 1; // TODO: Won't work for long or double
+		Type methodType = Type.getType(method);
+		int weird = methodType.getArgumentsAndReturnSizes();
+		int argumentSlots = weird >> 2; // NOTE: This is off by 1 for static methods!
+		int resultSlots = weird & 0x3;
 		if (isStatic(method.getModifiers())) {
+			argumentSlots -= 1; // Static methods have no "this" argument
 			methodVisitor().visitMethodInsn(INVOKESTATIC, typeName, methodName, signature, false);
-			endPop(method.getParameterCount() - resultSlots);
 		} else if (type.isInterface()) {
 			methodVisitor().visitMethodInsn(INVOKEINTERFACE, typeName, methodName, signature, true);
-			endPop(1 + method.getParameterCount() - resultSlots);
 		} else {
 			methodVisitor().visitMethodInsn(INVOKEVIRTUAL, typeName, methodName, signature, false);
-			endPop(1 + method.getParameterCount() - resultSlots);
 		}
+		endPop(argumentSlots - resultSlots);
 	}
 
 	/**
@@ -340,11 +343,17 @@ public final class ClassBuilder<T> {
 		}
 	}
 
+	/**
+	 * Bookkeeping before any instruction that causes a net increase of 1 in the operand stack depth.
+	 */
 	private void beginPush() {
 		emitLineNumberInfo();
 		currentMethod.pushSlots(1);
 	}
 
+	/**
+	 * Bookkeeping after any instruction that causes a net reduction in the operand stack depth.
+	 */
 	private void endPop(int count) {
 		currentMethod.popSlots(count);
 	}
