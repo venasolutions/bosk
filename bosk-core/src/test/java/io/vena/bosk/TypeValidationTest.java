@@ -148,8 +148,7 @@ class TypeValidationTest {
 	}
 
 	@Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
-	public static final class BoskyTypes implements Entity {
-		Identifier id;
+	public static final class BoskyTypes implements StateTreeNode {
 		Reference<SimpleTypes> ref;
 		Optional<SimpleTypes> optional;
 		Catalog<SimpleTypes> catalog;
@@ -184,8 +183,7 @@ class TypeValidationTest {
 	}
 
 	@Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
-	public static final class AllowedFieldNames implements Entity {
-		Identifier id;
+	public static final class AllowedFieldNames implements StateTreeNode {
 		int justLetters;
 		int someNumbers4U2C;
 		int hereComesAnUnderscore_toldYouSo;

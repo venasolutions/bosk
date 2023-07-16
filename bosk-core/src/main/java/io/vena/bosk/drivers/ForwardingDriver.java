@@ -1,9 +1,9 @@
 package io.vena.bosk.drivers;
 
 import io.vena.bosk.BoskDriver;
-import io.vena.bosk.Entity;
 import io.vena.bosk.Identifier;
 import io.vena.bosk.Reference;
+import io.vena.bosk.StateTreeNode;
 import io.vena.bosk.exceptions.InvalidTypeException;
 import java.io.IOException;
 import java.lang.reflect.Type;
@@ -12,7 +12,7 @@ import java.util.List;
 import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor
-public class ForwardingDriver<R extends Entity> implements BoskDriver<R> {
+public class ForwardingDriver<R extends StateTreeNode> implements BoskDriver<R> {
 	private final Iterable<BoskDriver<R>> downstream;
 
 	/**

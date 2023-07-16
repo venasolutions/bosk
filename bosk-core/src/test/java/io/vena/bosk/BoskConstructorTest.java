@@ -30,10 +30,10 @@ public class BoskConstructorTest {
 	void basicProperties_correctValues() {
 		String name = "Name";
 		Type rootType = SimpleTypes.class;
-		Entity root = newEntity();
+		StateTreeNode root = newEntity();
 
-		AtomicReference<BoskDriver<Entity>> driver = new AtomicReference<>();
-		Bosk<Entity> bosk = new Bosk<Entity>(
+		AtomicReference<BoskDriver<StateTreeNode>> driver = new AtomicReference<>();
+		Bosk<StateTreeNode> bosk = new Bosk<StateTreeNode>(
 			name,
 			rootType,
 			__ -> root,
@@ -100,7 +100,7 @@ public class BoskConstructorTest {
 	@Test
 	void driverInitialRoot_matches() {
 		SimpleTypes root = newEntity();
-		Bosk<Entity> bosk = new Bosk<Entity>(
+		Bosk<StateTreeNode> bosk = new Bosk<StateTreeNode>(
 			"By value",
 			SimpleTypes.class,
 			__ -> {throw new AssertionError("Shouldn't be called");},
@@ -114,14 +114,14 @@ public class BoskConstructorTest {
 	void defaultRoot_matches() {
 		SimpleTypes root = newEntity();
 		{
-			Bosk<Entity> valueBosk = new Bosk<>("By value", SimpleTypes.class, root, Bosk::simpleDriver);
+			Bosk<StateTreeNode> valueBosk = new Bosk<>("By value", SimpleTypes.class, root, Bosk::simpleDriver);
 			try (val __ = valueBosk.readContext()) {
 				assertSame(root, valueBosk.rootReference().value());
 			}
 		}
 
 		{
-			Bosk<Entity> functionBosk = new Bosk<Entity>("By value", SimpleTypes.class, __ -> root, Bosk::simpleDriver);
+			Bosk<StateTreeNode> functionBosk = new Bosk<StateTreeNode>("By value", SimpleTypes.class, __ -> root, Bosk::simpleDriver);
 			try (val __ = functionBosk.readContext()) {
 				assertSame(root, functionBosk.rootReference().value());
 			}
@@ -142,7 +142,7 @@ public class BoskConstructorTest {
 		));
 	}
 
-	private static void assertDefaultRootThrows(Class<? extends Throwable> expectedType, DefaultRootFunction<Entity> defaultRootFunction) {
+	private static void assertDefaultRootThrows(Class<? extends Throwable> expectedType, DefaultRootFunction<StateTreeNode> defaultRootFunction) {
 		assertThrows(expectedType, () -> new Bosk<>(
 			"Throw test",
 			SimpleTypes.class,
@@ -152,17 +152,17 @@ public class BoskConstructorTest {
 	}
 
 	@NotNull
-	private static DriverFactory<Entity> initialRootDriver(InitialRootFunction initialRootFunction) {
-		return (b,d) -> new ForwardingDriver<Entity>(emptyList()) {
+	private static DriverFactory<StateTreeNode> initialRootDriver(InitialRootFunction initialRootFunction) {
+		return (b,d) -> new ForwardingDriver<StateTreeNode>(emptyList()) {
 			@Override
-			public Entity initialRoot(Type rootType) throws InvalidTypeException, IOException, InterruptedException {
+			public StateTreeNode initialRoot(Type rootType) throws InvalidTypeException, IOException, InterruptedException {
 				return initialRootFunction.get();
 			}
 		};
 	}
 
 	interface InitialRootFunction {
-		Entity get() throws InvalidTypeException, IOException, InterruptedException;
+		StateTreeNode get() throws InvalidTypeException, IOException, InterruptedException;
 	}
 
 	private static SimpleTypes newEntity() {

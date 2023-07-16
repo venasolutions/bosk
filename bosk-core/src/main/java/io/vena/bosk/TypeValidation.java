@@ -39,8 +39,8 @@ public final class TypeValidation {
 
 	public static void validateType(Type rootType) throws InvalidTypeException {
 		Class<?> rootClass = rawClass(rootType);
-		if (!Entity.class.isAssignableFrom(rootClass)) { // pdoyle - I see this becoming StateTreeNode in our near future
-			throw new InvalidTypeException("Bosk root type must be an Entity; " + rootClass.getSimpleName() + " is not an Entity");
+		if (!StateTreeNode.class.isAssignableFrom(rootClass)) {
+			throw new InvalidTypeException("Bosk root type must be a StateTreeNode; " + rootClass.getSimpleName() + " is not");
 		}
 		validateType(rootType, newSetFromMap(new IdentityHashMap<>()));
 	}

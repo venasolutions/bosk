@@ -8,8 +8,8 @@ import com.mongodb.client.model.changestream.ChangeStreamDocument;
 import com.mongodb.client.model.changestream.UpdateDescription;
 import com.mongodb.lang.Nullable;
 import io.vena.bosk.BoskDriver;
-import io.vena.bosk.Entity;
 import io.vena.bosk.Reference;
+import io.vena.bosk.StateTreeNode;
 import io.vena.bosk.drivers.mongo.Formatter.DocumentFields;
 import io.vena.bosk.exceptions.FlushFailureException;
 import io.vena.bosk.exceptions.InvalidTypeException;
@@ -52,7 +52,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
  *
  * @author pdoyle
  */
-final class SingleDocumentMongoChangeStreamReceiver<R extends Entity> implements MongoReceiver<R> {
+final class SingleDocumentMongoChangeStreamReceiver<R extends StateTreeNode> implements MongoReceiver<R> {
 	private final Formatter formatter;
 	private final BoskDriver<R> downstream;
 	private final Reference<R> rootRef;
