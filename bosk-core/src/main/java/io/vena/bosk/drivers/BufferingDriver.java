@@ -1,9 +1,9 @@
 package io.vena.bosk.drivers;
 
 import io.vena.bosk.BoskDriver;
-import io.vena.bosk.Entity;
 import io.vena.bosk.Identifier;
 import io.vena.bosk.Reference;
+import io.vena.bosk.StateTreeNode;
 import io.vena.bosk.exceptions.InvalidTypeException;
 import java.io.IOException;
 import java.lang.reflect.Type;
@@ -29,11 +29,11 @@ import static lombok.AccessLevel.PROTECTED;
  * @author pdoyle
  */
 @RequiredArgsConstructor(access = PROTECTED)
-public class BufferingDriver<R extends Entity> implements BoskDriver<R> {
+public class BufferingDriver<R extends StateTreeNode> implements BoskDriver<R> {
 	private final BoskDriver<R> downstream;
 	private final Deque<Consumer<BoskDriver<R>>> updateQueue = new ConcurrentLinkedDeque<>();
 
-	public static <RR extends Entity> BufferingDriver<RR> writingTo(BoskDriver<RR> downstream) {
+	public static <RR extends StateTreeNode> BufferingDriver<RR> writingTo(BoskDriver<RR> downstream) {
 		return new BufferingDriver<>(downstream);
 	}
 

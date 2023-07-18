@@ -92,7 +92,7 @@ public final class BsonPlugin extends SerializationPlugin {
 	 * In response to this shortcoming, you can access {@link Codec}s for any
 	 * type using {@link #getCodec(Type, Class, CodecRegistry, Bosk)}
 	 */
-	public <R extends Entity> CodecProvider codecProviderFor(Bosk<R> bosk) {
+	public <R extends StateTreeNode> CodecProvider codecProviderFor(Bosk<R> bosk) {
 		return new CodecProvider() {
 			public <T> Codec<T> get(Class<T> targetClass, CodecRegistry registry) {
 				// Without generic type info, we just use the class as the type;
@@ -112,7 +112,7 @@ public final class BsonPlugin extends SerializationPlugin {
 	 * @param targetClass must match <code>targetType</code>. This is provided only to help Java do type inference and avoid ugly and unnecessary type casts.
 	 */
 	@SuppressWarnings("unchecked")
-	public <T, R extends Entity> Codec<T> getCodec(Type targetType, Class<T> targetClass, CodecRegistry registry, Bosk<R> bosk) {
+	public <T, R extends StateTreeNode> Codec<T> getCodec(Type targetType, Class<T> targetClass, CodecRegistry registry, Bosk<R> bosk) {
 		if (rawClass(targetType) != targetClass) {
 			throw new IllegalArgumentException("Type does not match Class " + targetClass.getSimpleName() + ": " + targetType);
 		}
@@ -132,7 +132,7 @@ public final class BsonPlugin extends SerializationPlugin {
 	 * if required, and if that fails, falls back to the registry.
 	 */
 	@SuppressWarnings("unused") // GET_ANY_CODEC
-	private <T, R extends Entity> Codec<T> getAnyCodec(Type targetType, Class<T> targetClass, CodecRegistry registry, Bosk<R> bosk) {
+	private <T, R extends StateTreeNode> Codec<T> getAnyCodec(Type targetType, Class<T> targetClass, CodecRegistry registry, Bosk<R> bosk) {
 		Codec<T> result = getCodec(targetType, targetClass, registry, bosk);
 		if (result == null) {
 			return requireNonNull(registry.get(targetClass), "Codec required for " + targetType);
@@ -378,7 +378,7 @@ public final class BsonPlugin extends SerializationPlugin {
 	}
 
 
-	private static <R extends Entity> Codec<Reference<?>> referenceCodec(Bosk<R> bosk) {
+	private static <R extends StateTreeNode> Codec<Reference<?>> referenceCodec(Bosk<R> bosk) {
 		return new Codec<Reference<?>>() {
 			@Override @SuppressWarnings({ "rawtypes", "unchecked" })
 			public Class<Reference<?>> getEncoderClass() { return (Class)Reference.class; }
@@ -400,7 +400,7 @@ public final class BsonPlugin extends SerializationPlugin {
 		};
 	}
 
-	private <T extends StateTreeNode, R extends Entity> Codec<T> stateTreeNodeCodec(Class<T> nodeClass, CodecRegistry registry, Bosk<R> bosk) {
+	private <T extends StateTreeNode, R extends StateTreeNode> Codec<T> stateTreeNodeCodec(Class<T> nodeClass, CodecRegistry registry, Bosk<R> bosk) {
 		// Pre-compute some reflection-based stuff
 		//
 		Constructor<?> constructor = theOnlyConstructorFor(nodeClass);
@@ -439,7 +439,7 @@ public final class BsonPlugin extends SerializationPlugin {
 		};
 	}
 
-	private <E extends Entity, R extends Entity> Codec<Catalog<E>> catalogCodec(Type catalogType, Class<Catalog<E>> catalogClass, CodecRegistry registry, Bosk<R> bosk) {
+	private <E extends Entity, R extends StateTreeNode> Codec<Catalog<E>> catalogCodec(Type catalogType, Class<Catalog<E>> catalogClass, CodecRegistry registry, Bosk<R> bosk) {
 		Type entryType = parameterType(catalogType, Catalog.class, 0);
 		@SuppressWarnings("unchecked")
 		Class<E> entryClass = (Class<E>) rawClass(entryType).asSubclass(Entity.class);
@@ -494,7 +494,7 @@ public final class BsonPlugin extends SerializationPlugin {
 		};
 	}
 
-	private <K extends Entity, V, R extends Entity> Codec<SideTable<K,V>> sideTableCodec(Type sideTableType, Class<SideTable<K,V>> sideTableClass, CodecRegistry registry, Bosk<R> bosk) {
+	private <K extends Entity, V, R extends StateTreeNode> Codec<SideTable<K,V>> sideTableCodec(Type sideTableType, Class<SideTable<K,V>> sideTableClass, CodecRegistry registry, Bosk<R> bosk) {
 		Type valueType = parameterType(sideTableType, SideTable.class, 1);
 		@SuppressWarnings("unchecked")
 		Class<V> valueClass = (Class<V>) rawClass(valueType);
@@ -558,7 +558,7 @@ public final class BsonPlugin extends SerializationPlugin {
 	/**
 	 * @return Map not necessarily in any particular order; caller is expected to apply any desired ordering.
 	 */
-	private <R extends Entity> Map<String, Object> gatherParameterValuesByName(Class<? extends StateTreeNode> nodeClass, Map<String, Parameter> parametersByName, BsonReader reader, DecoderContext decoderContext, CodecRegistry registry, Bosk<R> bosk) {
+	private <R extends StateTreeNode> Map<String, Object> gatherParameterValuesByName(Class<? extends StateTreeNode> nodeClass, Map<String, Parameter> parametersByName, BsonReader reader, DecoderContext decoderContext, CodecRegistry registry, Bosk<R> bosk) {
 		Map<String, Object> parameterValuesByName = new HashMap<>();
 		while (reader.readBsonType() != BsonType.END_OF_DOCUMENT) {
 			String fieldName = reader.readName();
@@ -582,7 +582,7 @@ public final class BsonPlugin extends SerializationPlugin {
 		return parameterValuesByName;
 	}
 
-	private <R extends Entity> Object decodeValue(Type valueType, BsonReader reader, DecoderContext decoderContext, CodecRegistry registry, Bosk<R> bosk) {
+	private <R extends StateTreeNode> Object decodeValue(Type valueType, BsonReader reader, DecoderContext decoderContext, CodecRegistry registry, Bosk<R> bosk) {
 		Class<?> valueClass = rawClass(valueType);
 		Object value;
 		if (Phantom.class.isAssignableFrom(valueClass)) {
@@ -597,7 +597,7 @@ public final class BsonPlugin extends SerializationPlugin {
 		return value;
 	}
 
-	private <T extends StateTreeNode, R extends Entity> MethodHandle computeAllFieldsWriterHandle(Class<T> nodeClass, Map<String, Parameter> parametersByName, CodecRegistry codecRegistry, Bosk<R> bosk) {
+	private <T extends StateTreeNode, R extends StateTreeNode> MethodHandle computeAllFieldsWriterHandle(Class<T> nodeClass, Map<String, Parameter> parametersByName, CodecRegistry codecRegistry, Bosk<R> bosk) {
 		MethodHandle handleUnderConstruction = writeNothingHandle(nodeClass);
 		for (Entry<String, Parameter> e: parametersByName.entrySet()) {
 			// Here, handleUnderConstruction has args (N,W,E)
@@ -617,7 +617,7 @@ public final class BsonPlugin extends SerializationPlugin {
 		return handleUnderConstruction;
 	}
 
-	private <R extends Entity> MethodHandle parameterWriterHandle(Class<?> nodeClass, String name, Parameter parameter, CodecRegistry codecRegistry, Bosk<R> bosk) {
+	private <R extends StateTreeNode> MethodHandle parameterWriterHandle(Class<?> nodeClass, String name, Parameter parameter, CodecRegistry codecRegistry, Bosk<R> bosk) {
 		if (isImplicitParameter(nodeClass, parameter)) {
 			return writeNothingHandle(parameter.getType());
 		} else {
@@ -625,7 +625,7 @@ public final class BsonPlugin extends SerializationPlugin {
 		}
 	}
 
-	private <R extends Entity> MethodHandle valueWriterHandle(String name, Type valueType, CodecRegistry codecRegistry, Bosk<R> bosk) {
+	private <R extends StateTreeNode> MethodHandle valueWriterHandle(String name, Type valueType, CodecRegistry codecRegistry, Bosk<R> bosk) {
 		MethodHandle fieldWriter;
 		Class<?> valueClass = rawClass(valueType);
 		if (Phantom.class.isAssignableFrom(valueClass)) {

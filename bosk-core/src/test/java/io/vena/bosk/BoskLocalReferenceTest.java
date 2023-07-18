@@ -65,7 +65,7 @@ class BoskLocalReferenceTest {
 
 	@BeforeEach
 	void initializeBosk() throws InvalidTypeException {
-		Root initialRoot = new Root(Identifier.from("root"), 1, Catalog.empty());
+		Root initialRoot = new Root(1, Catalog.empty());
 		bosk = new Bosk<>(BOSK_NAME, Root.class, initialRoot, Bosk::simpleDriver);
 		refs = bosk.buildReferences(Refs.class);
 		Identifier ernieID = Identifier.from("ernie");
@@ -90,8 +90,7 @@ class BoskLocalReferenceTest {
 
 	@Getter @With @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
 	@EqualsAndHashCode(callSuper = false) @ToString @FieldNameConstants
-	public static class Root implements Entity {
-		Identifier id;
+	public static class Root implements StateTreeNode {
 		int version;
 		Catalog<TestEntity> entities;
 	}
@@ -265,7 +264,7 @@ class BoskLocalReferenceTest {
 			final String mutableString;
 
 			public InvalidRoot(Identifier id, Catalog<TestEntity> entities, String str) {
-				super(id, 0xdead, entities);
+				super(0xdead, entities);
 				this.mutableString = str;
 			}
 		}
@@ -277,7 +276,7 @@ class BoskLocalReferenceTest {
 	void testDriver() {
 		// This doesn't test the operation of the driver; merely that the right driver is returned
 		AtomicReference<BoskDriver<Root>> driver = new AtomicReference<>();
-		Bosk<Root> myBosk = new Bosk<>("My bosk", Root.class, new Root(Identifier.unique("root"), 123, Catalog.empty()), (b,d) -> {
+		Bosk<Root> myBosk = new Bosk<>("My bosk", Root.class, new Root(123, Catalog.empty()), (b,d) -> {
 			BoskDriver<Root> bd = new ProxyDriver(d);
 			driver.set(bd);
 			return bd;

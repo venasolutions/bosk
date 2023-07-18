@@ -4,11 +4,11 @@ import com.mongodb.MongoClientSettings;
 import io.vena.bosk.Bosk;
 import io.vena.bosk.BoskDriver;
 import io.vena.bosk.DriverFactory;
-import io.vena.bosk.Entity;
+import io.vena.bosk.StateTreeNode;
 import io.vena.bosk.drivers.mongo.v3.MainDriver;
 import java.io.IOException;
 
-public interface MongoDriver<R extends Entity> extends BoskDriver<R> {
+public interface MongoDriver<R extends StateTreeNode> extends BoskDriver<R> {
 	/**
 	 * Deserializes and re-serializes the entire bosk contents,
 	 * thus updating the database to match the current serialized format.
@@ -44,7 +44,7 @@ public interface MongoDriver<R extends Entity> extends BoskDriver<R> {
 	 */
 	void close();
 
-	static <RR extends Entity> MongoDriverFactory<RR> factory(
+	static <RR extends StateTreeNode> MongoDriverFactory<RR> factory(
 		MongoClientSettings clientSettings,
 		MongoDriverSettings driverSettings,
 		BsonPlugin bsonPlugin
@@ -57,7 +57,7 @@ public interface MongoDriver<R extends Entity> extends BoskDriver<R> {
 		}
 	}
 
-	interface MongoDriverFactory<RR extends Entity> extends DriverFactory<RR> {
+	interface MongoDriverFactory<RR extends StateTreeNode> extends DriverFactory<RR> {
 		@Override MongoDriver<RR> build(Bosk<RR> bosk, BoskDriver<RR> downstream);
 	}
 }

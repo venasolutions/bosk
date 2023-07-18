@@ -1,7 +1,7 @@
 package io.vena.bosk.drivers.mongo;
 
 import io.vena.bosk.DriverFactory;
-import io.vena.bosk.Entity;
+import io.vena.bosk.StateTreeNode;
 import io.vena.bosk.drivers.DriverConformanceTest;
 import io.vena.bosk.drivers.mongo.MongoDriverSettings.MongoDriverSettingsBuilder;
 import io.vena.bosk.junit.ParametersByName;
@@ -39,9 +39,9 @@ class MongoDriverConformanceTest extends DriverConformanceTest implements TestPa
 		tearDownActions.forEach(Runnable::run);
 	}
 
-	private <E extends Entity> DriverFactory<E> createDriverFactory() {
+	private <R extends StateTreeNode> DriverFactory<R> createDriverFactory() {
 		return (bosk, downstream) -> {
-			MongoDriver<E> driver = MongoDriver.<E>factory(
+			MongoDriver<R> driver = MongoDriver.<R>factory(
 				mongoService.clientSettings(), driverSettings, new BsonPlugin()
 			).build(bosk, downstream);
 			tearDownActions.addFirst(()->{

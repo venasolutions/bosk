@@ -14,7 +14,7 @@ import static io.vena.bosk.bytecode.ClassBuilder.here;
 
 class ReferenceBuilder {
 	@SuppressWarnings({"unchecked","rawtypes"})
-	static <T, R extends Entity> T buildReferences(Class<T> refsClass, Bosk<R> bosk) throws InvalidTypeException {
+	static <T, R extends StateTreeNode> T buildReferences(Class<T> refsClass, Bosk<R> bosk) throws InvalidTypeException {
 		ClassBuilder<T> cb = new ClassBuilder<>(
 			"REFS_" + refsClass.getSimpleName(),
 			refsClass,

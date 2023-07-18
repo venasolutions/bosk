@@ -14,9 +14,9 @@ import com.mongodb.client.MongoCursor;
 import com.mongodb.client.model.changestream.ChangeStreamDocument;
 import io.vena.bosk.Bosk;
 import io.vena.bosk.BoskDriver;
-import io.vena.bosk.Entity;
 import io.vena.bosk.Identifier;
 import io.vena.bosk.Reference;
+import io.vena.bosk.StateTreeNode;
 import io.vena.bosk.drivers.mongo.BsonPlugin;
 import io.vena.bosk.drivers.mongo.MongoDriver;
 import io.vena.bosk.drivers.mongo.MongoDriverSettings;
@@ -54,7 +54,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
  * are delegated to a {@link FormatDriver} object that can be swapped out dynamically
  * as the database evolves.
  */
-public class MainDriver<R extends Entity> implements MongoDriver<R> {
+public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 	private final Bosk<R> bosk;
 	private final ChangeReceiver receiver;
 	private final MongoDriverSettings driverSettings;

@@ -12,7 +12,7 @@ import java.lang.reflect.Type;
  *
  * @author pdoyle
  */
-public interface BoskDriver<R extends Entity> {
+public interface BoskDriver<R extends StateTreeNode> {
 	/**
 	 * Returns the root object the {@link Bosk} should use as its initial state upon
 	 * returning from its constructor.

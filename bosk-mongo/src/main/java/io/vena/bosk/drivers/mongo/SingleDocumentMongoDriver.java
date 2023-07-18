@@ -17,9 +17,9 @@ import com.mongodb.client.model.UpdateOptions;
 import com.mongodb.client.result.UpdateResult;
 import io.vena.bosk.Bosk;
 import io.vena.bosk.BoskDriver;
-import io.vena.bosk.Entity;
 import io.vena.bosk.Identifier;
 import io.vena.bosk.Reference;
+import io.vena.bosk.StateTreeNode;
 import io.vena.bosk.exceptions.FlushFailureException;
 import io.vena.bosk.exceptions.InvalidTypeException;
 import io.vena.bosk.exceptions.NotYetImplementedException;
@@ -52,7 +52,7 @@ import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.bson.BsonBoolean.FALSE;
 
-final class SingleDocumentMongoDriver<R extends Entity> implements MongoDriver<R> {
+final class SingleDocumentMongoDriver<R extends StateTreeNode> implements MongoDriver<R> {
 	private final String description;
 	private final MongoDriverSettings settings;
 	private final Formatter formatter;

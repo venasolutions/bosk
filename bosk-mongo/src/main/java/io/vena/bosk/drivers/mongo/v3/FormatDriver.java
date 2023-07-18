@@ -3,7 +3,7 @@ package io.vena.bosk.drivers.mongo.v3;
 import com.mongodb.client.MongoChangeStreamCursor;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.model.changestream.ChangeStreamDocument;
-import io.vena.bosk.Entity;
+import io.vena.bosk.StateTreeNode;
 import io.vena.bosk.drivers.mongo.MongoDriver;
 import io.vena.bosk.exceptions.InitializationFailureException;
 import java.io.IOException;
@@ -32,7 +32,7 @@ import org.bson.Document;
  *     Implementing {@link #initialRoot} or {@link #refurbish()}
  * </li></ol>
  */
-interface FormatDriver<R extends Entity> extends MongoDriver<R> {
+interface FormatDriver<R extends StateTreeNode> extends MongoDriver<R> {
 	void onEvent(ChangeStreamDocument<Document> event) throws UnprocessableEventException;
 
 	/**

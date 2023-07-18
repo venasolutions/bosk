@@ -3,7 +3,6 @@ package io.vena.bosk.drivers.mongo.example;
 import com.mongodb.MongoClientSettings;
 import io.vena.bosk.Bosk;
 import io.vena.bosk.DriverFactory;
-import io.vena.bosk.Identifier;
 import io.vena.bosk.Reference;
 import io.vena.bosk.annotations.ReferencePath;
 import io.vena.bosk.drivers.mongo.BsonPlugin;
@@ -28,7 +27,7 @@ public class ExampleBosk extends Bosk<ExampleState> {
 	public final Refs refs = rootReference().buildReferences(Refs.class);
 
 	private static ExampleState defaultRoot() {
-		return new ExampleState(Identifier.from("example"), "world");
+		return new ExampleState("world");
 	}
 
 	private static DriverFactory<ExampleState> driverFactory() {

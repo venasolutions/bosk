@@ -69,14 +69,13 @@ The library works particularly well with Java records.
 You can define your state tree's root node as follows:
 
 ```
-import io.vena.bosk.Entity;
+import io.vena.bosk.StateTreeNode;
 import io.vena.bosk.Identifier;
 
 public record ExampleState (
-	Identifier id,
 	// Add fields here as you need them
 	String name
-) implements Entity {}
+) implements StateTreeNode {}
 ```
 
 You can also use classes, especially if you're using Lombok:
@@ -84,8 +83,7 @@ You can also use classes, especially if you're using Lombok:
 ```
 @Value
 @Accessors(fluent = true)
-public class ExampleState implements Entity {
-	Identifier id;
+public class ExampleState implements StateTreeNode {
 	// Add fields here as you need them
 	String name;
 }
@@ -95,9 +93,9 @@ Now declare your singleton `Bosk` class to house and manage your application sta
 
 ```
 import io.vena.bosk.Bosk;
-import io.vena.bosk.Identifier;
-import io.vena.bosk.Path;
+import io.vena.bosk.DriverFactory;
 import io.vena.bosk.Reference;
+import io.vena.bosk.annotations.ReferencePath;
 import io.vena.bosk.exceptions.InvalidTypeException;
 
 @Singleton // You can use your framework's dependency injection for this
@@ -106,7 +104,7 @@ public class ExampleBosk extends Bosk<ExampleState> {
 		super(
 			"ExampleBosk",
 			ExampleState.class,
-			new ExampleState(Identifier.from("example"), "world"),
+			defaultRoot(),
 			driverFactory());
 	}
 
@@ -115,7 +113,11 @@ public class ExampleBosk extends Bosk<ExampleState> {
 		@ReferencePath("/name") Reference<String> name();
 	}
 
-	public final Refs refs = buildReferences(Refs.class);
+	public final Refs refs = rootReference().buildReferences(Refs.class);
+
+	private static ExampleState defaultRoot() {
+		return new ExampleState("world");
+	}
 
 	// Start off simple
 	private static DriverFactory<ExampleState> driverFactory() {
@@ -173,25 +175,23 @@ import io.vena.bosk.drivers.mongo.MongoDriver;
 import io.vena.bosk.drivers.mongo.MongoDriverSettings;
 
 ...
+	private static DriverFactory<ExampleState> driverFactory() {
+		MongoClientSettings clientSettings = MongoClientSettings.builder()
+			.build();
 
-private static DriverFactory<ExampleState> driverFactory() {
-	// Bosk requires certain client settings to provide the required consistency guarantees
-	MongoClientSettings clientSettings = MongoClientSettings.builder()
-		.build();
+		MongoDriverSettings driverSettings = MongoDriverSettings.builder()
+			.database("exampleDB")
+			.build();
 
-	MongoDriverSettings driverSettings = MongoDriverSettings.builder()
-		.database("ExampleBoskDB") // Bosks using the same name here will share state
-		.build();
+		// For advanced usage, you'll want to inject this object,
+		// but for getting started, we can just create one here.
+		BsonPlugin bsonPlugin = new BsonPlugin();
 
-	// For advanced usage, you'll want to inject this object,
-	// but for getting started, we can just create one here.
-	BsonPlugin bsonPlugin = new BsonPlugin();
-
-	return MongoDriver.factory(
-		clientSettings,
-		driverSettings,
-		bsonPlugin);
-}
+		return MongoDriver.factory(
+			clientSettings,
+			driverSettings,
+			bsonPlugin);
+	}
 ```
 
 To run this, you'll need a MongoDB replica set.

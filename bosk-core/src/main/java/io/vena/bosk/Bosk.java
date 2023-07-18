@@ -70,11 +70,9 @@ import static lombok.AccessLevel.NONE;
  *
  * @author pdoyle
  *
- * @param <R> The type of the root {@link Entity}. <em>Maintenance note:</em> currently,
- *           there is no need for the root to be an {@link Entity}, because its
- *           {@link Entity#id() id} is unused. We're considering changing this type bound to be {@link StateTreeNode}.
+ * @param <R> The type of the state tree's root node
  */
-public class Bosk<R extends Entity> {
+public class Bosk<R extends StateTreeNode> {
 	@Getter private final String name;
 	@Getter private final Identifier instanceID = Identifier.from(randomUUID().toString());
 	@Getter private final BoskDriver<R> driver;
@@ -125,7 +123,7 @@ public class Bosk<R extends Entity> {
 		rawClass(rootType).cast(this.currentRoot);
 	}
 
-	public interface DefaultRootFunction<RR extends Entity> {
+	public interface DefaultRootFunction<RR extends StateTreeNode> {
 		RR apply(Bosk<RR> bosk) throws InvalidTypeException;
 	}
 
@@ -137,7 +135,7 @@ public class Bosk<R extends Entity> {
 	 * You can use <code>Bosk::simpleDriver</code> as the
 	 * <code>driverFactory</code> if you don't want any additional driver functionality.
 	 */
-	public static <RR extends Entity> BoskDriver<RR> simpleDriver(@SuppressWarnings("unused") Bosk<RR> bosk, BoskDriver<RR> downstream) {
+	public static <RR extends StateTreeNode> BoskDriver<RR> simpleDriver(@SuppressWarnings("unused") Bosk<RR> bosk, BoskDriver<RR> downstream) {
 		return downstream;
 	}
 

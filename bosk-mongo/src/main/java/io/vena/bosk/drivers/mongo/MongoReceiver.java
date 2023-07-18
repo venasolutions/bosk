@@ -1,7 +1,7 @@
 package io.vena.bosk.drivers.mongo;
 
 import io.vena.bosk.BoskDriver;
-import io.vena.bosk.Entity;
+import io.vena.bosk.StateTreeNode;
 import io.vena.bosk.exceptions.InvalidTypeException;
 import java.io.Closeable;
 import java.io.IOException;
@@ -33,7 +33,7 @@ import org.bson.BsonDocument;
  *
  * @author pdoyle
  */
-interface MongoReceiver<R extends Entity> extends Closeable {
+interface MongoReceiver<R extends StateTreeNode> extends Closeable {
 	void close();
 
 	// Proxied methods for downstream driver

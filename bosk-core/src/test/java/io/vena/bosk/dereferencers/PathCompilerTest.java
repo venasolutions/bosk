@@ -11,6 +11,7 @@ import io.vena.bosk.MapValue;
 import io.vena.bosk.Path;
 import io.vena.bosk.Reference;
 import io.vena.bosk.SideTable;
+import io.vena.bosk.StateTreeNode;
 import io.vena.bosk.TestEntityBuilder;
 import io.vena.bosk.exceptions.InvalidTypeException;
 import io.vena.bosk.exceptions.NonexistentReferenceException;
@@ -257,16 +258,16 @@ public class PathCompilerTest extends AbstractBoskTest {
 			}
 		};
 
-		Class<? extends Entity> rootClass = SimpleEntity.class;
+		Class<? extends StateTreeNode> rootClass = SimpleEntity.class;
 		@SuppressWarnings({"unchecked","rawtypes"})
-		Class<? extends Entity> differentRootClass = (Class)classLoader.loadClass(SimpleEntity.class.getName());
+		Class<? extends StateTreeNode> differentRootClass = (Class)classLoader.loadClass(SimpleEntity.class.getName());
 		assertNotSame(rootClass, differentRootClass);
 
 		Identifier rootID = Identifier.from("root");
-		Entity initialRoot = differentRootClass
+		StateTreeNode initialRoot = differentRootClass
 			.getConstructor(Identifier.class)
 			.newInstance(rootID);
-		Bosk<Entity> differentBosk = new Bosk<>(
+		Bosk<StateTreeNode> differentBosk = new Bosk<>(
 			"Different",
 			differentRootClass,
 			initialRoot,
@@ -275,7 +276,7 @@ public class PathCompilerTest extends AbstractBoskTest {
 		Reference<Identifier> idRef = differentBosk.reference(Identifier.class, Path.parse(
 			"/id" ));
 
-		try (Bosk<Entity>.ReadContext context = differentBosk.readContext()) {
+		try (Bosk<?>.ReadContext context = differentBosk.readContext()) {
 			assertSame(rootID, idRef.valueIfExists());
 		}
 	}

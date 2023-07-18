@@ -10,9 +10,9 @@ import com.mongodb.client.result.UpdateResult;
 import com.mongodb.lang.Nullable;
 import io.vena.bosk.Bosk;
 import io.vena.bosk.BoskDriver;
-import io.vena.bosk.Entity;
 import io.vena.bosk.Identifier;
 import io.vena.bosk.Reference;
+import io.vena.bosk.StateTreeNode;
 import io.vena.bosk.drivers.mongo.BsonPlugin;
 import io.vena.bosk.drivers.mongo.MongoDriverSettings;
 import io.vena.bosk.drivers.mongo.v3.Formatter.DocumentFields;
@@ -47,7 +47,7 @@ import static org.bson.BsonBoolean.FALSE;
 /**
  * A {@link io.vena.bosk.drivers.mongo.v3.FormatDriver} that stores the entire bosk state in a single document.
  */
-final class SingleDocFormatDriver<R extends Entity> implements io.vena.bosk.drivers.mongo.v3.FormatDriver<R> {
+final class SingleDocFormatDriver<R extends StateTreeNode> implements io.vena.bosk.drivers.mongo.v3.FormatDriver<R> {
 	private final String description;
 	private final MongoDriverSettings settings;
 	private final Formatter formatter;

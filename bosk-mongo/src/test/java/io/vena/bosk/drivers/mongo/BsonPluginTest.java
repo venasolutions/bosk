@@ -8,6 +8,7 @@ import io.vena.bosk.Entity;
 import io.vena.bosk.Identifier;
 import io.vena.bosk.Path;
 import io.vena.bosk.SideTable;
+import io.vena.bosk.StateTreeNode;
 import io.vena.bosk.exceptions.InvalidTypeException;
 import lombok.EqualsAndHashCode;
 import lombok.Value;
@@ -44,13 +45,12 @@ class BsonPluginTest {
 
 	private Root defaultRoot(Bosk<Root> bosk) throws InvalidTypeException {
 		CatalogReference<Item> catalogRef = bosk.catalogReference(Item.class, Path.just(Root.Fields.items));
-		return new Root(Identifier.from("root"), Catalog.empty(), SideTable.empty(catalogRef));
+		return new Root(Catalog.empty(), SideTable.empty(catalogRef));
 	}
 
 	@Value @FieldNameConstants
 	@EqualsAndHashCode(callSuper = false)
-	public static class Root implements Entity {
-		Identifier id;
+	public static class Root implements StateTreeNode {
 		Catalog<Item> items;
 		SideTable<Item, SideTable<Item, String>> nestedSideTable;
 	}
