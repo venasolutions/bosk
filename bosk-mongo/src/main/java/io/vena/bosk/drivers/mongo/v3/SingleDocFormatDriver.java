@@ -45,9 +45,9 @@ import static java.util.Collections.newSetFromMap;
 import static org.bson.BsonBoolean.FALSE;
 
 /**
- * A {@link io.vena.bosk.drivers.mongo.v3.FormatDriver} that stores the entire bosk state in a single document.
+ * A {@link FormatDriver} that stores the entire bosk state in a single document.
  */
-final class SingleDocFormatDriver<R extends StateTreeNode> implements io.vena.bosk.drivers.mongo.v3.FormatDriver<R> {
+final class SingleDocFormatDriver<R extends StateTreeNode> implements FormatDriver<R> {
 	private final String description;
 	private final MongoDriverSettings settings;
 	private final Formatter formatter;
@@ -55,7 +55,7 @@ final class SingleDocFormatDriver<R extends StateTreeNode> implements io.vena.bo
 	private final Reference<R> rootRef;
 	private final String echoPrefix;
 	private final BoskDriver<R> downstream;
-	private final io.vena.bosk.drivers.mongo.v3.FlushLock flushLock;
+	private final FlushLock flushLock;
 
 	private volatile BsonInt64 revisionToSkip = null;
 
@@ -66,7 +66,7 @@ final class SingleDocFormatDriver<R extends StateTreeNode> implements io.vena.bo
 		MongoCollection<Document> collection,
 		MongoDriverSettings driverSettings,
 		BsonPlugin bsonPlugin,
-		io.vena.bosk.drivers.mongo.v3.FlushLock flushLock,
+		FlushLock flushLock,
 		BoskDriver<R> downstream
 	) {
 		this.description = SingleDocFormatDriver.class.getSimpleName() + ": " + driverSettings;
