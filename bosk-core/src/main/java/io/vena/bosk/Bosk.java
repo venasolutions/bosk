@@ -1028,9 +1028,6 @@ try (ReadContext originalThReadContext = bosk.readContext()) {
 		return rootReference().then(requestedClass, path);
 	}
 
-	/**
-	 * @deprecated Please inline this method. It will be removed in a future release.
-	 */
 	public final <T> T buildReferences(Class<T> refsClass) throws InvalidTypeException {
 		return rootReference().buildReferences(refsClass);
 	}
