@@ -344,7 +344,7 @@ public abstract class DriverConformanceTest extends AbstractDriverTest {
 	private CatalogReference<TestEntity> initializeBoskWithCatalog(Path enclosingCatalogPath) {
 		setupBosksAndReferences(driverFactory);
 		try {
-			CatalogReference<TestEntity> ref = bosk.catalogReference(TestEntity.class, enclosingCatalogPath);
+			CatalogReference<TestEntity> ref = bosk.rootReference().thenCatalog(TestEntity.class, enclosingCatalogPath);
 
 			TestEntity child1 = autoInitialize(ref.then(child1ID));
 			TestEntity child2 = autoInitialize(ref.then(child2ID));

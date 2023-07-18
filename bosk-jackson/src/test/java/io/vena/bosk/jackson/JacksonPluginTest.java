@@ -82,7 +82,7 @@ class JacksonPluginTest extends AbstractBoskTest {
 	void setUpJackson() throws Exception {
 		bosk = setUpBosk(Bosk::simpleDriver);
 		teb = new TestEntityBuilder(bosk);
-		entitiesRef = bosk.catalogReference(TestEntity.class, Path.just(TestRoot.Fields.entities));
+		entitiesRef = bosk.rootReference().thenCatalog(TestEntity.class, Path.just(TestRoot.Fields.entities));
 		parentRef = entitiesRef.then(Identifier.from("parent"));
 
 		plainMapper = new ObjectMapper()
@@ -428,7 +428,7 @@ class JacksonPluginTest extends AbstractBoskTest {
 
 	@Test
 	void deserializationPath_works() throws InvalidTypeException {
-		Reference<ImplicitRefs> anyImplicitRefs = bosk.reference(ImplicitRefs.class, Path.of(TestRoot.Fields.entities, "-entity-", TestEntity.Fields.implicitRefs));
+		Reference<ImplicitRefs> anyImplicitRefs = bosk.rootReference().then(ImplicitRefs.class, Path.of(TestRoot.Fields.entities, "-entity-", TestEntity.Fields.implicitRefs));
 		Reference<ImplicitRefs> ref1 = anyImplicitRefs.boundTo(Identifier.from("123"));
 		ImplicitRefs firstObject = new ImplicitRefs(
 			Identifier.from("firstObject"),

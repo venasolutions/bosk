@@ -223,7 +223,7 @@ public abstract class SerializationPlugin {
 	private <T> Reference<T> selfReference(Class<T> targetClass, Bosk<?> bosk) throws AssertionError {
 		Path currentPath = currentScope.get().path();
 		try {
-			return bosk.reference(targetClass, currentPath);
+			return bosk.rootReference().then(targetClass, currentPath);
 		} catch (InvalidTypeException e) {
 			throw new UnexpectedPathException("currentDeserializationPath should be valid: \"" + currentPath + "\"", e);
 		}

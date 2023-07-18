@@ -548,7 +548,7 @@ public class Bosk<R extends StateTreeNode> {
 				// could correspond to changed objects and then recursing.
 				//
 				Path containerPath = effectiveScope.path().truncatedTo(effectiveScope.path().firstParameterIndex());
-				Reference<EnumerableByIdentifier<?>> containerRef = reference(enumerableByIdentifierClass(), containerPath);
+				Reference<EnumerableByIdentifier<?>> containerRef = rootReference().then(enumerableByIdentifierClass(), containerPath);
 				EnumerableByIdentifier<?> priorContainer = refValueIfExists(containerRef, priorRoot);
 				EnumerableByIdentifier<?> newContainer = refValueIfExists(containerRef, newRoot);
 
@@ -777,25 +777,25 @@ try (ReadContext originalThReadContext = bosk.readContext()) {
 
 		@Override
 		public <E extends Entity> CatalogReference<E> thenCatalog(Class<E> entryClass, Path path) throws InvalidTypeException {
-			Reference<Catalog<E>> ref = reference(Classes.catalog(entryClass), path);
+			Reference<Catalog<E>> ref = this.then(Classes.catalog(entryClass), path);
 			return new CatalogRef<>(ref, entryClass);
 		}
 
 		@Override
 		public <E extends Entity> ListingReference<E> thenListing(Class<E> entryClass, Path path) throws InvalidTypeException {
-			Reference<Listing<E>> ref = reference(Classes.listing(entryClass), path);
+			Reference<Listing<E>> ref = this.then(Classes.listing(entryClass), path);
 			return new ListingRef<>(ref);
 		}
 
 		@Override
 		public <K extends Entity, V> SideTableReference<K, V> thenSideTable(Class<K> keyClass, Class<V> valueClass, Path path) throws InvalidTypeException {
-			Reference<SideTable<K,V>> ref = reference(Classes.sideTable(keyClass, valueClass), path);
+			Reference<SideTable<K,V>> ref = this.then(Classes.sideTable(keyClass, valueClass), path);
 			return new SideTableRef<>(ref, keyClass, valueClass);
 		}
 
 		@Override
 		public <TT> Reference<Reference<TT>> thenReference(Class<TT> targetClass, Path path) throws InvalidTypeException {
-			return reference(Classes.reference(targetClass), path);
+			return this.then(Classes.reference(targetClass), path);
 		}
 
 		@Override
@@ -827,27 +827,27 @@ try (ReadContext originalThReadContext = bosk.readContext()) {
 
 		@Override
 		public final <U> Reference<U> then(Class<U> targetClass, String... segments) throws InvalidTypeException {
-			return reference(targetClass, path.then(segments));
+			return rootReference().then(targetClass, path.then(segments));
 		}
 
 		@Override
 		public final <U extends Entity> CatalogReference<U> thenCatalog(Class<U> entryClass, String... segments) throws InvalidTypeException {
-			return catalogReference(entryClass, path.then(segments));
+			return rootReference().thenCatalog(entryClass, path.then(segments));
 		}
 
 		@Override
 		public final <U extends Entity> ListingReference<U> thenListing(Class<U> entryClass, String... segments) throws InvalidTypeException {
-			return listingReference(entryClass, path.then(segments));
+			return rootReference().thenListing(entryClass, path.then(segments));
 		}
 
 		@Override
 		public final <K extends Entity, V> SideTableReference<K, V> thenSideTable(Class<K> keyClass, Class<V> valueClass, String... segments) throws InvalidTypeException {
-			return sideTableReference(keyClass, valueClass, path.then(segments));
+			return rootReference().thenSideTable(keyClass, valueClass, path.then(segments));
 		}
 
 		@Override
 		public final <TT> Reference<Reference<TT>> thenReference(Class<TT> targetClass, String... segments) throws InvalidTypeException {
-			return referenceReference(targetClass, path.then(segments));
+			return rootReference().thenReference(targetClass, path.then(segments));
 		}
 
 		@SuppressWarnings("unchecked")
@@ -859,13 +859,13 @@ try (ReadContext originalThReadContext = bosk.readContext()) {
 			for (Path p = this.path.truncatedBy(1); !p.isEmpty(); p = p.truncatedBy(1)) try {
 				Type targetType = pathCompiler.targetTypeOf(p);
 				if (targetClass.isAssignableFrom(rawClass(targetType))) {
-					return reference(targetClass, p);
+					return rootReference().then(targetClass, p);
 				}
 			} catch (InvalidTypeException e) {
 				throw new InvalidTypeException("Error looking up enclosing " + targetClass.getSimpleName() + " from " + path);
 			}
 			// Might be the root
-			if (targetClass.isAssignableFrom(rawClass(rootRef.targetType()))) {
+			if (targetClass.isAssignableFrom(rootRef.targetClass())) {
 				return (Reference<TT>) rootReference();
 			} else {
 				throw new InvalidTypeException("No enclosing " + targetClass.getSimpleName() + " from " + path);
@@ -901,7 +901,7 @@ try (ReadContext originalThReadContext = bosk.readContext()) {
 		}
 
 		private Type rootType() {
-			return Bosk.this.rootRef.targetType();
+			return Bosk.this.rootRef.targetType;
 		}
 
 		@Override
@@ -976,7 +976,7 @@ try (ReadContext originalThReadContext = bosk.readContext()) {
 			Path containerPath = path.truncatedTo(firstParameterIndex);
 			Reference<EnumerableByIdentifier<?>> containerRef;
 			try {
-				containerRef = reference(enumerableByIdentifierClass(), containerPath);
+				containerRef = rootReference().then(enumerableByIdentifierClass(), containerPath);
 			} catch (InvalidTypeException e) {
 				throw new AssertionError("Parameter reference must come after a " + EnumerableByIdentifier.class, e);
 			}

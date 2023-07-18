@@ -171,7 +171,7 @@ public final class GsonPlugin extends SerializationPlugin {
 			@Override
 			public Reference<?> read(JsonReader in) throws IOException {
 				try {
-					return bosk.reference(Object.class, Path.parse(in.nextString()));
+					return bosk.rootReference().then(Object.class, Path.parse(in.nextString()));
 				} catch (InvalidTypeException e) {
 					throw new UnexpectedPathException(e);
 				}

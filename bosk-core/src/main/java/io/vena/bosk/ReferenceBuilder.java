@@ -41,16 +41,16 @@ class ReferenceBuilder {
 				Path path = Path.parseParameterized(referencePath.value());
 				if (returnClass.equals(CatalogReference.class)) {
 					Type entryType = parameterType(returnType, CatalogReference.class, 0);
-					result = bosk.catalogReference((Class) rawClass(entryType), path);
+					result = bosk.rootReference().thenCatalog((Class) rawClass(entryType), path);
 				} else if (returnClass.equals(ListingReference.class)) {
 					Type entryType = parameterType(returnType, ListingReference.class, 0);
-					result = bosk.listingReference((Class) rawClass(entryType), path);
+					result = bosk.rootReference().thenListing((Class) rawClass(entryType), path);
 				} else if (returnClass.equals(SideTableReference.class)) {
 					Type keyType = parameterType(returnType, SideTableReference.class, 0);
 					Type valueType = parameterType(returnType, SideTableReference.class, 1);
-					result = bosk.sideTableReference((Class) rawClass(keyType), (Class) rawClass(valueType), path);
+					result = bosk.rootReference().thenSideTable((Class) rawClass(keyType), (Class) rawClass(valueType), path);
 				} else {
-					result = bosk.reference(rawClass(targetType), path);
+					result = bosk.rootReference().then(rawClass(targetType), path);
 				}
 			} catch (InvalidTypeException e) {
 				// Add some troubleshooting info for the user
