@@ -247,7 +247,7 @@ public abstract class AbstractRoundTripTest extends AbstractBoskTest {
 		}
 	}
 
-	private static abstract class PreprocessingDriver<R extends Entity> implements BoskDriver<R> {
+	private static abstract class PreprocessingDriver<R extends StateTreeNode> implements BoskDriver<R> {
 		private final BoskDriver<R> downstream;
 
 		private PreprocessingDriver(BoskDriver<R> downstream) {
