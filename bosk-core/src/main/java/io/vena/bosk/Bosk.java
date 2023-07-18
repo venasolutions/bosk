@@ -1021,47 +1021,12 @@ try (ReadContext originalThReadContext = bosk.readContext()) {
 		}
 	}
 
-	/**
-	 * @deprecated Please inline this method. It will be removed in a future release.
-	 */
-	public final <T> Reference<T> reference(Class<T> requestedClass, Path path) throws InvalidTypeException {
-		return rootReference().then(requestedClass, path);
-	}
-
 	public final <T> T buildReferences(Class<T> refsClass) throws InvalidTypeException {
 		return rootReference().buildReferences(refsClass);
 	}
 
 	public final RootReference<R> rootReference() {
 		return rootRef;
-	}
-
-	/**
-	 * @deprecated Please inline this method. It will be removed in a future release.
-	 */
-	public final <T extends Entity> CatalogReference<T> catalogReference(Class<T> entryClass, Path path) throws InvalidTypeException {
-		return rootReference().thenCatalog(entryClass, path);
-	}
-
-	/**
-	 * @deprecated Please inline this method. It will be removed in a future release.
-	 */
-	public final <T extends Entity> ListingReference<T> listingReference(Class<T> entryClass, Path path) throws InvalidTypeException {
-		return rootReference().thenListing(entryClass, path);
-	}
-
-	/**
-	 * @deprecated Please inline this method. It will be removed in a future release.
-	 */
-	public final <K extends Entity,V> SideTableReference<K,V> sideTableReference(Class<K> keyClass, Class<V> valueClass, Path path) throws InvalidTypeException {
-		return rootReference().thenSideTable(keyClass, valueClass, path);
-	}
-
-	/**
-	 * @deprecated Please inline this method. It will be removed in a future release.
-	 */
-	public final <TT> Reference<Reference<TT>> referenceReference(Class<TT> targetClass, Path path) throws InvalidTypeException {
-		return rootReference().thenReference(targetClass, path);
 	}
 
 	@Override
