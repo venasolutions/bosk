@@ -26,7 +26,6 @@ public class HelloBosk extends Bosk<BoskState> {
 
 	private static BoskState defaultRoot(Bosk<BoskState> bosk) {
 		return new BoskState(
-			Identifier.from("root"),
 			Catalog.of(new Target(Identifier.from("world")))
 		);
 	}

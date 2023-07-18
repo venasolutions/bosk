@@ -2,13 +2,11 @@ package io.vena.hello.state;
 
 import io.vena.bosk.Bosk;
 import io.vena.bosk.Catalog;
-import io.vena.bosk.Entity;
-import io.vena.bosk.Identifier;
+import io.vena.bosk.StateTreeNode;
 
 /**
  * The root of the {@link Bosk} state tree.
  */
 public record BoskState(
-	Identifier id,
 	Catalog<Target> targets
-) implements Entity { }
+) implements StateTreeNode { }
