@@ -258,7 +258,7 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 	public <T> void submitConditionalReplacement(Reference<T> target, T newValue, Reference<Identifier> precondition, Identifier requiredValue) {
 		doRetryableDriverOperation(()->{
 			formatDriver.submitConditionalReplacement(target, newValue, precondition, requiredValue);
-		}, "submitConditionalReplcament({}, {}={})", target, precondition, requiredValue);
+		}, "submitConditionalReplacement({}, {}={})", target, precondition, requiredValue);
 	}
 
 	@Override
