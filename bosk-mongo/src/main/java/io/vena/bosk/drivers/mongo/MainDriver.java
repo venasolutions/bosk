@@ -403,6 +403,8 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 	}
 
 	private FormatDriver<R> detectFormat() throws UninitializedCollectionException, UnrecognizedFormatException {
+		// We don't yet currently throw UnrecognizedFormatException because
+		// there's only one format, and we don't currently have a way to verify it
 		FindIterable<Document> result = collection.find(new BsonDocument("_id", SequoiaFormatDriver.DOCUMENT_ID));
 		try (MongoCursor<Document> cursor = result.cursor()) {
 			if (cursor.hasNext()) {
