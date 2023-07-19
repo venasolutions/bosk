@@ -25,7 +25,6 @@ public class MongoDriverSettings {
 	@Value
 	@Builder
 	public static class Experimental {
-		@Default ImplementationKind implementationKind = ImplementationKind.RESILIENT;
 		@Default FlushMode flushMode = FlushMode.ECHO;
 		@Default long changeStreamInitialWaitMS = 20;
 	}
@@ -70,22 +69,6 @@ public class MongoDriverSettings {
 		 * and runs as quickly as a single database read.
 		 */
 		REVISION_FIELD_ONLY,
-	}
-
-	public enum ImplementationKind {
-		/**
-		 * The more mature, well-tested implementation.
-		 */
-		STABLE,
-
-		/**
-		 * <strong>Experimental</strong>
-		 *
-		 * <p>
-		 * A newer implementation with better resiliency features.
-		 * Ignores {@link FlushMode FlushMode}; only supports the equivalent of {@link FlushMode#REVISION_FIELD_ONLY REVISION_FIELD_ONLY}.
-		 */
-		RESILIENT,
 	}
 
 	public enum DatabaseFormat {

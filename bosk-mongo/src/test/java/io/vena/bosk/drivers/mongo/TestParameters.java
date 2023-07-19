@@ -5,9 +5,6 @@ import io.vena.bosk.drivers.mongo.MongoDriverSettings.MongoDriverSettingsBuilder
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
 
-import static io.vena.bosk.drivers.mongo.MongoDriverSettings.ImplementationKind.RESILIENT;
-import static io.vena.bosk.drivers.mongo.MongoDriverSettings.ImplementationKind.STABLE;
-
 public interface TestParameters {
 	AtomicInteger dbCounter = new AtomicInteger(0);
 
@@ -15,14 +12,10 @@ public interface TestParameters {
 	static Stream<MongoDriverSettingsBuilder> driverSettings() {
 		String prefix = "boskTestDB_" + dbCounter.incrementAndGet();
 		Experimental resilient = Experimental.builder()
-			.implementationKind(RESILIENT)
 			.build();
 		return Stream.of(
 			MongoDriverSettings.builder()
-				.database(prefix + "_stable")
-				.experimental(Experimental.builder().implementationKind(STABLE).build()),
-			MongoDriverSettings.builder()
-				.database(prefix + "_resilient")
+				.database(prefix)
 				.experimental(resilient)
 //			MongoDriverSettings.builder()
 //				.database(prefix + "_slow")

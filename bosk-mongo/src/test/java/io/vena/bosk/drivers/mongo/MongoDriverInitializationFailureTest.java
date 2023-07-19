@@ -6,7 +6,6 @@ import io.vena.bosk.drivers.mongo.v3.InitialRootFailureException;
 import io.vena.bosk.drivers.state.TestEntity;
 import org.junit.jupiter.api.Test;
 
-import static io.vena.bosk.drivers.mongo.MongoDriverSettings.ImplementationKind.RESILIENT;
 import static io.vena.bosk.drivers.mongo.MongoDriverSettings.InitialDatabaseUnavailableMode.FAIL;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -15,7 +14,6 @@ public class MongoDriverInitializationFailureTest extends AbstractMongoDriverTes
 		super(MongoDriverSettings.builder()
 			.database(MongoDriverInitializationFailureTest.class.getSimpleName())
 			.experimental(Experimental.builder()
-				.implementationKind(RESILIENT)
 				.build())
 			.initialDatabaseUnavailableMode(FAIL));
 	}

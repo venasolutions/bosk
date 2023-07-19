@@ -49,12 +49,7 @@ public interface MongoDriver<R extends StateTreeNode> extends BoskDriver<R> {
 		MongoDriverSettings driverSettings,
 		BsonPlugin bsonPlugin
 	) {
-		switch (driverSettings.experimental().implementationKind()) {
-			case RESILIENT:
-				return (b, d) -> new MainDriver<>(b, clientSettings, driverSettings, bsonPlugin, d);
-			default:
-				return (b, d) -> new SingleDocumentMongoDriver<>(b, clientSettings, driverSettings, bsonPlugin, d);
-		}
+		return (b, d) -> new MainDriver<>(b, clientSettings, driverSettings, bsonPlugin, d);
 	}
 
 	interface MongoDriverFactory<RR extends StateTreeNode> extends DriverFactory<RR> {
