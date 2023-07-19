@@ -45,7 +45,10 @@ final class Formatter {
 	private final Function<Reference<?>, SerializationPlugin.DeserializationScope> deserializationScopeFunction;
 
 	Formatter(Bosk<?> bosk, BsonPlugin bsonPlugin) {
-		this.simpleCodecs = CodecRegistries.fromProviders(bsonPlugin.codecProviderFor(bosk), new ValueCodecProvider(), new DocumentCodecProvider());
+		this.simpleCodecs = CodecRegistries.fromProviders(
+			bsonPlugin.codecProviderFor(bosk),
+			new ValueCodecProvider(),
+			new DocumentCodecProvider());
 		this.preferredBoskCodecs = type -> bsonPlugin.getCodec(type, rawClass(type), simpleCodecs, bosk);
 		this.deserializationScopeFunction = bsonPlugin::newDeserializationScope;
 	}
