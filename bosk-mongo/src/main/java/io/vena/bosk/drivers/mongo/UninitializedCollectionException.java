@@ -1,4 +1,4 @@
-package io.vena.bosk.drivers.mongo.v3;
+package io.vena.bosk.drivers.mongo;
 
 class UninitializedCollectionException extends Exception {
 	public UninitializedCollectionException() {

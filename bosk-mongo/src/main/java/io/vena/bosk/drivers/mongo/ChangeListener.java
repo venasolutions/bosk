@@ -1,4 +1,4 @@
-package io.vena.bosk.drivers.mongo.v3;
+package io.vena.bosk.drivers.mongo;
 
 import com.mongodb.client.model.changestream.ChangeStreamDocument;
 import java.io.IOException;

@@ -1,6 +1,5 @@
-package io.vena.bosk.drivers.mongo.v3;
+package io.vena.bosk.drivers.mongo;
 
-import io.vena.bosk.drivers.mongo.MongoDriverSettings;
 import io.vena.bosk.exceptions.FlushFailureException;
 import java.io.Closeable;
 import java.util.concurrent.PriorityBlockingQueue;

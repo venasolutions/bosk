@@ -14,7 +14,6 @@ import io.vena.bosk.Reference;
 import io.vena.bosk.SideTable;
 import io.vena.bosk.annotations.ReferencePath;
 import io.vena.bosk.drivers.mongo.MongoDriverSettings.MongoDriverSettingsBuilder;
-import io.vena.bosk.drivers.mongo.v3.MainDriver;
 import io.vena.bosk.drivers.state.TestEntity;
 import io.vena.bosk.exceptions.InvalidTypeException;
 import java.lang.reflect.Method;

@@ -25,7 +25,7 @@ import org.slf4j.LoggerFactory;
 
 import static ch.qos.logback.classic.Level.ERROR;
 import static io.vena.bosk.ListingEntry.LISTING_ENTRY;
-import static io.vena.bosk.drivers.mongo.v3.MainDriver.COLLECTION_NAME;
+import static io.vena.bosk.drivers.mongo.MainDriver.COLLECTION_NAME;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 

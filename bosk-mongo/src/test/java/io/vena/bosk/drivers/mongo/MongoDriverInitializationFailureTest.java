@@ -2,7 +2,6 @@ package io.vena.bosk.drivers.mongo;
 
 import io.vena.bosk.Bosk;
 import io.vena.bosk.drivers.mongo.MongoDriverSettings.Experimental;
-import io.vena.bosk.drivers.mongo.v3.InitialRootFailureException;
 import io.vena.bosk.drivers.state.TestEntity;
 import org.junit.jupiter.api.Test;
 

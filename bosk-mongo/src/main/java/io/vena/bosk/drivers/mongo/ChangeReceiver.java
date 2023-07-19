@@ -1,11 +1,10 @@
-package io.vena.bosk.drivers.mongo.v3;
+package io.vena.bosk.drivers.mongo;
 
 import com.mongodb.MongoInterruptedException;
 import com.mongodb.client.MongoChangeStreamCursor;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.changestream.ChangeStreamDocument;
-import io.vena.bosk.drivers.mongo.MongoDriverSettings;
-import io.vena.bosk.drivers.mongo.v3.MappedDiagnosticContext.MDCScope;
+import io.vena.bosk.drivers.mongo.MappedDiagnosticContext.MDCScope;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.NoSuchElementException;
@@ -16,7 +15,7 @@ import org.bson.Document;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static io.vena.bosk.drivers.mongo.v3.MappedDiagnosticContext.setupMDC;
+import static io.vena.bosk.drivers.mongo.MappedDiagnosticContext.setupMDC;
 import static java.lang.Thread.currentThread;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
