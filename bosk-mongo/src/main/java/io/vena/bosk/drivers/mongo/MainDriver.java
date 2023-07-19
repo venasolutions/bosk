@@ -25,6 +25,8 @@ import io.vena.bosk.exceptions.InitializationFailureException;
 import io.vena.bosk.exceptions.InvalidTypeException;
 import java.io.IOException;
 import java.lang.reflect.Type;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeoutException;
@@ -32,6 +34,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 import org.bson.BsonDocument;
+import org.bson.BsonString;
 import org.bson.Document;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,6 +43,7 @@ import static io.vena.bosk.drivers.mongo.Formatter.REVISION_ONE;
 import static io.vena.bosk.drivers.mongo.Formatter.REVISION_ZERO;
 import static io.vena.bosk.drivers.mongo.MappedDiagnosticContext.setupMDC;
 import static io.vena.bosk.drivers.mongo.MongoDriverSettings.DatabaseFormat.SEQUOIA;
+import static java.util.Arrays.asList;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 /**
@@ -403,8 +407,15 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 	}
 
 	private FormatDriver<R> detectFormat() throws UninitializedCollectionException, UnrecognizedFormatException {
-		// We don't yet currently throw UnrecognizedFormatException because
-		// there's only one format, and we don't currently have a way to verify it
+		try (MongoCursor<Document> cursor = collection.find(new BsonDocument("_id", MANIFEST_ID)).cursor()) {
+			if (cursor.hasNext()) {
+				LOGGER.debug("Found manifest");
+				validateManifest(cursor.next());
+			} else {
+				LOGGER.debug("Manifest is missing; assuming Sequoia format");
+			}
+		}
+
 		FindIterable<Document> result = collection.find(new BsonDocument("_id", SequoiaFormatDriver.DOCUMENT_ID));
 		try (MongoCursor<Document> cursor = result.cursor()) {
 			if (cursor.hasNext()) {
@@ -415,6 +426,27 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 			} else {
 				throw new UninitializedCollectionException("Document doesn't exist");
 			}
+		}
+	}
+
+	static void validateManifest(Document manifest) throws UnrecognizedFormatException {
+		try {
+			Set<String> keys = manifest.keySet();
+			HashSet<String> expectedKeys = new HashSet<>(asList("_id", "version", "sequoia"));
+			if (!keys.equals(expectedKeys)) {
+				keys.removeAll(expectedKeys);
+				if (keys.isEmpty()) {
+					expectedKeys.removeAll(manifest.keySet());
+					throw new UnrecognizedFormatException("Missing keys in manifest: " + expectedKeys);
+				} else {
+					throw new UnrecognizedFormatException("Unrecognized keys in manifest: " + keys);
+				}
+			}
+			if (manifest.getInteger("version") != 1) {
+				throw new UnrecognizedFormatException("Manifest version " + manifest.getInteger("version") + " not suppoted");
+			}
+		} catch (ClassCastException e) {
+			throw new UnrecognizedFormatException("Manifest field has unexpected type", e);
 		}
 	}
 
@@ -525,5 +557,6 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 	}
 
 	public static final String COLLECTION_NAME = "boskCollection";
+	public static final BsonString MANIFEST_ID = new BsonString("manifest");
 	private static final Logger LOGGER = LoggerFactory.getLogger(MainDriver.class);
 }

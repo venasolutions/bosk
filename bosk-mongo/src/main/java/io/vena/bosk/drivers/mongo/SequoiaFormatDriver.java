@@ -34,11 +34,14 @@ import org.slf4j.LoggerFactory;
 import static com.mongodb.ReadConcern.LOCAL;
 import static com.mongodb.client.model.Projections.fields;
 import static com.mongodb.client.model.Projections.include;
+import static com.mongodb.client.model.changestream.OperationType.INSERT;
 import static io.vena.bosk.drivers.mongo.Formatter.REVISION_ZERO;
 import static io.vena.bosk.drivers.mongo.Formatter.dottedFieldNameOf;
 import static io.vena.bosk.drivers.mongo.Formatter.enclosingReference;
 import static io.vena.bosk.drivers.mongo.Formatter.referenceTo;
+import static io.vena.bosk.drivers.mongo.MainDriver.MANIFEST_ID;
 import static java.util.Collections.newSetFromMap;
+import static java.util.Objects.requireNonNull;
 import static org.bson.BsonBoolean.FALSE;
 
 /**
@@ -158,10 +161,32 @@ final class SequoiaFormatDriver<R extends StateTreeNode> implements FormatDriver
 		LOGGER.trace("| Options: {}", options);
 		UpdateResult result = collection.updateOne(filter, update, options);
 		LOGGER.debug("| Result: {}", result);
+		writeManifest();
 	}
 
+	private void writeManifest() {
+		BsonDocument doc = new BsonDocument("_id", MANIFEST_ID);
+		doc.putAll((BsonDocument) formatter.object2bsonValue(Manifest.forSequoia(), Manifest.class));
+		BsonDocument update = new BsonDocument("$set", doc);
+		BsonDocument filter = new BsonDocument("_id", MANIFEST_ID);
+		UpdateOptions options = new UpdateOptions().upsert(true);
+		LOGGER.debug("| Initial manifest: {}", doc);
+		UpdateResult result = collection.updateOne(filter, update, options);
+		LOGGER.debug("| Manifest result: {}", result);
+	}
+
+	/**
+	 * We're required to cope with anything we might ourselves do in {@link #initializeCollection}.
+	 */
 	@Override
 	public void onEvent(ChangeStreamDocument<Document> event) throws UnprocessableEventException {
+		if (event.getDocumentKey() == null) {
+			throw new UnprocessableEventException("Null document key", event.getOperationType());
+		}
+		if (MANIFEST_ID.equals(event.getDocumentKey().get("_id"))) {
+			onManifestEvent(event);
+			return;
+		}
 		if (!DOCUMENT_FILTER.equals(event.getDocumentKey())) {
 			LOGGER.debug("Ignoring event for unrecognized document key: {}", event.getDocumentKey());
 			return;
@@ -201,6 +226,28 @@ final class SequoiaFormatDriver<R extends StateTreeNode> implements FormatDriver
 				throw new UnprocessableEventException("Cannot process event", event.getOperationType());
 			}
 		}
+	}
+
+	/**
+	 * We're required to cope with anything we might ourselves do in {@link #initializeCollection},
+	 * but outside that, we want to be as strict as we can
+	 * so incompatible database changes don't go unnoticed.
+	 */
+	private static void onManifestEvent(ChangeStreamDocument<Document> event) throws UnprocessableEventException {
+		if (event.getOperationType() == INSERT) {
+			Document manifest = requireNonNull(event.getFullDocument());
+			try {
+				MainDriver.validateManifest(manifest);
+			} catch (UnrecognizedFormatException e) {
+				throw new UnprocessableEventException("Invalid manifest", e, event.getOperationType());
+			}
+			if (!new Document().equals(manifest.get("sequoia"))) {
+				throw new UnprocessableEventException("Unexpected value in manifest \"sequoia\" field: " + manifest.get("sequoia"), event.getOperationType());
+			}
+		} else {
+			throw new UnprocessableEventException("Unexpected change to manifest document", event.getOperationType());
+		}
+		LOGGER.debug("Ignoring benign manifest change event");
 	}
 
 	@Override
