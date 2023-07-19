@@ -82,7 +82,6 @@ final class Formatter {
 	enum DocumentFields {
 		path,
 		state,
-		echo,
 		revision,
 	}
 

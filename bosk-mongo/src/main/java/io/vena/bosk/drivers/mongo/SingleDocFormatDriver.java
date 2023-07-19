@@ -38,7 +38,6 @@ import static io.vena.bosk.drivers.mongo.Formatter.REVISION_ZERO;
 import static io.vena.bosk.drivers.mongo.Formatter.dottedFieldNameOf;
 import static io.vena.bosk.drivers.mongo.Formatter.enclosingReference;
 import static io.vena.bosk.drivers.mongo.Formatter.referenceTo;
-import static java.lang.String.format;
 import static java.util.Collections.newSetFromMap;
 import static org.bson.BsonBoolean.FALSE;
 
@@ -51,7 +50,6 @@ final class SingleDocFormatDriver<R extends StateTreeNode> implements FormatDriv
 	private final Formatter formatter;
 	private final MongoCollection<Document> collection;
 	private final Reference<R> rootRef;
-	private final String echoPrefix;
 	private final BoskDriver<R> downstream;
 	private final FlushLock flushLock;
 
@@ -71,7 +69,6 @@ final class SingleDocFormatDriver<R extends StateTreeNode> implements FormatDriv
 		this.settings = driverSettings;
 		this.formatter = new Formatter(bosk, bsonPlugin);
 		this.collection = collection;
-		this.echoPrefix = bosk.instanceID().toString();
 		this.rootRef = bosk.rootReference();
 		this.downstream = downstream;
 		this.flushLock = flushLock;
@@ -325,7 +322,6 @@ final class SingleDocFormatDriver<R extends StateTreeNode> implements FormatDriv
 
 		fieldValues.put(DocumentFields.path.name(), new BsonString("/"));
 		fieldValues.put(DocumentFields.state.name(), initialState);
-		fieldValues.put(DocumentFields.echo.name(), new BsonString(format("%s_9999", echoPrefix)));
 		fieldValues.put(DocumentFields.revision.name(), revision);
 
 		return fieldValues;
