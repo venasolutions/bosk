@@ -3,7 +3,7 @@
 This guide is intended for those interested in contributing to the development of the `bosk-mongo` module.
 (The guide for developers _using_ the the module is [USERS.md](../docs/USERS.md).)
 
-### Introduction
+### Introduction and Overview
 
 `MongoDriver` is an implementation of the `BoskDriver` interface,
 which permits users to submit updates to the bosk state.
@@ -31,18 +31,20 @@ In the case of `MongoDriver`, these additional attributes are:
 
 Replication is achieved naturally by MongoDB when two or more `MongoDriver`s connect to the same database,
 since the change stream will include all updates from all drivers; and
-to implement persistence,
-`MongoDriver` reads the initial bosk state from the database during `Bosk` initialization (in the `initialRoot` method).
+persistence is achieved by having
+`MongoDriver` read the initial bosk state from the database during `Bosk` initialization (in the `initialRoot` method).
 
 While conceptually simple, the real complexity lies in fault tolerance.
 An important goal of `MongoDriver` is that if the database is somehow damaged and then repaired,
 `MongoDriver` should recover and resume normal operation without any intervention.
 This means `MongoDriver` must deal with a multitude of error cases and race conditions,
 which add complexity to what would otherwise be a relatively straightforward interaction with MongoDB.
-The MongoDB client library itself does an admirable job of fault tolerance on its own for database reads, writes, and DDL operations;
+The MongoDB client library itself does an admirable job of fault tolerance
+on its own for database reads, writes, and DDL operations;
 but once the change stream is added to the mix, things get complicated,
 because the change stream cannot operate in isolation:
-change stream initialization and error handling must be coordinated with database reads in order to make sure no change events are missed.
+change stream initialization and error handling must be coordinated with database reads
+so that no change events are missed.
 
 To manage this complexity,
 a `MongoDriver` is actually composed of several objects with different responsibilities.
@@ -75,9 +77,9 @@ such as `@ParametersByName` and `@DisruptsMongoService`.
 ### TODO: Points to cover
 (This document is a work in progress.)
 
-- Basic operation
-- Reads always come from memory. That's always true in Bosk, and a driver can't change that even if it wanted to.
-- Driver operations lead to database operations; they are not forwarded downstream
+/ Basic operation
+/ Reads always come from memory. That's always true in Bosk, and a driver can't change that even if it wanted to.
+/ Driver operations lead to database operations; they are not forwarded downstream
 	- Translated from bosk to MongoDB by a `FormatDriver`
 	- `initialRoot` is a special case that will need to be documented separately
 - Change events bring the database operations back to `MongoDriver` via `ChangeReceiver`, which forwards them to `FormatDriver`
@@ -86,12 +88,12 @@ such as `@ParametersByName` and `@DisruptsMongoService`.
 	- You get persistence/durability
 	- You get replication for free!
 - The cursor lifecycle
-- Two different lifetimes: permanent and cursor
 - Responsibilities of the background thread
-- `FormatDriver`
+- Two different lifetimes: permanent and cursor
+/ `FormatDriver`
 - Division of responsibilities from the draft Principles of Operation doc
 - Emphasis on error handling
-- General orientation toward checked exceptions for exceptions that are not visible to the user
+/ General orientation toward checked exceptions for exceptions that are not visible to the user
 - `initialRoot` is complicated; explain why from the block comment
 - Logging philosophy from block comment
 - MongoDB semantics
