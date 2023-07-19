@@ -460,6 +460,7 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 	private <X extends Exception, Y extends Exception> void waitAndRetry(RetryableOperation<X, Y> operation, String description, Object... args) throws X, Y {
 		try {
 			formatDriverLock.lock();
+			LOGGER.debug("Waiting for new FormatDriver for {} ms", 5 * driverSettings.recoveryPollingMS());
 			boolean success = formatDriverChanged.await(5*driverSettings.recoveryPollingMS(), MILLISECONDS);
 			if (!success) {
 				LOGGER.debug("Timed out waiting for new FormatDriver; will retry anyway");
