@@ -44,7 +44,7 @@ import static org.bson.BsonBoolean.FALSE;
 /**
  * A {@link FormatDriver} that stores the entire bosk state in a single document.
  */
-final class SingleDocFormatDriver<R extends StateTreeNode> implements FormatDriver<R> {
+final class SequoiaFormatDriver<R extends StateTreeNode> implements FormatDriver<R> {
 	private final String description;
 	private final MongoDriverSettings settings;
 	private final Formatter formatter;
@@ -57,7 +57,7 @@ final class SingleDocFormatDriver<R extends StateTreeNode> implements FormatDriv
 
 	static final BsonString DOCUMENT_ID = new BsonString("boskDocument");
 
-	SingleDocFormatDriver(
+	SequoiaFormatDriver(
 		Bosk<R> bosk,
 		MongoCollection<Document> collection,
 		MongoDriverSettings driverSettings,
@@ -65,7 +65,7 @@ final class SingleDocFormatDriver<R extends StateTreeNode> implements FormatDriv
 		FlushLock flushLock,
 		BoskDriver<R> downstream
 	) {
-		this.description = SingleDocFormatDriver.class.getSimpleName() + ": " + driverSettings;
+		this.description = SequoiaFormatDriver.class.getSimpleName() + ": " + driverSettings;
 		this.settings = driverSettings;
 		this.formatter = new Formatter(bosk, bsonPlugin);
 		this.collection = collection;
@@ -419,5 +419,5 @@ final class SingleDocFormatDriver<R extends StateTreeNode> implements FormatDriv
 
 	private static final Set<String> ALREADY_WARNED = newSetFromMap(new ConcurrentHashMap<>());
 	private static final BsonDocument DOCUMENT_FILTER = new BsonDocument("_id", DOCUMENT_ID);
-	private static final Logger LOGGER = LoggerFactory.getLogger(SingleDocFormatDriver.class);
+	private static final Logger LOGGER = LoggerFactory.getLogger(SequoiaFormatDriver.class);
 }

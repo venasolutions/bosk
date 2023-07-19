@@ -39,7 +39,7 @@ import org.slf4j.LoggerFactory;
 import static io.vena.bosk.drivers.mongo.Formatter.REVISION_ONE;
 import static io.vena.bosk.drivers.mongo.Formatter.REVISION_ZERO;
 import static io.vena.bosk.drivers.mongo.MappedDiagnosticContext.setupMDC;
-import static io.vena.bosk.drivers.mongo.MongoDriverSettings.DatabaseFormat.SINGLE_DOC;
+import static io.vena.bosk.drivers.mongo.MongoDriverSettings.DatabaseFormat.SEQUOIA;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 /**
@@ -395,7 +395,7 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 	}
 
 	private FormatDriver<R> newPreferredFormatDriver() {
-		if (driverSettings.preferredDatabaseFormat() == SINGLE_DOC) {
+		if (driverSettings.preferredDatabaseFormat() == SEQUOIA) {
 			return newSingleDocFormatDriver(REVISION_ZERO.longValue());
 		} else {
 			throw new AssertionError("Unknown database format setting: " + driverSettings.preferredDatabaseFormat());
@@ -403,7 +403,7 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 	}
 
 	private FormatDriver<R> detectFormat() throws UninitializedCollectionException, UnrecognizedFormatException {
-		FindIterable<Document> result = collection.find(new BsonDocument("_id", SingleDocFormatDriver.DOCUMENT_ID));
+		FindIterable<Document> result = collection.find(new BsonDocument("_id", SequoiaFormatDriver.DOCUMENT_ID));
 		try (MongoCursor<Document> cursor = result.cursor()) {
 			if (cursor.hasNext()) {
 				Long revision = cursor
@@ -416,8 +416,8 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 		}
 	}
 
-	private SingleDocFormatDriver<R> newSingleDocFormatDriver(long revisionAlreadySeen) {
-		return new SingleDocFormatDriver<>(
+	private SequoiaFormatDriver<R> newSingleDocFormatDriver(long revisionAlreadySeen) {
+		return new SequoiaFormatDriver<>(
 			bosk,
 			collection,
 			driverSettings,

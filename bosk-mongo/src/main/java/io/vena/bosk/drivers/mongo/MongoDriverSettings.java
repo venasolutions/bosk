@@ -12,7 +12,7 @@ public class MongoDriverSettings {
 
 	@Default long flushTimeoutMS = 30_000;
 	@Default long recoveryPollingMS = 30_000;
-	@Default DatabaseFormat preferredDatabaseFormat = DatabaseFormat.SINGLE_DOC;
+	@Default DatabaseFormat preferredDatabaseFormat = DatabaseFormat.SEQUOIA;
 	@Default InitialDatabaseUnavailableMode initialDatabaseUnavailableMode = InitialDatabaseUnavailableMode.DISCONNECT;
 
 	@Default Experimental experimental = Experimental.builder().build();
@@ -44,7 +44,7 @@ public class MongoDriverSettings {
 		/**
 		 * Entire bosk state in a single MongoDB document.
 		 */
-		SINGLE_DOC
+		SEQUOIA
 	}
 
 	public enum InitialDatabaseUnavailableMode {
