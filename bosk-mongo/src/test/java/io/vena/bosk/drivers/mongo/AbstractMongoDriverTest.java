@@ -28,7 +28,6 @@ import org.junit.jupiter.api.TestInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static io.vena.bosk.drivers.mongo.SingleDocumentMongoDriver.COLLECTION_NAME;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 abstract class AbstractMongoDriverTest {
@@ -58,7 +57,7 @@ abstract class AbstractMongoDriverTest {
 		// Start with a clean slate
 		mongoService.client()
 			.getDatabase(driverSettings.database())
-			.getCollection(COLLECTION_NAME)
+			.getCollection(MainDriver.COLLECTION_NAME)
 			.drop();
 	}
 

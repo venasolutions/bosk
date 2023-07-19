@@ -1,4 +1,4 @@
-package io.vena.bosk.drivers.mongo.v3;
+package io.vena.bosk.drivers.mongo;
 
 import io.vena.bosk.BoskDriver;
 import io.vena.bosk.drivers.mongo.MongoDriverSettings.InitialDatabaseUnavailableMode;

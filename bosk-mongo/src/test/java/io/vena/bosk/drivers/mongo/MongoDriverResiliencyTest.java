@@ -25,8 +25,7 @@ import org.slf4j.LoggerFactory;
 
 import static ch.qos.logback.classic.Level.ERROR;
 import static io.vena.bosk.ListingEntry.LISTING_ENTRY;
-import static io.vena.bosk.drivers.mongo.MongoDriverSettings.ImplementationKind.RESILIENT;
-import static io.vena.bosk.drivers.mongo.v3.MainDriver.COLLECTION_NAME;
+import static io.vena.bosk.drivers.mongo.MainDriver.COLLECTION_NAME;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -50,25 +49,19 @@ public class MongoDriverResiliencyTest extends AbstractMongoDriverTest {
 
 	@SuppressWarnings("unused")
 	static Stream<MongoDriverSettings.MongoDriverSettingsBuilder> driverSettings() {
-		MongoDriverSettings.Experimental resilient = MongoDriverSettings.Experimental.builder()
-			.implementationKind(RESILIENT)
-			.build();
 		return Stream.of(
 			MongoDriverSettings.builder()
 				.database("boskResiliencyTestDB_" + dbCounter.incrementAndGet())
-				.recoveryPollingMS(500)
-				.experimental(resilient),
+				.recoveryPollingMS(500),
 			MongoDriverSettings.builder()
 				.database("boskResiliencyTestDB_" + dbCounter.incrementAndGet() + "_late")
 				.recoveryPollingMS(500)
-				.experimental(resilient)
 				.testing(MongoDriverSettings.Testing.builder()
 					.eventDelayMS(200)
 					.build()),
 			MongoDriverSettings.builder()
 				.database("boskResiliencyTestDB_" + dbCounter.incrementAndGet() + "_early")
 				.recoveryPollingMS(500)
-				.experimental(resilient)
 				.testing(MongoDriverSettings.Testing.builder()
 					.eventDelayMS(-200)
 					.build())

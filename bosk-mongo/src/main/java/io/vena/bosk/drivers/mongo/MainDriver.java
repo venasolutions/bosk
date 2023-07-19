@@ -1,4 +1,4 @@
-package io.vena.bosk.drivers.mongo.v3;
+package io.vena.bosk.drivers.mongo;
 
 import com.mongodb.ClientSessionOptions;
 import com.mongodb.MongoClientSettings;
@@ -17,12 +17,9 @@ import io.vena.bosk.BoskDriver;
 import io.vena.bosk.Identifier;
 import io.vena.bosk.Reference;
 import io.vena.bosk.StateTreeNode;
-import io.vena.bosk.drivers.mongo.BsonPlugin;
-import io.vena.bosk.drivers.mongo.MongoDriver;
-import io.vena.bosk.drivers.mongo.MongoDriverSettings;
+import io.vena.bosk.drivers.mongo.Formatter.DocumentFields;
+import io.vena.bosk.drivers.mongo.MappedDiagnosticContext.MDCScope;
 import io.vena.bosk.drivers.mongo.MongoDriverSettings.InitialDatabaseUnavailableMode;
-import io.vena.bosk.drivers.mongo.v3.Formatter.DocumentFields;
-import io.vena.bosk.drivers.mongo.v3.MappedDiagnosticContext.MDCScope;
 import io.vena.bosk.exceptions.FlushFailureException;
 import io.vena.bosk.exceptions.InitializationFailureException;
 import io.vena.bosk.exceptions.InvalidTypeException;
@@ -39,10 +36,10 @@ import org.bson.Document;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static io.vena.bosk.drivers.mongo.MongoDriverSettings.DatabaseFormat.SINGLE_DOC;
-import static io.vena.bosk.drivers.mongo.v3.Formatter.REVISION_ONE;
-import static io.vena.bosk.drivers.mongo.v3.Formatter.REVISION_ZERO;
-import static io.vena.bosk.drivers.mongo.v3.MappedDiagnosticContext.setupMDC;
+import static io.vena.bosk.drivers.mongo.Formatter.REVISION_ONE;
+import static io.vena.bosk.drivers.mongo.Formatter.REVISION_ZERO;
+import static io.vena.bosk.drivers.mongo.MappedDiagnosticContext.setupMDC;
+import static io.vena.bosk.drivers.mongo.MongoDriverSettings.DatabaseFormat.SEQUOIA;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 /**
@@ -398,7 +395,7 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 	}
 
 	private FormatDriver<R> newPreferredFormatDriver() {
-		if (driverSettings.preferredDatabaseFormat() == SINGLE_DOC) {
+		if (driverSettings.preferredDatabaseFormat() == SEQUOIA) {
 			return newSingleDocFormatDriver(REVISION_ZERO.longValue());
 		} else {
 			throw new AssertionError("Unknown database format setting: " + driverSettings.preferredDatabaseFormat());
@@ -406,7 +403,9 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 	}
 
 	private FormatDriver<R> detectFormat() throws UninitializedCollectionException, UnrecognizedFormatException {
-		FindIterable<Document> result = collection.find(new BsonDocument("_id", SingleDocFormatDriver.DOCUMENT_ID));
+		// We don't yet currently throw UnrecognizedFormatException because
+		// there's only one format, and we don't currently have a way to verify it
+		FindIterable<Document> result = collection.find(new BsonDocument("_id", SequoiaFormatDriver.DOCUMENT_ID));
 		try (MongoCursor<Document> cursor = result.cursor()) {
 			if (cursor.hasNext()) {
 				Long revision = cursor
@@ -419,8 +418,8 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 		}
 	}
 
-	private SingleDocFormatDriver<R> newSingleDocFormatDriver(long revisionAlreadySeen) {
-		return new SingleDocFormatDriver<>(
+	private SequoiaFormatDriver<R> newSingleDocFormatDriver(long revisionAlreadySeen) {
+		return new SequoiaFormatDriver<>(
 			bosk,
 			collection,
 			driverSettings,

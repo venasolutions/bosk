@@ -1,6 +1,5 @@
-package io.vena.bosk.drivers.mongo.v3;
+package io.vena.bosk.drivers.mongo;
 
-import io.vena.bosk.drivers.mongo.MongoDriver;
 import java.util.concurrent.FutureTask;
 
 import static java.util.Objects.requireNonNull;

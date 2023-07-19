@@ -3,8 +3,8 @@ package io.vena.bosk.drivers.mongo;
 import io.vena.bosk.Bosk;
 import io.vena.bosk.Reference;
 import io.vena.bosk.annotations.ReferencePath;
+import io.vena.bosk.drivers.mongo.MongoDriverSettings.DatabaseFormat;
 import io.vena.bosk.drivers.mongo.MongoDriverSettings.Experimental;
-import io.vena.bosk.drivers.mongo.MongoDriverSettings.ImplementationKind;
 import io.vena.bosk.drivers.state.TestEntity;
 import io.vena.bosk.exceptions.InvalidTypeException;
 import io.vena.bosk.junit.ParametersByName;
@@ -24,9 +24,9 @@ public class SchemaEvolutionTest {
 	private final Helper toHelper;
 
 	@ParametersByName
-	SchemaEvolutionTest(ImplementationKind fromKind, ImplementationKind toKind) {
-		fromHelper = new Helper(fromKind);
-		toHelper = new Helper(toKind);
+	SchemaEvolutionTest(DatabaseFormat fromFormat, DatabaseFormat toFormat) {
+		fromHelper = new Helper(fromFormat);
+		toHelper = new Helper(toFormat);
 	}
 
 	@BeforeAll
@@ -49,12 +49,14 @@ public class SchemaEvolutionTest {
 		toHelper  .runTearDown(testInfo);
 	}
 
-	static Stream<ImplementationKind> fromKind() {
-		return Stream.of(ImplementationKind.values());
+	@SuppressWarnings("unused")
+	static Stream<DatabaseFormat> fromFormat() {
+		return Stream.of(DatabaseFormat.values());
 	}
 
-	static Stream<ImplementationKind> toKind() {
-		return Stream.of(ImplementationKind.values());
+	@SuppressWarnings("unused")
+	static Stream<DatabaseFormat> toFormat() {
+		return Stream.of(DatabaseFormat.values());
 	}
 
 	@ParametersByName
@@ -72,20 +74,20 @@ public class SchemaEvolutionTest {
 	}
 
 	private static Bosk<TestEntity> newBosk(Helper helper) {
-		return new Bosk<TestEntity>(helper.kind.name(), TestEntity.class, helper::initialRoot, helper.driverFactory);
+		return new Bosk<TestEntity>(helper.name, TestEntity.class, helper::initialRoot, helper.driverFactory);
 	}
 
 	static final class Helper extends AbstractMongoDriverTest {
-		final ImplementationKind kind;
+		final String name;
 
-		public Helper(ImplementationKind kind) {
+		public Helper(DatabaseFormat format) {
 			super(MongoDriverSettings.builder()
 				.database(SchemaEvolutionTest.class.getSimpleName())
+				.preferredDatabaseFormat(format)
 				.experimental(Experimental.builder()
-					.implementationKind(kind)
 					.build())
 			);
-			this.kind = kind;
+			this.name = format.name();
 		}
 	}
 

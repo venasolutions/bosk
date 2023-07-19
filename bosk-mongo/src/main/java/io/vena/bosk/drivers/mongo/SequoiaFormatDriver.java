@@ -1,4 +1,4 @@
-package io.vena.bosk.drivers.mongo.v3;
+package io.vena.bosk.drivers.mongo;
 
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoCursor;
@@ -13,9 +13,7 @@ import io.vena.bosk.BoskDriver;
 import io.vena.bosk.Identifier;
 import io.vena.bosk.Reference;
 import io.vena.bosk.StateTreeNode;
-import io.vena.bosk.drivers.mongo.BsonPlugin;
-import io.vena.bosk.drivers.mongo.MongoDriverSettings;
-import io.vena.bosk.drivers.mongo.v3.Formatter.DocumentFields;
+import io.vena.bosk.drivers.mongo.Formatter.DocumentFields;
 import io.vena.bosk.exceptions.FlushFailureException;
 import io.vena.bosk.exceptions.InvalidTypeException;
 import java.io.IOException;
@@ -36,44 +34,41 @@ import org.slf4j.LoggerFactory;
 import static com.mongodb.ReadConcern.LOCAL;
 import static com.mongodb.client.model.Projections.fields;
 import static com.mongodb.client.model.Projections.include;
-import static io.vena.bosk.drivers.mongo.v3.Formatter.REVISION_ZERO;
-import static io.vena.bosk.drivers.mongo.v3.Formatter.dottedFieldNameOf;
-import static io.vena.bosk.drivers.mongo.v3.Formatter.enclosingReference;
-import static io.vena.bosk.drivers.mongo.v3.Formatter.referenceTo;
-import static java.lang.String.format;
+import static io.vena.bosk.drivers.mongo.Formatter.REVISION_ZERO;
+import static io.vena.bosk.drivers.mongo.Formatter.dottedFieldNameOf;
+import static io.vena.bosk.drivers.mongo.Formatter.enclosingReference;
+import static io.vena.bosk.drivers.mongo.Formatter.referenceTo;
 import static java.util.Collections.newSetFromMap;
 import static org.bson.BsonBoolean.FALSE;
 
 /**
- * A {@link io.vena.bosk.drivers.mongo.v3.FormatDriver} that stores the entire bosk state in a single document.
+ * A {@link FormatDriver} that stores the entire bosk state in a single document.
  */
-final class SingleDocFormatDriver<R extends StateTreeNode> implements io.vena.bosk.drivers.mongo.v3.FormatDriver<R> {
+final class SequoiaFormatDriver<R extends StateTreeNode> implements FormatDriver<R> {
 	private final String description;
 	private final MongoDriverSettings settings;
 	private final Formatter formatter;
 	private final MongoCollection<Document> collection;
 	private final Reference<R> rootRef;
-	private final String echoPrefix;
 	private final BoskDriver<R> downstream;
-	private final io.vena.bosk.drivers.mongo.v3.FlushLock flushLock;
+	private final FlushLock flushLock;
 
 	private volatile BsonInt64 revisionToSkip = null;
 
 	static final BsonString DOCUMENT_ID = new BsonString("boskDocument");
 
-	SingleDocFormatDriver(
+	SequoiaFormatDriver(
 		Bosk<R> bosk,
 		MongoCollection<Document> collection,
 		MongoDriverSettings driverSettings,
 		BsonPlugin bsonPlugin,
-		io.vena.bosk.drivers.mongo.v3.FlushLock flushLock,
+		FlushLock flushLock,
 		BoskDriver<R> downstream
 	) {
-		this.description = SingleDocFormatDriver.class.getSimpleName() + ": " + driverSettings;
+		this.description = SequoiaFormatDriver.class.getSimpleName() + ": " + driverSettings;
 		this.settings = driverSettings;
 		this.formatter = new Formatter(bosk, bsonPlugin);
 		this.collection = collection;
-		this.echoPrefix = bosk.instanceID().toString();
 		this.rootRef = bosk.rootReference();
 		this.downstream = downstream;
 		this.flushLock = flushLock;
@@ -327,7 +322,6 @@ final class SingleDocFormatDriver<R extends StateTreeNode> implements io.vena.bo
 
 		fieldValues.put(DocumentFields.path.name(), new BsonString("/"));
 		fieldValues.put(DocumentFields.state.name(), initialState);
-		fieldValues.put(DocumentFields.echo.name(), new BsonString(format("%s_9999", echoPrefix)));
 		fieldValues.put(DocumentFields.revision.name(), revision);
 
 		return fieldValues;
@@ -425,5 +419,5 @@ final class SingleDocFormatDriver<R extends StateTreeNode> implements io.vena.bo
 
 	private static final Set<String> ALREADY_WARNED = newSetFromMap(new ConcurrentHashMap<>());
 	private static final BsonDocument DOCUMENT_FILTER = new BsonDocument("_id", DOCUMENT_ID);
-	private static final Logger LOGGER = LoggerFactory.getLogger(SingleDocFormatDriver.class);
+	private static final Logger LOGGER = LoggerFactory.getLogger(SequoiaFormatDriver.class);
 }

@@ -5,7 +5,6 @@ import io.vena.bosk.Bosk;
 import io.vena.bosk.BoskDriver;
 import io.vena.bosk.DriverFactory;
 import io.vena.bosk.StateTreeNode;
-import io.vena.bosk.drivers.mongo.v3.MainDriver;
 import java.io.IOException;
 
 public interface MongoDriver<R extends StateTreeNode> extends BoskDriver<R> {
@@ -49,12 +48,7 @@ public interface MongoDriver<R extends StateTreeNode> extends BoskDriver<R> {
 		MongoDriverSettings driverSettings,
 		BsonPlugin bsonPlugin
 	) {
-		switch (driverSettings.experimental().implementationKind()) {
-			case RESILIENT:
-				return (b, d) -> new MainDriver<>(b, clientSettings, driverSettings, bsonPlugin, d);
-			default:
-				return (b, d) -> new SingleDocumentMongoDriver<>(b, clientSettings, driverSettings, bsonPlugin, d);
-		}
+		return (b, d) -> new MainDriver<>(b, clientSettings, driverSettings, bsonPlugin, d);
 	}
 
 	interface MongoDriverFactory<RR extends StateTreeNode> extends DriverFactory<RR> {
