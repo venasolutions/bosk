@@ -23,6 +23,7 @@ import lombok.experimental.Delegate;
 
 import static io.vena.bosk.util.ReflectionHelpers.setAccessible;
 import static java.lang.String.format;
+import static java.lang.reflect.Modifier.STATIC;
 import static java.util.Arrays.asList;
 import static java.util.stream.Collectors.toList;
 
@@ -263,6 +264,8 @@ C&lt;String> someField;
 				Method result = c.getDeclaredMethod(methodName);
 				if (result.getParameterCount() != 0) {
 					throw new InvalidTypeException("Getter method \"" + methodName + "\" has unexpected arguments: " + Arrays.toString(result.getParameterTypes()));
+				} else if ((result.getModifiers() & STATIC) != 0) {
+					throw new InvalidTypeException("Getter method \"" + methodName + "\" is static");
 				}
 				return setAccessible(result);
 			} catch (NoSuchMethodException e) {

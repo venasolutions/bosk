@@ -607,7 +607,7 @@ public final class BsonPlugin extends SerializationPlugin {
 			try {
 				getter = LOOKUP.unreflect(getterMethod(nodeClass, name));
 			} catch (IllegalAccessException | InvalidTypeException e1) {
-				throw new IllegalStateException("Eh?", e1);
+				throw new IllegalStateException("Error in class " + nodeClass.getSimpleName() + ": " + e1.getMessage(), e1);
 			}
 			MethodHandle fieldWriter = parameterWriterHandle(nodeClass, name, parameter, codecRegistry, bosk); // (P,W,E)
 			MethodHandle writerCall = filterArguments(fieldWriter, 0, getter); // (N,W,E)

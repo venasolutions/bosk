@@ -165,7 +165,7 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 				preferredDriver.onRevisionToSkip(REVISION_ONE); // initialRoot handles REVISION_ONE; downstream only needs to know about changes after that
 				publishFormatDriver(preferredDriver);
 			} catch (RuntimeException | IOException e2) {
-				LOGGER.debug("Failed to initialize database; disconnecting", e);
+				LOGGER.debug("Failed to initialize database; disconnecting", e2);
 				quietlySetFormatDriver(new DisconnectedDriver<>(e2.toString()));
 			}
 		} catch (RuntimeException | UnrecognizedFormatException | IOException e) {
