@@ -25,6 +25,7 @@ public class MongoDriverSettings {
 	@Builder
 	public static class Experimental {
 		@Default long changeStreamInitialWaitMS = 20;
+		@Default ManifestMode manifestMode = ManifestMode.ENABLED;
 	}
 
 	/**
@@ -67,5 +68,10 @@ public class MongoDriverSettings {
 		 * but in production, it creates a boot sequencing dependency between the application and the database.
 		 */
 		FAIL
+	}
+
+	public enum ManifestMode {
+		DISABLED,
+		ENABLED,
 	}
 }

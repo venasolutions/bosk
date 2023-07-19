@@ -20,6 +20,7 @@ import io.vena.bosk.StateTreeNode;
 import io.vena.bosk.drivers.mongo.Formatter.DocumentFields;
 import io.vena.bosk.drivers.mongo.MappedDiagnosticContext.MDCScope;
 import io.vena.bosk.drivers.mongo.MongoDriverSettings.InitialDatabaseUnavailableMode;
+import io.vena.bosk.drivers.mongo.MongoDriverSettings.ManifestMode;
 import io.vena.bosk.exceptions.FlushFailureException;
 import io.vena.bosk.exceptions.InitializationFailureException;
 import io.vena.bosk.exceptions.InvalidTypeException;
@@ -407,12 +408,14 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 	}
 
 	private FormatDriver<R> detectFormat() throws UninitializedCollectionException, UnrecognizedFormatException {
-		try (MongoCursor<Document> cursor = collection.find(new BsonDocument("_id", MANIFEST_ID)).cursor()) {
-			if (cursor.hasNext()) {
-				LOGGER.debug("Found manifest");
-				validateManifest(cursor.next());
-			} else {
-				LOGGER.debug("Manifest is missing; assuming Sequoia format");
+		if (driverSettings.experimental().manifestMode() == ManifestMode.ENABLED) {
+			try (MongoCursor<Document> cursor = collection.find(new BsonDocument("_id", MANIFEST_ID)).cursor()) {
+				if (cursor.hasNext()) {
+					LOGGER.debug("Found manifest");
+					validateManifest(cursor.next());
+				} else {
+					LOGGER.debug("Manifest is missing; assuming Sequoia format");
+				}
 			}
 		}
 

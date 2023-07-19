@@ -14,6 +14,7 @@ import io.vena.bosk.Identifier;
 import io.vena.bosk.Reference;
 import io.vena.bosk.StateTreeNode;
 import io.vena.bosk.drivers.mongo.Formatter.DocumentFields;
+import io.vena.bosk.drivers.mongo.MongoDriverSettings.ManifestMode;
 import io.vena.bosk.exceptions.FlushFailureException;
 import io.vena.bosk.exceptions.InvalidTypeException;
 import java.io.IOException;
@@ -161,7 +162,9 @@ final class SequoiaFormatDriver<R extends StateTreeNode> implements FormatDriver
 		LOGGER.trace("| Options: {}", options);
 		UpdateResult result = collection.updateOne(filter, update, options);
 		LOGGER.debug("| Result: {}", result);
-		writeManifest();
+		if (settings.experimental().manifestMode() == ManifestMode.ENABLED) {
+			writeManifest();
+		}
 	}
 
 	private void writeManifest() {
@@ -180,12 +183,14 @@ final class SequoiaFormatDriver<R extends StateTreeNode> implements FormatDriver
 	 */
 	@Override
 	public void onEvent(ChangeStreamDocument<Document> event) throws UnprocessableEventException {
-		if (event.getDocumentKey() == null) {
-			throw new UnprocessableEventException("Null document key", event.getOperationType());
-		}
-		if (MANIFEST_ID.equals(event.getDocumentKey().get("_id"))) {
-			onManifestEvent(event);
-			return;
+		if (settings.experimental().manifestMode() == ManifestMode.ENABLED) {
+			if (event.getDocumentKey() == null) {
+				throw new UnprocessableEventException("Null document key", event.getOperationType());
+			}
+			if (MANIFEST_ID.equals(event.getDocumentKey().get("_id"))) {
+				onManifestEvent(event);
+				return;
+			}
 		}
 		if (!DOCUMENT_FILTER.equals(event.getDocumentKey())) {
 			LOGGER.debug("Ignoring event for unrecognized document key: {}", event.getDocumentKey());
