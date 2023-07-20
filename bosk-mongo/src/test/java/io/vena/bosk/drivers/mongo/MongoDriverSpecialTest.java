@@ -28,6 +28,8 @@ import java.util.concurrent.LinkedBlockingDeque;
 import lombok.Value;
 import lombok.var;
 import org.bson.BsonDocument;
+import org.bson.BsonInt32;
+import org.bson.BsonInt64;
 import org.bson.BsonNull;
 import org.bson.BsonString;
 import org.bson.Document;
@@ -403,6 +405,38 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest implements TestPara
 			after = originalBosk.rootReference().value().values();
 		}
 		assertEquals(Optional.of(TestValues.blank()), after); // Now it's there
+	}
+
+	@ParametersByName
+	@UsesMongoService
+	void manifestVersionBump_disconnects() throws IOException, InterruptedException {
+		Bosk<TestEntity> bosk = new Bosk<TestEntity>(
+			"bosk",
+			TestEntity.class,
+			this::initialRoot,
+			createDriverFactory()
+		);
+
+		LOGGER.debug("Flush should work");
+		bosk.driver().flush();
+
+		LOGGER.debug("Upgrade to an unsupported manifest version");
+		MongoCollection<Document> collection = mongoService.client()
+			.getDatabase(driverSettings.database())
+			.getCollection(COLLECTION_NAME);
+		collection.updateOne(
+			new BsonDocument("_id", new BsonString("manifest")),
+			new BsonDocument("$inc", new BsonDocument("version", new BsonInt32(1)))
+		);
+		collection.updateOne(
+			new BsonDocument("_id", new BsonString("boskDocument")),
+			new BsonDocument("$inc", new BsonDocument("revision", new BsonInt64(1)))
+		);
+
+		LOGGER.debug("Flush should throw");
+		assertThrows(FlushFailureException.class, ()->bosk.driver().flush());
+
+		LOGGER.debug("Finished");
 	}
 
 	@ParametersByName

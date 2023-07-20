@@ -20,11 +20,14 @@ import io.vena.bosk.StateTreeNode;
 import io.vena.bosk.drivers.mongo.Formatter.DocumentFields;
 import io.vena.bosk.drivers.mongo.MappedDiagnosticContext.MDCScope;
 import io.vena.bosk.drivers.mongo.MongoDriverSettings.InitialDatabaseUnavailableMode;
+import io.vena.bosk.drivers.mongo.MongoDriverSettings.ManifestMode;
 import io.vena.bosk.exceptions.FlushFailureException;
 import io.vena.bosk.exceptions.InitializationFailureException;
 import io.vena.bosk.exceptions.InvalidTypeException;
 import java.io.IOException;
 import java.lang.reflect.Type;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeoutException;
@@ -32,6 +35,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 import org.bson.BsonDocument;
+import org.bson.BsonString;
 import org.bson.Document;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,6 +44,7 @@ import static io.vena.bosk.drivers.mongo.Formatter.REVISION_ONE;
 import static io.vena.bosk.drivers.mongo.Formatter.REVISION_ZERO;
 import static io.vena.bosk.drivers.mongo.MappedDiagnosticContext.setupMDC;
 import static io.vena.bosk.drivers.mongo.MongoDriverSettings.DatabaseFormat.SEQUOIA;
+import static java.util.Arrays.asList;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 /**
@@ -165,7 +170,7 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 				preferredDriver.onRevisionToSkip(REVISION_ONE); // initialRoot handles REVISION_ONE; downstream only needs to know about changes after that
 				publishFormatDriver(preferredDriver);
 			} catch (RuntimeException | IOException e2) {
-				LOGGER.debug("Failed to initialize database; disconnecting", e);
+				LOGGER.debug("Failed to initialize database; disconnecting", e2);
 				quietlySetFormatDriver(new DisconnectedDriver<>(e2.toString()));
 			}
 		} catch (RuntimeException | UnrecognizedFormatException | IOException e) {
@@ -258,7 +263,7 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 	public <T> void submitConditionalReplacement(Reference<T> target, T newValue, Reference<Identifier> precondition, Identifier requiredValue) {
 		doRetryableDriverOperation(()->{
 			formatDriver.submitConditionalReplacement(target, newValue, precondition, requiredValue);
-		}, "submitConditionalReplcament({}, {}={})", target, precondition, requiredValue);
+		}, "submitConditionalReplacement({}, {}={})", target, precondition, requiredValue);
 	}
 
 	@Override
@@ -403,8 +408,17 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 	}
 
 	private FormatDriver<R> detectFormat() throws UninitializedCollectionException, UnrecognizedFormatException {
-		// We don't yet currently throw UnrecognizedFormatException because
-		// there's only one format, and we don't currently have a way to verify it
+		if (driverSettings.experimental().manifestMode() == ManifestMode.ENABLED) {
+			try (MongoCursor<Document> cursor = collection.find(new BsonDocument("_id", MANIFEST_ID)).cursor()) {
+				if (cursor.hasNext()) {
+					LOGGER.debug("Found manifest");
+					validateManifest(cursor.next());
+				} else {
+					LOGGER.debug("Manifest is missing; assuming Sequoia format");
+				}
+			}
+		}
+
 		FindIterable<Document> result = collection.find(new BsonDocument("_id", SequoiaFormatDriver.DOCUMENT_ID));
 		try (MongoCursor<Document> cursor = result.cursor()) {
 			if (cursor.hasNext()) {
@@ -415,6 +429,27 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 			} else {
 				throw new UninitializedCollectionException("Document doesn't exist");
 			}
+		}
+	}
+
+	static void validateManifest(Document manifest) throws UnrecognizedFormatException {
+		try {
+			Set<String> keys = manifest.keySet();
+			HashSet<String> expectedKeys = new HashSet<>(asList("_id", "version", "sequoia"));
+			if (!keys.equals(expectedKeys)) {
+				keys.removeAll(expectedKeys);
+				if (keys.isEmpty()) {
+					expectedKeys.removeAll(manifest.keySet());
+					throw new UnrecognizedFormatException("Missing keys in manifest: " + expectedKeys);
+				} else {
+					throw new UnrecognizedFormatException("Unrecognized keys in manifest: " + keys);
+				}
+			}
+			if (manifest.getInteger("version") != 1) {
+				throw new UnrecognizedFormatException("Manifest version " + manifest.getInteger("version") + " not suppoted");
+			}
+		} catch (ClassCastException e) {
+			throw new UnrecognizedFormatException("Manifest field has unexpected type", e);
 		}
 	}
 
@@ -460,6 +495,7 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 	private <X extends Exception, Y extends Exception> void waitAndRetry(RetryableOperation<X, Y> operation, String description, Object... args) throws X, Y {
 		try {
 			formatDriverLock.lock();
+			LOGGER.debug("Waiting for new FormatDriver for {} ms", 5 * driverSettings.recoveryPollingMS());
 			boolean success = formatDriverChanged.await(5*driverSettings.recoveryPollingMS(), MILLISECONDS);
 			if (!success) {
 				LOGGER.debug("Timed out waiting for new FormatDriver; will retry anyway");
@@ -524,5 +560,6 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 	}
 
 	public static final String COLLECTION_NAME = "boskCollection";
+	public static final BsonString MANIFEST_ID = new BsonString("manifest");
 	private static final Logger LOGGER = LoggerFactory.getLogger(MainDriver.class);
 }

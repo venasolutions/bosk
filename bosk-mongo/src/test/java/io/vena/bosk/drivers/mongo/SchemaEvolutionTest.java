@@ -3,8 +3,8 @@ package io.vena.bosk.drivers.mongo;
 import io.vena.bosk.Bosk;
 import io.vena.bosk.Reference;
 import io.vena.bosk.annotations.ReferencePath;
-import io.vena.bosk.drivers.mongo.MongoDriverSettings.DatabaseFormat;
 import io.vena.bosk.drivers.mongo.MongoDriverSettings.Experimental;
+import io.vena.bosk.drivers.mongo.MongoDriverSettings.ManifestMode;
 import io.vena.bosk.drivers.state.TestEntity;
 import io.vena.bosk.exceptions.InvalidTypeException;
 import io.vena.bosk.junit.ParametersByName;
@@ -24,9 +24,9 @@ public class SchemaEvolutionTest {
 	private final Helper toHelper;
 
 	@ParametersByName
-	SchemaEvolutionTest(DatabaseFormat fromFormat, DatabaseFormat toFormat) {
-		fromHelper = new Helper(fromFormat);
-		toHelper = new Helper(toFormat);
+	SchemaEvolutionTest(ManifestMode fromMode, ManifestMode toMode) {
+		fromHelper = new Helper(fromMode);
+		toHelper = new Helper(toMode);
 	}
 
 	@BeforeAll
@@ -50,13 +50,13 @@ public class SchemaEvolutionTest {
 	}
 
 	@SuppressWarnings("unused")
-	static Stream<DatabaseFormat> fromFormat() {
-		return Stream.of(DatabaseFormat.values());
+	static Stream<ManifestMode> fromMode() {
+		return Stream.of(ManifestMode.values());
 	}
 
 	@SuppressWarnings("unused")
-	static Stream<DatabaseFormat> toFormat() {
-		return Stream.of(DatabaseFormat.values());
+	static Stream<ManifestMode> toMode() {
+		return fromMode();
 	}
 
 	@ParametersByName
@@ -80,14 +80,14 @@ public class SchemaEvolutionTest {
 	static final class Helper extends AbstractMongoDriverTest {
 		final String name;
 
-		public Helper(DatabaseFormat format) {
+		public Helper(ManifestMode manifestMode) {
 			super(MongoDriverSettings.builder()
 				.database(SchemaEvolutionTest.class.getSimpleName())
-				.preferredDatabaseFormat(format)
 				.experimental(Experimental.builder()
+					.manifestMode(manifestMode)
 					.build())
 			);
-			this.name = format.name();
+			this.name = manifestMode.name();
 		}
 	}
 
