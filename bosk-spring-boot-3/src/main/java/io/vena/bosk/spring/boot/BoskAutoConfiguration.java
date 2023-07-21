@@ -17,7 +17,6 @@ public class BoskAutoConfiguration {
 	@ConditionalOnProperty(
 		prefix = "bosk.web",
 		name = "read-context",
-		havingValue = "",
 		matchIfMissing = true)
 	@ConditionalOnBean(Bosk.class) // Because of matchIfMissing
 	ReadContextFilter readContextFilter(
