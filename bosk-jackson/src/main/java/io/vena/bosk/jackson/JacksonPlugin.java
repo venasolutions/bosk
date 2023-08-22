@@ -263,7 +263,7 @@ public final class JacksonPlugin extends SerializationPlugin {
 			} else if (Reference.class.isAssignableFrom(theClass)) {
 				return referenceDeserializer(type, config, beanDesc);
 			} else if (Identifier.class.isAssignableFrom(theClass)) {
-				return identifierDeserialier(type, config, beanDesc);
+				return identifierDeserializer(type, config, beanDesc);
 			} else if (ListingEntry.class.isAssignableFrom(theClass)) {
 				return listingEntryDeserializer(type, config, beanDesc);
 			} else if (SideTable.class.isAssignableFrom(theClass)) {
@@ -359,7 +359,7 @@ public final class JacksonPlugin extends SerializationPlugin {
 			};
 		}
 
-		private JsonDeserializer<Identifier> identifierDeserialier(JavaType type, DeserializationConfig config, BeanDescription beanDesc) {
+		private JsonDeserializer<Identifier> identifierDeserializer(JavaType type, DeserializationConfig config, BeanDescription beanDesc) {
 			return new BoskDeserializer<Identifier>() {
 				@Override
 				public Identifier deserialize(JsonParser p, DeserializationContext ctxt) throws IOException {
