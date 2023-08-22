@@ -13,5 +13,11 @@ public final class Phantom<T> {
 		Phantom<T> instance = (Phantom<T>) INSTANCE;
 		return instance;
 	}
+
+	@Override
+	public String toString() {
+		return "Phantom.empty";
+	}
+
 	private static final Phantom<?> INSTANCE = new Phantom<>();
 }
