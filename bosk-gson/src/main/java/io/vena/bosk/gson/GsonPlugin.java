@@ -316,13 +316,14 @@ public final class GsonPlugin extends SerializationPlugin {
 		while (in.hasNext()) {
 			in.beginObject();
 			String fieldName = in.nextName();
+			Identifier entryID = Identifier.from(fieldName);
 			V value;
-			try (@SuppressWarnings("unused") DeserializationScope scope = innerDeserializationScope(fieldName)) {
+			try (@SuppressWarnings("unused") DeserializationScope scope = entryDeserializationScope(entryID)) {
 				value = valueAdapter.read(in);
 			}
 			in.endObject();
 
-			V oldValue = result.put(Identifier.from(fieldName), value);
+			V oldValue = result.put(entryID, value);
 			if (oldValue != null) {
 				throw new JsonParseException("Duplicate sideTable entry '" + fieldName + "'");
 			}

@@ -518,14 +518,15 @@ public final class JacksonPlugin extends SerializationPlugin {
 			expect(START_OBJECT, p);
 			p.nextValue();
 			String fieldName = p.currentName();
+			Identifier entryID = Identifier.from(fieldName);
 			V value;
-			try (@SuppressWarnings("unused") DeserializationScope scope = innerDeserializationScope(fieldName)) {
+			try (@SuppressWarnings("unused") DeserializationScope scope = entryDeserializationScope(entryID)) {
 				value = valueDeserializer.deserialize(p, ctxt);
 			}
 			p.nextToken();
 			expect(END_OBJECT, p);
 
-			V oldValue = result.put(Identifier.from(fieldName), value);
+			V oldValue = result.put(entryID, value);
 			if (oldValue != null) {
 				throw new JsonParseException(p, "Duplicate sideTable entry '" + fieldName + "'");
 			}

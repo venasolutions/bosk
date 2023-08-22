@@ -77,11 +77,11 @@ public abstract class SerializationPlugin {
 		return newScope;
 	}
 
-	public final DeserializationScope innerDeserializationScope(String lastSegment) {
+	public final DeserializationScope entryDeserializationScope(Identifier entryID) {
 		DeserializationScope outerScope = currentScope.get();
 		DeserializationScope newScope = new NestedDeserializationScope(
 			outerScope,
-			outerScope.path().then(lastSegment),
+			outerScope.path().then(entryID.toString()),
 			outerScope.bindingEnvironment());
 		currentScope.set(newScope);
 		return newScope;
@@ -90,7 +90,13 @@ public abstract class SerializationPlugin {
 	public final DeserializationScope nodeFieldDeserializationScope(Class<?> nodeClass, String fieldName) {
 		DeserializationPath annotation = infoFor(nodeClass).annotatedParameters_DeserializationPath.get(fieldName);
 		if (annotation == null) {
-			return innerDeserializationScope(fieldName);
+			DeserializationScope outerScope = currentScope.get();
+			DeserializationScope newScope = new NestedDeserializationScope(
+				outerScope,
+				outerScope.path().then(fieldName),
+				outerScope.bindingEnvironment());
+			currentScope.set(newScope);
+			return newScope;
 		} else {
 			DeserializationScope outerScope = currentScope.get();
 			try {

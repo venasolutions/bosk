@@ -466,7 +466,7 @@ public final class BsonPlugin extends SerializationPlugin {
 					String fieldName = undottedFieldNameSegment(reader.readName());
 					Identifier entryId = Identifier.from(fieldName);
 					E entry;
-					try (@SuppressWarnings("unused") DeserializationScope s = innerDeserializationScope(fieldName)) {
+					try (@SuppressWarnings("unused") DeserializationScope s = entryDeserializationScope(entryId)) {
 						entry = entryCodec.decode(reader, decoderContext);
 					}
 					if (entryId.equals(entry.id())) {
@@ -530,7 +530,7 @@ public final class BsonPlugin extends SerializationPlugin {
 					String fieldName = undottedFieldNameSegment(reader.readName());
 					Identifier id = Identifier.from(fieldName);
 					V value;
-					try (@SuppressWarnings("unused") DeserializationScope s = innerDeserializationScope(fieldName)) {
+					try (@SuppressWarnings("unused") DeserializationScope s = entryDeserializationScope(id)) {
 						value = valueCodec.decode(reader, decoderContext);
 					}
 					Object old = valuesById.put(id, value);
