@@ -40,6 +40,7 @@ import io.vena.bosk.annotations.DerivedRecord;
 import io.vena.bosk.exceptions.InvalidTypeException;
 import io.vena.bosk.exceptions.TunneledCheckedException;
 import io.vena.bosk.exceptions.UnexpectedPathException;
+import io.vena.bosk.jackson.JacksonCompiler.CompiledSerDes;
 import java.io.IOException;
 import java.lang.reflect.Array;
 import java.lang.reflect.Constructor;
@@ -384,11 +385,12 @@ public final class JacksonPlugin extends SerializationPlugin {
 			JavaType valueType = sideTableValueType(type);
 			return new BoskDeserializer<SideTable<Entity, Object>>() {
 				@Override
+				@SuppressWarnings("unchecked")
 				public SideTable<Entity, Object> deserialize(JsonParser p, DeserializationContext ctxt) throws IOException {
 					Reference<Catalog<Entity>> domain = null;
 					LinkedHashMap<Identifier, Object> valuesById = null;
 
-					JsonDeserializer<Object> valueDeserializer = (JsonDeserializer<Object>) ctxt.findContextualValueDeserializer(valueType, null);
+					JsonDeserializer<Object> valueDeserializer = ctxt.findContextualValueDeserializer(valueType, null);
 
 					expect(START_OBJECT, p);
 					while (p.nextToken() != END_OBJECT) {
@@ -487,11 +489,6 @@ public final class JacksonPlugin extends SerializationPlugin {
 		}
 	}
 
-	public interface SerDes<T> {
-		JsonSerializer<T> serializer(SerializationConfig config);
-		JsonDeserializer<T> deserializer(DeserializationConfig config);
-	}
-
 	/**
 	 * Common properties all our deserializers have.
 	 */
@@ -542,14 +539,14 @@ public final class JacksonPlugin extends SerializationPlugin {
 	private static final JavaType CATALOG_REF_TYPE = TypeFactory.defaultInstance().constructType(new TypeReference<
 		Reference<Catalog<?>>>() {});
 
-	private <T> SerDes<T> derivedRecordSerDes(JavaType objType, BeanDescription beanDesc, Bosk<?> bosk) {
+	private <T> CompiledSerDes<T> derivedRecordSerDes(JavaType objType, BeanDescription beanDesc, Bosk<?> bosk) {
 		// Check for special cases
 		Class<?> objClass = objType.getRawClass();
 		if (ListValue.class.isAssignableFrom(objClass)) { // TODO: MapValue?
 			Class<?> entryClass = javaParameterType(objType, ListValue.class, 0).getRawClass();
 			if (ReflectiveEntity.class.isAssignableFrom(entryClass)) {
 				@SuppressWarnings("unchecked")
-				SerDes<T> result = derivedRecordListValueOfReflectiveEntitySerDes(objType, objClass, entryClass);
+				CompiledSerDes<T> result = derivedRecordListValueOfReflectiveEntitySerDes(objType, objClass, entryClass);
 				return result;
 			} else if (Entity.class.isAssignableFrom(entryClass)) {
 				throw new IllegalArgumentException("Can't hold non-reflective Entity type in @" + DerivedRecord.class.getSimpleName() + " " + objType);
@@ -563,12 +560,12 @@ public final class JacksonPlugin extends SerializationPlugin {
 
 
 	@SuppressWarnings({ "rawtypes", "unchecked" })
-	private <E extends ReflectiveEntity<E>, L extends ListValue<E>> SerDes derivedRecordListValueOfReflectiveEntitySerDes(JavaType objType, Class objClass, Class entryClass) {
+	private <E extends ReflectiveEntity<E>, L extends ListValue<E>> CompiledSerDes derivedRecordListValueOfReflectiveEntitySerDes(JavaType objType, Class objClass, Class entryClass) {
 		Constructor<L> constructor = (Constructor<L>) theOnlyConstructorFor(objClass);
 		Class<?>[] parameters = constructor.getParameterTypes();
 		if (parameters.length == 1 && parameters[0].getComponentType().equals(entryClass)) {
 			JavaType referenceType = TypeFactory.defaultInstance().constructParametricType(Reference.class, entryClass);
-			return new SerDes<L>() {
+			return new CompiledSerDes<L>() {
 				@Override
 				public JsonSerializer<L> serializer(SerializationConfig config) {
 					return new JsonSerializer<L>() {
