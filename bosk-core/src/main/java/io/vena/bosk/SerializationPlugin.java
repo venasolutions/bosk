@@ -182,7 +182,7 @@ public abstract class SerializationPlugin {
 				throw new DeserializationException("Unexpected field \"" + name + "\" for implicit reference");
 			}
 		}
-		if (parameterValuesByName.size() >= 1) {
+		if (!parameterValuesByName.isEmpty()) {
 			throw new DeserializationException("Unrecognized fields: " + parameterValuesByName.keySet());
 		}
 		return parameterValues;
