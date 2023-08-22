@@ -192,7 +192,23 @@ public abstract class SerializationPlugin {
 				} else if (Phantom.class.equals(type)) {
 					parameterValues.add(Phantom.empty());
 				} else {
-					throw new DeserializationException("Missing field: " + name);
+					Path path = currentScope.get().path();
+					if ("id".equals(name) && !path.isEmpty()) {
+						// If the object is an entry in a Catalog or a key in a SideTable, we can determine its ID
+						Reference<Object> enclosingRef;
+						try {
+							enclosingRef = bosk.rootReference().then(Object.class, path.truncatedBy(1));
+						} catch (InvalidTypeException e) {
+							throw new AssertionError("Non-empty path must have an enclosing reference: " + path, e);
+						}
+						if (AddressableByIdentifier.class.isAssignableFrom(enclosingRef.targetClass())) {
+							parameterValues.add(Identifier.from(path.lastSegment()));
+						} else {
+							throw new DeserializationException("Missing id field for object at " + path);
+						}
+					} else {
+						throw new DeserializationException("Missing field \"" + name + "\" at " + path);
+					}
 				}
 			} else if (implicitReference == null) {
 				parameterValues.add(value);

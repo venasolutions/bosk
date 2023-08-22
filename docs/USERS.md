@@ -801,6 +801,13 @@ A field of type `Optional<T>` is simply serialized as a `T`, unless the optional
 
 A field of type `Phantom<T>` is not serialized (just like `Optional.empty()`).
 
+The `id` field of a Catalog entry or a SideTable key may be omitted,
+and will be inferred during deserialization if possible from context,
+including any `@DeserializationPath` annotations.
+This inference process takes some time, though,
+so for best performance, it's better for the JSON input to include the `id` field,
+just as it does when serialized.
+
 #### DeserializationScope
 
 Fields marked as `@Self` or `@Enclosing` are not serialized.
@@ -824,6 +831,9 @@ try (var __ = jacksonPlugin.newDeserializationScope(ref)) {
 
 For this to work, you will need access to the `JacksonPlugin` object,
 typically from your dependency injection framework.
+
+For an object whose _fields_ represent specific nodes of the bosk state,
+use the `@DeserializationPath` annotation; see the javadocs for more info.
 
 #### DerivedRecord
 
