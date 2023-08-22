@@ -480,11 +480,10 @@ class JacksonPluginTest extends AbstractBoskTest {
 	}
 
 	private void assertJacksonWorks(Map<String,?> plainObject, Object boskObject, TypeReference<?> boskObjectTypeRef, Path path) {
-		JavaType boskObjectType = TypeFactory.defaultInstance().constructType(boskObjectTypeRef);
 		Map<String, Object> actualPlainObject = plainObjectFor(boskObject);
 		assertEquals(plainObject, actualPlainObject, "Serialized object should match expected");
 
-		Object deserializedBoskObject = boskObjectFor(plainObject, boskObjectType, path);
+		Object deserializedBoskObject = boskObjectFor(plainObject, boskObjectTypeRef, path);
 		assertEquals(boskObject, deserializedBoskObject, "Deserialized object should match expected");
 
 		Map<String, Object> roundTripPlainObject = plainObjectFor(deserializedBoskObject);
@@ -525,9 +524,9 @@ class JacksonPluginTest extends AbstractBoskTest {
 		}
 	}
 
-	private Object boskObjectFor(Map<String, ?> plainObject, JavaType boskObjectType, Path path) {
+	private Object boskObjectFor(Map<String, ?> plainObject, TypeReference<?> boskObjectTypeRef, Path path) {
 		try {
-			JavaType boskJavaType = TypeFactory.defaultInstance().constructType(boskObjectType);
+			JavaType boskJavaType = TypeFactory.defaultInstance().constructType(boskObjectTypeRef);
 			JavaType mapJavaType = TypeFactory.defaultInstance().constructParametricType(Map.class, String.class, Object.class);
 			String json = plainMapper.writerFor(mapJavaType).writeValueAsString(plainObject);
 			try (DeserializationScope scope = jacksonPlugin.newDeserializationScope(path)) {
