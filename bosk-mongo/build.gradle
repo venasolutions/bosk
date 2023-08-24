@@ -5,7 +5,9 @@ plugins {
 	id 'com.github.spotbugs' version '5.0.9'
 }
 
-archivesBaseName = 'bosk-mongo'
+base {
+	archivesName = 'bosk-mongo'
+}
 
 java {
 	sourceCompatibility = '8'
