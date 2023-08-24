@@ -287,7 +287,7 @@ Creating many brief read contexts opens your application up to race conditions d
 ##### Creation
 
 At any point in the code, a call to `bosk.readContext()` will establish a read context on the calling thread.
-If there is already an active read context on the calling thread, the call to `readContext` has no effect. 
+If there is already an active read context on the calling thread, the call to `readContext` has no effect.
 
 ##### Propagation
 
@@ -612,7 +612,7 @@ static DriverFactory<ExampleState> driverFactory() {
 		driverSettings,
 		bsonPlugin);
 }
-``` 
+```
 
 ##### Database setup
 
@@ -628,7 +628,7 @@ This can be achieved using the following `Dockerfile`:
 
 ``` dockerfile
 FROM mongo:4.4 # ...but use a newer version if you can
-RUN echo "rs.initiate()" > /docker-entrypoint-initdb.d/rs-initiate.js 
+RUN echo "rs.initiate()" > /docker-entrypoint-initdb.d/rs-initiate.js
 CMD [ "mongod", "--replSet", "rsLonesome", "--port", "27017", "--bind_ip_all" ]
 ```
 
@@ -777,23 +777,23 @@ The format of the various built-in types is shown below.
 ``` yaml
 "reference": "/a/b/c",      # References are strings
 "catalog": [                # Catalogs are arrays of single-member objects
-    {
-        "entry1": {
-            "id": "entry1", # The id field is included here (redundantly)
-            "exampleField": "value"
-        }
-    }
+	{
+		"entry1": {
+			"id": "entry1", # The id field is included here (redundantly)
+			"exampleField": "value"
+		}
+	}
 ],
 "listing": {                # Listings are objects with two fields
-    "ids": ["entry1", "entry2"],
-    "domain": "/catalog"    # Reference to the containing Catalog
+	"ids": ["entry1", "entry2"],
+	"domain": "/catalog"    # Reference to the containing Catalog
 },
 "sideTable": {              # SideTables are objects with two fields
-    "valuesById": [
-        { "entry1": { "exampleField": "value" } },
-        { "entry2": { "exampleField": "value" } }
-    ],
-    "domain": "/catalog"    # Reference to the containing Catalog
+	"valuesById": [
+		{ "entry1": { "exampleField": "value" } },
+		{ "entry2": { "exampleField": "value" } }
+	],
+	"domain": "/catalog"    # Reference to the containing Catalog
 }
 ```
 
@@ -861,7 +861,7 @@ import io.vena.bosk.exceptions.InvalidTypeException;
 @Singleton // You can use your framework's dependency injection for this
 public class ExampleBosk extends Bosk<ExampleState> {
 	public final Refs refs;
-	
+
 	public ExampleBosk() throws InvalidTypeException {
 		super(
 			"ExampleBosk",
@@ -915,7 +915,7 @@ public record Worker (
 ) {}
 ```
 
-**Don't do this**. The trouble is, this puts state into the same object that is changed under three different circumstances:
+ **Don't do this**. The trouble is, this puts state into the same object that is changed under three different circumstances:
 - `baseURL` is set by static configuration or by service discovery. This is _configuration_: information supplied to your application to tell it how to behave.
 - `status` is set either by a polling mechanism, or when worker communications result in an error. This is an _observation_: information your application draws from external systems.
 - `assignedShards` is set by the data distribution algorithm. This is a _decision_: a choice made by your application, typically in response to _configuration_ and _observations_.
@@ -980,7 +980,7 @@ It also makes it difficult to evolve your design if you discover you need to han
 For example, if you are representing information about files and folders in your bosk,
 one natural design would be to nest child folders inside parent folders,
 and make the files children of the folder they are in.
-**Don't do this.**
+ **Don't do this.**
 
 Instead, create two top-level `Catalog`s: one for `File`s and one for `Folder`s.
 Represent their nesting relationships using `Reference`s.

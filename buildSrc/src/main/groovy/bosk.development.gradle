@@ -23,30 +23,7 @@ allprojects {
 	apply plugin: 'idea'
 	apply plugin: 'jacoco'
 	apply plugin: 'com.github.spotbugs' // https://plugins.gradle.org/plugin/com.github.spotbugs
-	apply plugin: 'com.diffplug.gradle.spotless'
 	apply plugin: 'maven-publish'
-
-	spotless {
-		enforceCheck false
-		java {
-			importOrder '', '\\#' // Static imports after regular imports, as per mt-server standard and IntelliJ default
-			removeUnusedImports()
-			trimTrailingWhitespace()
-			indentWithTabs()
-			replaceRegex 'class-level javadoc indentation fix', /^\*/, ' *'
-			replaceRegex 'method-level javadoc indentation fix', /\t\*/, '\t *'
-			paddedCell()
-		}
-		format 'misc', {
-			target '**/*.gradle', '**/*.md', '**/.gitignore'
-
-			trimTrailingWhitespace()
-			indentWithTabs()
-			replaceRegex 'class-level javadoc indentation fix', /^\*/, ' *'
-			replaceRegex 'method-level javadoc indentation fix', /\t\*/, '\t *'
-			endWithNewline()
-		}
-	}
 
 	// SpotBugs warnings on test code are not useful and often counterproductive
 	spotbugsTest.enabled = false
@@ -107,8 +84,8 @@ test {
 
 	reports {
 		// Used to convert gradle test output to be understood by Jenkins JUnit publishing
-		junitXml.enabled = true
-		html.enabled = false
+		junitXml.required = true
+		html.required = false
 	}
 }
 

@@ -1,6 +1,35 @@
 
 plugins {
 	id 'java'
+	id "com.diffplug.spotless" version "6.20.0"
+}
+
+repositories {
+	maven {
+		url 'https://plugins.gradle.org/m2/'
+	}
+	mavenCentral()
+}
+
+spotless {
+	enforceCheck false
+	java {
+		importOrder '', '\\#' // Static imports after regular imports, as per mt-server standard and IntelliJ default
+		removeUnusedImports()
+		trimTrailingWhitespace()
+		indentWithTabs()
+		replaceRegex 'class-level javadoc indentation fix', /^\*/, ' *'
+		replaceRegex 'method-level javadoc indentation fix', /\t\*/, '\t *'
+	}
+	format 'misc', {
+		target '**/*.gradle', '**/*.md', '**/.gitignore'
+
+		trimTrailingWhitespace()
+		indentWithTabs()
+		replaceRegex 'class-level javadoc indentation fix', /^\*/, ' *'
+		replaceRegex 'method-level javadoc indentation fix', /\t\*/, '\t *'
+		endWithNewline()
+	}
 }
 
 allprojects {
