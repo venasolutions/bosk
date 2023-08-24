@@ -51,13 +51,13 @@ In Maven:
 
 ```
 <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-compiler-plugin</artifactId>
-        <configuration>
-                <compilerArgs>
-                        <arg>-parameters</arg>
-                </compilerArgs>
-        </configuration>
+		<groupId>org.apache.maven.plugins</groupId>
+		<artifactId>maven-compiler-plugin</artifactId>
+		<configuration>
+				<compilerArgs>
+						<arg>-parameters</arg>
+				</compilerArgs>
+		</configuration>
 </plugin>
 ```
 
@@ -199,7 +199,7 @@ You can run a single-node replica set using the following `Dockerfile`:
 
 ```
 FROM mongo:4.4
-RUN echo "rs.initiate()" > /docker-entrypoint-initdb.d/rs-initiate.js 
+RUN echo "rs.initiate()" > /docker-entrypoint-initdb.d/rs-initiate.js
 CMD [ "mongod", "--replSet", "rsLonesome", "--port", "27017", "--bind_ip_all" ]
 ```
 
