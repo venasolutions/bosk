@@ -84,8 +84,8 @@ test {
 
 	reports {
 		// Used to convert gradle test output to be understood by Jenkins JUnit publishing
-		junitXml.enabled = true
-		html.enabled = false
+		junitXml.required = true
+		html.required = false
 	}
 }
 
