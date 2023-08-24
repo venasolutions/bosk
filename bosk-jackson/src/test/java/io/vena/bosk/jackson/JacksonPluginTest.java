@@ -26,6 +26,7 @@ import io.vena.bosk.StateTreeNode;
 import io.vena.bosk.TestEntityBuilder;
 import io.vena.bosk.annotations.DerivedRecord;
 import io.vena.bosk.annotations.DeserializationPath;
+import io.vena.bosk.annotations.ReferencePath;
 import io.vena.bosk.exceptions.InvalidTypeException;
 import io.vena.bosk.exceptions.MalformedPathException;
 import io.vena.bosk.exceptions.ParameterUnboundException;
@@ -72,6 +73,12 @@ class JacksonPluginTest extends AbstractBoskTest {
 	private ObjectMapper boskMapper;
 	private CatalogReference<TestEntity> entitiesRef;
 	private Reference<TestEntity> parentRef;
+	private Refs refs;
+
+	public interface Refs {
+		@ReferencePath("/entities/-entity-") Reference<TestEntity> entity(Identifier entity);
+		@ReferencePath("/entities/-entity-/implicitRefs") Reference<ImplicitRefs> implicitRefs(Identifier entity);
+	}
 
 	/**
 	 * Not configured by JacksonPlugin. Only for checking the properties of the generated JSON.
@@ -92,6 +99,7 @@ class JacksonPluginTest extends AbstractBoskTest {
 		boskMapper = new ObjectMapper()
 			.registerModule(jacksonPlugin.moduleFor(bosk))
 			.enable(INDENT_OUTPUT);
+		refs = bosk.buildReferences(Refs.class);
 	}
 
 	@Test
@@ -342,6 +350,24 @@ class JacksonPluginTest extends AbstractBoskTest {
 	}
 
 	@Test
+	void idsOmitted_filledInFromContext() throws InvalidTypeException {
+		Identifier child1ID = Identifier.from("child1");
+		TestEntity expected = makeEntityWith(
+			Optional.empty(),
+			Catalog.of(new TestChild(child1ID, "child1", TestEnum.OK, Catalog.empty())));
+		Map<String, Object> plain = plainObjectFor(expected);
+
+		// Remove id
+		Map<?,?> child = (Map<?, ?>) ((Map<?, ?>) ((List<?>)plain.get("children")).get(0)).get("child1");
+		Object removed = child.remove("id");
+		assertEquals(child1ID.toString(), removed, "Expected to remove the ID");
+
+		// Make sure it comes back when deserialized
+		Object actual = boskObjectFor(plain, new TypeReference<TestEntity>() {}, Path.parse("/entities/" + expected.id()));
+		assertEquals(expected, actual);
+	}
+
+	@Test
 	void derivedRecord_basic_works() throws InvalidTypeException, JsonProcessingException {
 		Reference<ImplicitRefs> iref = parentRef.then(ImplicitRefs.class, TestEntity.Fields.implicitRefs);
 		ImplicitRefs reflectiveEntity;
@@ -467,24 +493,54 @@ class JacksonPluginTest extends AbstractBoskTest {
 		ImplicitRefs secondField;
 	}
 
-	private TestEntity makeEntityWithOptionalString(Optional<String> optionalString) throws InvalidTypeException {
+	@Test
+	void deserializationPathMissingID_filledInFromContext() throws InvalidTypeException, JsonProcessingException {
+		DeserializationPathMissingID expected = new DeserializationPathMissingID(
+			makeEntityWithOptionalString(Optional.empty()));
+
+		// Make roughly the right plain object structure
+		Map<String, Object> plainObject = plainObjectFor(expected);
+
+		// Remove the ID field
+		((Map<?,?>)plainObject.get("entity")).remove("id");
+
+		BindingEnvironment env = BindingEnvironment.empty().builder()
+			.bind("entity", expected.entity.id())
+			.build();
+		try (DeserializationScope scope = jacksonPlugin.overlayScope(env)) {
+			Object actual = boskObjectFor(plainObject, new TypeReference<DeserializationPathMissingID>() {}, Path.empty());
+			assertEquals(expected, actual, "Object should deserialize without \"id\" field");
+		}
+	}
+
+	@Value
+	@FieldNameConstants
+	public static class DeserializationPathMissingID implements StateTreeNode {
+		@DeserializationPath("/entities/-entity-")
+		TestEntity entity;
+	}
+
+	private TestEntity makeEntityWith(Optional<String> optionalString, Catalog<TestChild> children) throws InvalidTypeException {
 		CatalogReference<TestEntity> catalogRef = entitiesRef;
 		Identifier entityID = Identifier.unique("testOptional");
 		Reference<TestEntity> entityRef = catalogRef.then(entityID);
 		CatalogReference<TestChild> childrenRef = entityRef.thenCatalog(TestChild.class, TestEntity.Fields.children);
 		Reference<ImplicitRefs> implicitRefsRef = entityRef.then(ImplicitRefs.class, "implicitRefs");
-		return new TestEntity(entityID, entityID.toString(), OK, Catalog.empty(), Listing.empty(childrenRef), SideTable.empty(childrenRef),
-				Phantoms.empty(Identifier.unique("phantoms")),
-				new Optionals(Identifier.unique("optionals"), optionalString, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()),
-				new ImplicitRefs(Identifier.unique("implicitRefs"), implicitRefsRef, entityRef, implicitRefsRef, entityRef));
+		return new TestEntity(entityID, entityID.toString(), OK, children, Listing.empty(childrenRef), SideTable.empty(childrenRef),
+			Phantoms.empty(Identifier.unique("phantoms")),
+			new Optionals(Identifier.unique("optionals"), optionalString, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()),
+			new ImplicitRefs(Identifier.unique("implicitRefs"), implicitRefsRef, entityRef, implicitRefsRef, entityRef));
+	}
+
+	private TestEntity makeEntityWithOptionalString(Optional<String> optionalString) throws InvalidTypeException {
+		return makeEntityWith(optionalString, Catalog.empty());
 	}
 
 	private void assertJacksonWorks(Map<String,?> plainObject, Object boskObject, TypeReference<?> boskObjectTypeRef, Path path) {
-		JavaType boskObjectType = TypeFactory.defaultInstance().constructType(boskObjectTypeRef);
 		Map<String, Object> actualPlainObject = plainObjectFor(boskObject);
 		assertEquals(plainObject, actualPlainObject, "Serialized object should match expected");
 
-		Object deserializedBoskObject = boskObjectFor(plainObject, boskObjectType, path);
+		Object deserializedBoskObject = boskObjectFor(plainObject, boskObjectTypeRef, path);
 		assertEquals(boskObject, deserializedBoskObject, "Deserialized object should match expected");
 
 		Map<String, Object> roundTripPlainObject = plainObjectFor(deserializedBoskObject);
@@ -525,9 +581,9 @@ class JacksonPluginTest extends AbstractBoskTest {
 		}
 	}
 
-	private Object boskObjectFor(Map<String, ?> plainObject, JavaType boskObjectType, Path path) {
+	private Object boskObjectFor(Map<String, ?> plainObject, TypeReference<?> boskObjectTypeRef, Path path) {
 		try {
-			JavaType boskJavaType = TypeFactory.defaultInstance().constructType(boskObjectType);
+			JavaType boskJavaType = TypeFactory.defaultInstance().constructType(boskObjectTypeRef);
 			JavaType mapJavaType = TypeFactory.defaultInstance().constructParametricType(Map.class, String.class, Object.class);
 			String json = plainMapper.writerFor(mapJavaType).writeValueAsString(plainObject);
 			try (DeserializationScope scope = jacksonPlugin.newDeserializationScope(path)) {

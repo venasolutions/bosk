@@ -23,7 +23,6 @@ import io.vena.bosk.bytecode.LocalVariable;
 import io.vena.bosk.exceptions.InvalidTypeException;
 import io.vena.bosk.exceptions.NotYetImplementedException;
 import io.vena.bosk.jackson.JacksonPlugin.FieldModerator;
-import io.vena.bosk.jackson.JacksonPlugin.SerDes;
 import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
@@ -53,7 +52,7 @@ final class JacksonCompiler {
 	private final JacksonPlugin jacksonPlugin;
 
 	/**
-	 * A stack of types for which we are in the midst of compiling a {@link SerDes}.
+	 * A stack of types for which we are in the midst of compiling a {@link CompiledSerDes}.
 	 *
 	 * <p>
 	 * Compiling for a particular node type recursively triggers compilations for the
@@ -65,9 +64,9 @@ final class JacksonCompiler {
 	/**
 	 * The main entry point to the compiler.
 	 *
-	 * @return a newly compiled {@link SerDes} for values of the given <code>nodeType</code>.
+	 * @return a newly compiled {@link CompiledSerDes} for values of the given <code>nodeType</code>.
 	 */
-	public <T> SerDes<T> compiled(JavaType nodeType, Bosk<?> bosk, FieldModerator moderator) {
+	public <T> CompiledSerDes<T> compiled(JavaType nodeType, Bosk<?> bosk, FieldModerator moderator) {
 		try {
 			// Record that we're compiling this one to avoid infinite recursion
 			compilationsInProgress.get().addLast(nodeType);
@@ -98,7 +97,16 @@ final class JacksonCompiler {
 	}
 
 	/**
-	 * The interface to the compiled code for a given type.
+	 * The output of {@link JacksonCompiler#compiled}.
+	 * Packages a {@link JsonSerializer} and a {@link JsonDeserializer}.
+	 */
+	interface CompiledSerDes<T> {
+		JsonSerializer<T> serializer(SerializationConfig config);
+		JsonDeserializer<T> deserializer(DeserializationConfig config);
+	}
+
+	/**
+	 * The interface to the actual compiled code for a given type.
 	 */
 	interface Codec {
 		/**
@@ -370,14 +378,14 @@ final class JacksonCompiler {
 	}
 
 	/**
-	 * Implements the {@link SerDes} interface using a {@link Codec} object.
+	 * Implements the {@link CompiledSerDes} interface using a {@link Codec} object.
 	 * Putting boilerplate code in this wrapper is much easier than generating it
 	 * in the compiler, and allows us to keep the {@link Codec} interface focused
 	 * on just the highly-customized code that we do want to generate.
 	 */
 	@Value
 	@EqualsAndHashCode(callSuper = false)
-	private class CodecWrapper<T> implements SerDes<T> {
+	private class CodecWrapper<T> implements CompiledSerDes<T> {
 		Codec codec;
 		Bosk<?> bosk;
 		JavaType nodeJavaType;

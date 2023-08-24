@@ -55,7 +55,10 @@ public abstract class SerializationPlugin {
 
 	public final DeserializationScope newDeserializationScope(Path newPath) {
 		DeserializationScope outerScope = currentScope.get();
-		DeserializationScope newScope = new NestedDeserializationScope(outerScope, newPath, outerScope.bindingEnvironment());
+		DeserializationScope newScope = new NestedDeserializationScope(
+			outerScope,
+			newPath,
+			outerScope.bindingEnvironment());
 		currentScope.set(newScope);
 		return newScope;
 	}
@@ -66,14 +69,20 @@ public abstract class SerializationPlugin {
 
 	public final DeserializationScope overlayScope(BindingEnvironment env) {
 		DeserializationScope outerScope = currentScope.get();
-		DeserializationScope newScope = new NestedDeserializationScope(outerScope, outerScope.path(), outerScope.bindingEnvironment().overlay(env));
+		DeserializationScope newScope = new NestedDeserializationScope(
+			outerScope,
+			outerScope.path(),
+			outerScope.bindingEnvironment().overlay(env));
 		currentScope.set(newScope);
 		return newScope;
 	}
 
-	public final DeserializationScope innerDeserializationScope(String lastSegment) {
+	public final DeserializationScope entryDeserializationScope(Identifier entryID) {
 		DeserializationScope outerScope = currentScope.get();
-		DeserializationScope newScope = new NestedDeserializationScope(outerScope, outerScope.path().then(lastSegment), outerScope.bindingEnvironment());
+		DeserializationScope newScope = new NestedDeserializationScope(
+			outerScope,
+			outerScope.path().then(entryID.toString()),
+			outerScope.bindingEnvironment());
 		currentScope.set(newScope);
 		return newScope;
 	}
@@ -81,7 +90,13 @@ public abstract class SerializationPlugin {
 	public final DeserializationScope nodeFieldDeserializationScope(Class<?> nodeClass, String fieldName) {
 		DeserializationPath annotation = infoFor(nodeClass).annotatedParameters_DeserializationPath.get(fieldName);
 		if (annotation == null) {
-			return innerDeserializationScope(fieldName);
+			DeserializationScope outerScope = currentScope.get();
+			DeserializationScope newScope = new NestedDeserializationScope(
+				outerScope,
+				outerScope.path().then(fieldName),
+				outerScope.bindingEnvironment());
+			currentScope.set(newScope);
+			return newScope;
 		} else {
 			DeserializationScope outerScope = currentScope.get();
 			try {
@@ -89,7 +104,10 @@ public abstract class SerializationPlugin {
 					.parseParameterized(annotation.value())
 					.boundBy(outerScope.bindingEnvironment());
 				if (path.numParameters() == 0) {
-					DeserializationScope newScope = new NestedDeserializationScope(outerScope, path, outerScope.bindingEnvironment());
+					DeserializationScope newScope = new NestedDeserializationScope(
+						outerScope,
+						path,
+						outerScope.bindingEnvironment());
 					currentScope.set(newScope);
 					return newScope;
 				} else {
@@ -174,7 +192,23 @@ public abstract class SerializationPlugin {
 				} else if (Phantom.class.equals(type)) {
 					parameterValues.add(Phantom.empty());
 				} else {
-					throw new DeserializationException("Missing field: " + name);
+					Path path = currentScope.get().path();
+					if ("id".equals(name) && !path.isEmpty()) {
+						// If the object is an entry in a Catalog or a key in a SideTable, we can determine its ID
+						Reference<Object> enclosingRef;
+						try {
+							enclosingRef = bosk.rootReference().then(Object.class, path.truncatedBy(1));
+						} catch (InvalidTypeException e) {
+							throw new AssertionError("Non-empty path must have an enclosing reference: " + path, e);
+						}
+						if (AddressableByIdentifier.class.isAssignableFrom(enclosingRef.targetClass())) {
+							parameterValues.add(Identifier.from(path.lastSegment()));
+						} else {
+							throw new DeserializationException("Missing id field for object at " + path);
+						}
+					} else {
+						throw new DeserializationException("Missing field \"" + name + "\" at " + path);
+					}
 				}
 			} else if (implicitReference == null) {
 				parameterValues.add(value);
@@ -182,7 +216,7 @@ public abstract class SerializationPlugin {
 				throw new DeserializationException("Unexpected field \"" + name + "\" for implicit reference");
 			}
 		}
-		if (parameterValuesByName.size() >= 1) {
+		if (!parameterValuesByName.isEmpty()) {
 			throw new DeserializationException("Unrecognized fields: " + parameterValuesByName.keySet());
 		}
 		return parameterValues;
