@@ -75,7 +75,8 @@ class BsonSurgeon {
 	 * @param rootRef {@link Bosk#rootReference()}
 	 * @param docRef the bosk node corresponding to <code>document</code>
 	 * @param document will be modified!
-	 * @return list of {@link BsonDocument}s which, when passed to {@link #gather}, combine to form the original <code>document</code>
+	 * @return list of {@link BsonDocument}s which, when passed to {@link #gather}, combine to form the original <code>document</code>.
+	 * The main document, document corresponding to <code>docRef</code>, will be at the end of the list.
 	 * @see #gather
 	 */
 	public List<BsonDocument> scatter(Reference<?> rootRef, Reference<?> docRef, BsonDocument document) {
@@ -95,7 +96,7 @@ class BsonSurgeon {
 	 * @return list of field names suitable for {@link #lookup} to find the document corresponding
 	 * to <code>docRef</code> inside a document corresponding to <code>rootRef</code>
 	 */
-	private static List<String> docSegments(Reference<?> rootRef, Reference<?> docRef) {
+	static List<String> docSegments(Reference<?> rootRef, Reference<?> docRef) {
 		ArrayList<String> allSegments = dottedFieldNameSegments(docRef, rootRef);
 		return allSegments
 			.subList(1, allSegments.size()); // Skip the "state" field

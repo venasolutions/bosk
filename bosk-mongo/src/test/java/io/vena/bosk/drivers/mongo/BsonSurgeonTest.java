@@ -39,8 +39,11 @@ public class BsonSurgeonTest extends AbstractDriverTest {
 	public interface Refs {
 		@ReferencePath("/catalog") CatalogReference<TestEntity> catalog();
 		@ReferencePath("/catalog/-entity-") Reference<TestEntity> entity(Identifier entity);
-		@ReferencePath("/sideTable") SideTableReference<TestEntity, TestEntity> sideTable();
 		@ReferencePath("/catalog/-entity-/catalog") CatalogReference<TestEntity> nestedCatalog();
+		@ReferencePath("/catalog/-parent-/catalog/-child-") Reference<TestEntity> child(Identifier parent, Identifier child);
+		@ReferencePath("/catalog/-entity-/catalog/-child-/catalog") CatalogReference<TestEntity> doubleNestedCatalog();
+		@ReferencePath("/catalog/-parent-/catalog/-child-/catalog/-grandchild-") Reference<TestEntity> grandchild(Identifier parent, Identifier child, Identifier grandchild);
+		@ReferencePath("/sideTable") SideTableReference<TestEntity, TestEntity> sideTable();
 	}
 
 	@BeforeEach
@@ -62,7 +65,9 @@ public class BsonSurgeonTest extends AbstractDriverTest {
 		makeCatalog(catalogRef);
 		makeCatalog(nestedCatalogRef.boundTo(Identifier.from("entity1")));
 		makeCatalog(nestedCatalogRef.boundTo(Identifier.from("weird|i.d. +")));
-		driver.submitReplacement(sideTableRef.then(Identifier.from("child1")), TestEntity.empty(Identifier.from("sideTableValue"), catalogRef));
+		makeCatalog(refs.doubleNestedCatalog().boundTo(Identifier.from("entity1"), Identifier.from("child1")));
+		driver.submitReplacement(sideTableRef.then(Identifier.from("child1")),
+			TestEntity.empty(Identifier.from("sideTableValue"), catalogRef));
 		surgeon = new BsonSurgeon(separateCollections);
 	}
 
@@ -74,6 +79,21 @@ public class BsonSurgeonTest extends AbstractDriverTest {
 	@Test
 	void catalogEntry_roundTripWorks() {
 		doTest(refs.entity(Identifier.from("entity1")));
+	}
+
+	@Test
+	void childEntry_roundTripWorks() {
+		doTest(refs.child(
+			Identifier.from("entity1"),
+			Identifier.from("child1")));
+	}
+
+	@Test
+	void grandchildEntry_roundTripWorks() {
+		doTest(refs.grandchild(
+			Identifier.from("entity1"),
+			Identifier.from("child1"),
+			Identifier.from("child1")));
 	}
 
 	@Test
@@ -160,6 +180,10 @@ public class BsonSurgeonTest extends AbstractDriverTest {
 		}
 
 		List<BsonDocument> parts = surgeon.scatter(bosk.rootReference(), mainRef, entireDoc.clone());
+
+		BsonString mainPath = new BsonString("|" + String.join("|", BsonSurgeon.docSegments(bosk.rootReference(), mainRef)));
+		assertEquals(mainPath, parts.get(parts.size()-1).getString("_id"),
+			"Last part must correspond to the main doc");
 
 		JsonWriterSettings jsonWriterSettings = JsonWriterSettings.builder().indent(true).build();
 		System.out.println("== Parts ==");
