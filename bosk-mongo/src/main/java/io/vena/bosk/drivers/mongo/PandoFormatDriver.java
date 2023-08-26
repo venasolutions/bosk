@@ -8,6 +8,7 @@ import com.mongodb.client.ClientSession;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoCursor;
+import com.mongodb.client.model.Filters;
 import com.mongodb.client.model.UpdateOptions;
 import com.mongodb.client.model.changestream.ChangeStreamDocument;
 import com.mongodb.client.model.changestream.OperationType;
@@ -30,6 +31,7 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Pattern;
 import org.bson.BsonDocument;
 import org.bson.BsonInt64;
 import org.bson.BsonNull;
@@ -43,6 +45,7 @@ import static com.mongodb.ReadConcern.LOCAL;
 import static com.mongodb.client.model.Projections.fields;
 import static com.mongodb.client.model.Projections.include;
 import static com.mongodb.client.model.changestream.OperationType.INSERT;
+import static io.vena.bosk.drivers.mongo.BsonSurgeon.containerSegments;
 import static io.vena.bosk.drivers.mongo.Formatter.REVISION_ZERO;
 import static io.vena.bosk.drivers.mongo.Formatter.dottedFieldNameOf;
 import static io.vena.bosk.drivers.mongo.Formatter.enclosingReference;
@@ -96,7 +99,8 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 		BsonValue value = formatter.object2bsonValue(newValue, target.targetType());
 		try (Transaction txn = new Transaction()) {
 			if (value instanceof BsonDocument) {
-				// TODO: write out part documents
+				deleteParts(target);
+				upsertParts(target, value.asDocument());
 			}
 			doUpdate(replacementDoc(target, value), standardPreconditions(target));
 			txn.commit();
@@ -110,23 +114,28 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 		BsonValue value = formatter.object2bsonValue(newValue, target.targetType());
 		try (Transaction txn = new Transaction()) {
 			if (value instanceof BsonDocument) {
-				// TODO: write out part documents
+				deleteParts(target);
+				upsertParts(target, value.asDocument());
 			}
 			if (doUpdate(replacementDoc(target, value), filter)) {
 				LOGGER.debug("| Object initialized");
+				txn.commit();
 			} else {
 				LOGGER.debug("| No update");
+				txn.abort(); // Undo any changes to the part documents
 			}
-			txn.commit();
 		}
 	}
 
 	@Override
 	public <T> void submitDeletion(Reference<T> target) {
 		try (Transaction txn = new Transaction()) {
-			doUpdate(deletionDoc(target), standardPreconditions(target));
-			// TODO: Delete part documents
-			txn.commit();
+			deleteParts(target);
+			if (doUpdate(deletionDoc(target), standardPreconditions(target))) {
+				txn.commit();
+			} else {
+				txn.abort();
+			}
 		}
 	}
 
@@ -135,23 +144,31 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 		BsonValue value = formatter.object2bsonValue(newValue, target.targetType());
 		try (Transaction txn = new Transaction()) {
 			if (value instanceof BsonDocument) {
-				// TODO: write out part documents
+				deleteParts(target);
+				upsertParts(target, value.asDocument());
 			}
-			doUpdate(
+			if (doUpdate(
 				replacementDoc(target, value),
-				explicitPreconditions(target, precondition, requiredValue));
-			txn.commit();
+				explicitPreconditions(target, precondition, requiredValue))
+			) {
+				txn.commit();
+			} else {
+				txn.abort();
+			}
 		}
 	}
 
 	@Override
 	public <T> void submitConditionalDeletion(Reference<T> target, Reference<Identifier> precondition, Identifier requiredValue) {
 		try (Transaction txn = new Transaction()) {
-			doUpdate(
+			if (doUpdate(
 				deletionDoc(target),
-				explicitPreconditions(target, precondition, requiredValue));
-			// TODO: Delete part documents
-			txn.commit();
+				explicitPreconditions(target, precondition, requiredValue))
+			) {
+				txn.commit();
+			} else {
+				txn.abort();
+			}
 		}
 	}
 
@@ -200,13 +217,13 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 		UpdateOptions options = new UpdateOptions().upsert(true);
 
 		try (Transaction txn = new Transaction()) {
-			if (initialState instanceof BsonDocument) {
-				// TODO: write out part documents
-			}
 			LOGGER.debug("** Initial tenant upsert for {}", ROOT_DOCUMENT_ID);
 			LOGGER.trace("| Filter: {}", filter);
 			LOGGER.trace("| Update: {}", update);
 			LOGGER.trace("| Options: {}", options);
+			if (initialState instanceof BsonDocument) {
+				upsertParts(rootRef, initialState.asDocument());
+			}
 			UpdateResult result = collection.updateOne(filter, update, options);
 			LOGGER.debug("| Result: {}", result);
 			if (settings.experimental().manifestMode() == ManifestMode.ENABLED) {
@@ -275,6 +292,7 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 				}
 			} break;
 			case DELETE: {
+				// TODO: Handle deletion of part documents
 				LOGGER.debug("Document containing revision field has been deleted; assuming revision=0");
 				flushLock.finishedRevision(REVISION_ZERO);
 			} break;
@@ -507,6 +525,29 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 		}
 	}
 
+	private <T> void deleteParts(Reference<T> target) {
+		String prefix = "|" + String.join("|", containerSegments(rootRef, target));
+		collection.deleteMany(Filters.regex("_id", "^" + Pattern.quote(prefix)));
+	}
+
+	/**
+	 * @param value is mutated to stub-out the parts written to the database
+	 */
+	private <T> void upsertParts(Reference<T> target, BsonDocument value) {
+		List<BsonDocument> allParts = bsonSurgeon.scatter(rootRef, target, value);
+		// NOTE: `value` has now been mutated so the parts have been stubbed out
+
+		BsonDocument mainPart = allParts.get(allParts.size()-1);
+		List<BsonDocument> subParts = allParts.subList(0, allParts.size() - 1);
+
+		UpdateOptions options = new UpdateOptions().upsert(true);
+		for (BsonDocument part: subParts) {
+			BsonDocument update = new BsonDocument("$set", part);
+			BsonDocument filter = new BsonDocument("_id", part.get("_id"));
+			collection.updateOne(filter, update, options);
+		}
+	}
+
 	private class Transaction implements AutoCloseable {
 		private final ClientSession session;
 
@@ -523,6 +564,14 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 
 		public void commit() {
 			session.commitTransaction();
+		}
+
+		/**
+		 * Not strictly necessary, because this is the default if the transaction
+		 * is not committed; however, it makes the calling code more self-documenting.
+		 */
+		public void abort() {
+			session.abortTransaction();
 		}
 
 		@Override

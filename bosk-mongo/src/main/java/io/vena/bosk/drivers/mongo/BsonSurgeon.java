@@ -115,7 +115,7 @@ class BsonSurgeon {
 	 * @return list of field names suitable for {@link #lookup} to find the document corresponding
 	 * to the container of <code>entryRef</code> inside a document corresponding to <code>rootRef</code>
 	 */
-	private static List<String> containerSegments(Reference<?> rootRef, Reference<?> entryRef) {
+	public static List<String> containerSegments(Reference<?> rootRef, Reference<?> entryRef) {
 		List<String> segmentsFromRoot = docSegments(rootRef, entryRef);
 		return segmentsFromRoot.subList(0, segmentsFromRoot.size() - 1); // Remove entry placeholder segment
 	}
