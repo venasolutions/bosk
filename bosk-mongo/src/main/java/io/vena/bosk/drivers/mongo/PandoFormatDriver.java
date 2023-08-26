@@ -10,6 +10,7 @@ import com.mongodb.client.result.UpdateResult;
 import com.mongodb.lang.Nullable;
 import io.vena.bosk.Bosk;
 import io.vena.bosk.BoskDriver;
+import io.vena.bosk.EnumerableByIdentifier;
 import io.vena.bosk.Identifier;
 import io.vena.bosk.Reference;
 import io.vena.bosk.StateTreeNode;
@@ -56,6 +57,7 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 	private final Reference<R> rootRef;
 	private final BoskDriver<R> downstream;
 	private final FlushLock flushLock;
+	private final BsonSurgeon bsonSurgeon;
 
 	private volatile BsonInt64 revisionToSkip = null;
 
@@ -67,7 +69,8 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 		MongoDriverSettings driverSettings,
 		BsonPlugin bsonPlugin,
 		FlushLock flushLock,
-		BoskDriver<R> downstream
+		BoskDriver<R> downstream,
+		List<Reference<? extends EnumerableByIdentifier<?>>> separateCollections
 	) {
 		this.description = PandoFormatDriver.class.getSimpleName() + ": " + driverSettings;
 		this.settings = driverSettings;
@@ -76,18 +79,27 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 		this.rootRef = bosk.rootReference();
 		this.downstream = downstream;
 		this.flushLock = flushLock;
+		this.bsonSurgeon = new BsonSurgeon(separateCollections);
 	}
 
 	@Override
 	public <T> void submitReplacement(Reference<T> target, T newValue) {
-		doUpdate(replacementDoc(target, formatter.object2bsonValue(newValue, target.targetType())), standardPreconditions(target));
+		BsonValue value = formatter.object2bsonValue(newValue, target.targetType());
+		if (value instanceof BsonDocument) {
+			// TODO: write out part documents
+		}
+		doUpdate(replacementDoc(target, value), standardPreconditions(target));
 	}
 
 	@Override
 	public <T> void submitInitialization(Reference<T> target, T newValue) {
 		BsonDocument filter = standardPreconditions(target);
 		filter.put(dottedFieldNameOf(target, rootRef), new BsonDocument("$exists", FALSE));
-		if (doUpdate(replacementDoc(target, formatter.object2bsonValue(newValue, target.targetType())), filter)) {
+		BsonValue value = formatter.object2bsonValue(newValue, target.targetType());
+		if (value instanceof BsonDocument) {
+			// TODO: write out part documents
+		}
+		if (doUpdate(replacementDoc(target, value), filter)) {
 			LOGGER.debug("| Object initialized");
 		} else {
 			LOGGER.debug("| No update");
@@ -97,12 +109,17 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 	@Override
 	public <T> void submitDeletion(Reference<T> target) {
 		doUpdate(deletionDoc(target), standardPreconditions(target));
+		// TODO: Delete part documents
 	}
 
 	@Override
 	public <T> void submitConditionalReplacement(Reference<T> target, T newValue, Reference<Identifier> precondition, Identifier requiredValue) {
+		BsonValue value = formatter.object2bsonValue(newValue, target.targetType());
+		if (value instanceof BsonDocument) {
+			// TODO: write out part documents
+		}
 		doUpdate(
-			replacementDoc(target, formatter.object2bsonValue(newValue, target.targetType())),
+			replacementDoc(target, value),
 			explicitPreconditions(target, precondition, requiredValue));
 	}
 
@@ -111,6 +128,7 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 		doUpdate(
 			deletionDoc(target),
 			explicitPreconditions(target, precondition, requiredValue));
+		// TODO: Delete part documents
 	}
 
 	@Override
@@ -131,8 +149,9 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 		try (MongoCursor<Document> cursor = collection
 			.withReadConcern(LOCAL) // The revision field needs to be the latest
 			.find(documentFilter())
-			.limit(1)
-			.cursor()) {
+			.limit(1) // TODO: load all docs and use bsonSurgeon to combine them
+			.cursor()
+		) {
 			Document document = cursor.next();
 			Document state = document.get(DocumentFields.state.name(), Document.class);
 			Long revision = document.get(DocumentFields.revision.name(), 0L);
@@ -152,6 +171,9 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 	@Override
 	public void initializeCollection(StateAndMetadata<R> priorContents) {
 		BsonValue initialState = formatter.object2bsonValue(priorContents.state, rootRef.targetType());
+		if (initialState instanceof BsonDocument) {
+			// TODO: write out part documents
+		}
 		BsonInt64 newRevision = new BsonInt64(1 + priorContents.revision.longValue());
 		BsonDocument update = new BsonDocument("$set", initialDocument(initialState, newRevision));
 		BsonDocument filter = documentFilter();
@@ -208,11 +230,13 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 					throw new UnprocessableEventException("Missing state field", event.getOperationType());
 				}
 				R newRoot = formatter.document2object(state, rootRef);
+				// TODO: Queue up part documents, and submit downstream only once the main event arrives
 				LOGGER.debug("| Replace {}", rootRef);
 				downstream.submitReplacement(rootRef, newRoot);
 				flushLock.finishedRevision(revision);
 			} break;
 			case UPDATE: {
+				// TODO: Include any queued up part documents
 				UpdateDescription updateDescription = event.getUpdateDescription();
 				if (updateDescription != null) {
 					BsonInt64 revision = getRevisionFromUpdateEvent(event);
