@@ -129,14 +129,17 @@ final class Formatter {
 		};
 	}
 
-	@SuppressWarnings("unchecked")
 	<T> T document2object(Document document, Reference<T> target) {
-		BsonDocument doc = document.toBsonDocument(BsonDocument.class, simpleCodecs);
+		return document2object(document.toBsonDocument(BsonDocument.class, codecRegistry()), target);
+	}
+
+	@SuppressWarnings("unchecked")
+	<T> T document2object(BsonDocument document, Reference<T> target) {
 		Type type = target.targetType();
 		Class<T> objectClass = (Class<T>) rawClass(type);
 		Codec<T> objectCodec = (Codec<T>) codecFor(type);
 		try (@SuppressWarnings("unused") BsonPlugin.DeserializationScope scope = deserializationScopeFunction.apply(target)) {
-			return objectClass.cast(objectCodec.decode(doc.asBsonReader(), DecoderContext.builder().build()));
+			return objectClass.cast(objectCodec.decode(document.asBsonReader(), DecoderContext.builder().build()));
 		}
 	}
 
