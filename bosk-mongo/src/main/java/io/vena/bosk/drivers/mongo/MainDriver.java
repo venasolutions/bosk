@@ -216,6 +216,7 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 		try (ClientSession session = mongoClient.startSession(sessionOptions)) {
 			try {
 				newDriver.initializeCollection(new StateAndMetadata<>(result, REVISION_ZERO));
+				session.commitTransaction();
 			} finally {
 				if (session.hasActiveTransaction()) {
 					session.abortTransaction();
