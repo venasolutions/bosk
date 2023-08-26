@@ -26,6 +26,7 @@ import io.vena.bosk.drivers.mongo.MongoDriverSettings.ManifestMode;
 import io.vena.bosk.exceptions.FlushFailureException;
 import io.vena.bosk.exceptions.InvalidTypeException;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -53,6 +54,7 @@ import static io.vena.bosk.drivers.mongo.Formatter.referenceTo;
 import static io.vena.bosk.drivers.mongo.MainDriver.MANIFEST_ID;
 import static java.util.Collections.newSetFromMap;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
 import static org.bson.BsonBoolean.FALSE;
 
 /**
@@ -187,23 +189,35 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 
 	@Override
 	public StateAndMetadata<R> loadAllState() throws IOException, UninitializedCollectionException {
+		List<Document> allParts = new ArrayList<>();
 		try (MongoCursor<Document> cursor = collection
 			.withReadConcern(LOCAL) // The revision field needs to be the latest
-			.find(rootDocumentFilter()).limit(1) // TODO: load all docs and use bsonSurgeon to combine them
+			.find()
 			.cursor()
 		) {
-			Document document = cursor.next();
-			Document state = document.get(DocumentFields.state.name(), Document.class);
-			Long revision = document.get(DocumentFields.revision.name(), 0L);
-			if (state == null) {
-				throw new IOException("No existing state in document");
-			} else {
-				R root = formatter.document2object(state, rootRef);
-				BsonInt64 rev = new BsonInt64(revision);
-				return new StateAndMetadata<>(root, rev);
+			while (cursor.hasNext()) {
+				allParts.add(cursor.next());
 			}
 		} catch (NoSuchElementException e) {
 			throw new UninitializedCollectionException("No existing document", e);
+		}
+		Document mainPart = allParts.get(allParts.size()-1);
+		Long revision = mainPart.get(DocumentFields.revision.name(), 0L);
+		List<BsonDocument> partsList = allParts
+			.stream()
+			.map(d -> d.toBsonDocument(BsonDocument.class, formatter.codecRegistry()))
+			.collect(toList());
+
+		bsonSurgeon.gather(partsList);
+
+		// Note: at this point, mainPart has also been mutated by bsonSurgeon, so we can get the state from that!
+		Document state = mainPart.get(DocumentFields.state, Document.class);
+		if (state == null) {
+			throw new IOException("No existing state in document");
+		} else {
+			R root = formatter.document2object(state, rootRef);
+			BsonInt64 rev = new BsonInt64(revision);
+			return new StateAndMetadata<>(root, rev);
 		}
 
 	}
