@@ -1,5 +1,11 @@
 package io.vena.bosk.drivers.mongo;
 
+import com.mongodb.ClientSessionOptions;
+import com.mongodb.ReadConcern;
+import com.mongodb.TransactionOptions;
+import com.mongodb.WriteConcern;
+import com.mongodb.client.ClientSession;
+import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoCursor;
 import com.mongodb.client.model.UpdateOptions;
@@ -53,6 +59,7 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 	private final String description;
 	private final MongoDriverSettings settings;
 	private final Formatter formatter;
+	private final MongoClient mongoClient;
 	private final MongoCollection<Document> collection;
 	private final Reference<R> rootRef;
 	private final BoskDriver<R> downstream;
@@ -68,12 +75,14 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 		MongoCollection<Document> collection,
 		MongoDriverSettings driverSettings,
 		BsonPlugin bsonPlugin,
+		MongoClient mongoClient,
 		FlushLock flushLock,
 		BoskDriver<R> downstream,
 		List<Reference<? extends EnumerableByIdentifier<?>>> separateCollections
 	) {
 		this.description = PandoFormatDriver.class.getSimpleName() + ": " + driverSettings;
 		this.settings = driverSettings;
+		this.mongoClient = mongoClient;
 		this.formatter = new Formatter(bosk, bsonPlugin);
 		this.collection = collection;
 		this.rootRef = bosk.rootReference();
@@ -85,10 +94,13 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 	@Override
 	public <T> void submitReplacement(Reference<T> target, T newValue) {
 		BsonValue value = formatter.object2bsonValue(newValue, target.targetType());
-		if (value instanceof BsonDocument) {
-			// TODO: write out part documents
+		try (Transaction txn = new Transaction()) {
+			if (value instanceof BsonDocument) {
+				// TODO: write out part documents
+			}
+			doUpdate(replacementDoc(target, value), standardPreconditions(target));
+			txn.commit();
 		}
-		doUpdate(replacementDoc(target, value), standardPreconditions(target));
 	}
 
 	@Override
@@ -96,39 +108,51 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 		BsonDocument filter = standardPreconditions(target);
 		filter.put(dottedFieldNameOf(target, rootRef), new BsonDocument("$exists", FALSE));
 		BsonValue value = formatter.object2bsonValue(newValue, target.targetType());
-		if (value instanceof BsonDocument) {
-			// TODO: write out part documents
-		}
-		if (doUpdate(replacementDoc(target, value), filter)) {
-			LOGGER.debug("| Object initialized");
-		} else {
-			LOGGER.debug("| No update");
+		try (Transaction txn = new Transaction()) {
+			if (value instanceof BsonDocument) {
+				// TODO: write out part documents
+			}
+			if (doUpdate(replacementDoc(target, value), filter)) {
+				LOGGER.debug("| Object initialized");
+			} else {
+				LOGGER.debug("| No update");
+			}
+			txn.commit();
 		}
 	}
 
 	@Override
 	public <T> void submitDeletion(Reference<T> target) {
-		doUpdate(deletionDoc(target), standardPreconditions(target));
-		// TODO: Delete part documents
+		try (Transaction txn = new Transaction()) {
+			doUpdate(deletionDoc(target), standardPreconditions(target));
+			// TODO: Delete part documents
+			txn.commit();
+		}
 	}
 
 	@Override
 	public <T> void submitConditionalReplacement(Reference<T> target, T newValue, Reference<Identifier> precondition, Identifier requiredValue) {
 		BsonValue value = formatter.object2bsonValue(newValue, target.targetType());
-		if (value instanceof BsonDocument) {
-			// TODO: write out part documents
+		try (Transaction txn = new Transaction()) {
+			if (value instanceof BsonDocument) {
+				// TODO: write out part documents
+			}
+			doUpdate(
+				replacementDoc(target, value),
+				explicitPreconditions(target, precondition, requiredValue));
+			txn.commit();
 		}
-		doUpdate(
-			replacementDoc(target, value),
-			explicitPreconditions(target, precondition, requiredValue));
 	}
 
 	@Override
 	public <T> void submitConditionalDeletion(Reference<T> target, Reference<Identifier> precondition, Identifier requiredValue) {
-		doUpdate(
-			deletionDoc(target),
-			explicitPreconditions(target, precondition, requiredValue));
-		// TODO: Delete part documents
+		try (Transaction txn = new Transaction()) {
+			doUpdate(
+				deletionDoc(target),
+				explicitPreconditions(target, precondition, requiredValue));
+			// TODO: Delete part documents
+			txn.commit();
+		}
 	}
 
 	@Override
@@ -170,21 +194,25 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 	@Override
 	public void initializeCollection(StateAndMetadata<R> priorContents) {
 		BsonValue initialState = formatter.object2bsonValue(priorContents.state, rootRef.targetType());
-		if (initialState instanceof BsonDocument) {
-			// TODO: write out part documents
-		}
 		BsonInt64 newRevision = new BsonInt64(1 + priorContents.revision.longValue());
 		BsonDocument update = new BsonDocument("$set", initialDocument(initialState, newRevision));
 		BsonDocument filter = rootDocumentFilter();
 		UpdateOptions options = new UpdateOptions().upsert(true);
-		LOGGER.debug("** Initial tenant upsert for {}", ROOT_DOCUMENT_ID);
-		LOGGER.trace("| Filter: {}", filter);
-		LOGGER.trace("| Update: {}", update);
-		LOGGER.trace("| Options: {}", options);
-		UpdateResult result = collection.updateOne(filter, update, options);
-		LOGGER.debug("| Result: {}", result);
-		if (settings.experimental().manifestMode() == ManifestMode.ENABLED) {
-			writeManifest();
+
+		try (Transaction txn = new Transaction()) {
+			if (initialState instanceof BsonDocument) {
+				// TODO: write out part documents
+			}
+			LOGGER.debug("** Initial tenant upsert for {}", ROOT_DOCUMENT_ID);
+			LOGGER.trace("| Filter: {}", filter);
+			LOGGER.trace("| Update: {}", update);
+			LOGGER.trace("| Options: {}", options);
+			UpdateResult result = collection.updateOne(filter, update, options);
+			LOGGER.debug("| Result: {}", result);
+			if (settings.experimental().manifestMode() == ManifestMode.ENABLED) {
+				writeManifest();
+			}
+			txn.commit();
 		}
 	}
 
@@ -476,6 +504,30 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 					throw new UnprocessableEventException("Deletion of metadata field " + dottedName, operationType);
 				}
 			}
+		}
+	}
+
+	private class Transaction implements AutoCloseable {
+		private final ClientSession session;
+
+		Transaction() {
+			ClientSessionOptions sessionOptions = ClientSessionOptions.builder()
+				.causallyConsistent(true)
+				.defaultTransactionOptions(TransactionOptions.builder()
+					.writeConcern(WriteConcern.MAJORITY)
+					.readConcern(ReadConcern.MAJORITY)
+					.build())
+				.build();
+			session = mongoClient.startSession(sessionOptions);
+		}
+
+		public void commit() {
+			session.commitTransaction();
+		}
+
+		@Override
+		public void close() {
+			session.close();
 		}
 	}
 
