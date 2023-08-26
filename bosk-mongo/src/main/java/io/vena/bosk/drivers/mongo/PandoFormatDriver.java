@@ -208,10 +208,10 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 			.map(d -> d.toBsonDocument(BsonDocument.class, formatter.codecRegistry()))
 			.collect(toList());
 
-		bsonSurgeon.gather(partsList);
+		BsonDocument combined = bsonSurgeon.gather(partsList);
 
 		// Note: at this point, mainPart has also been mutated by bsonSurgeon, so we can get the state from that!
-		Document state = mainPart.get(DocumentFields.state, Document.class);
+		BsonDocument state = combined.getDocument(DocumentFields.state);
 		if (state == null) {
 			throw new IOException("No existing state in document");
 		} else {

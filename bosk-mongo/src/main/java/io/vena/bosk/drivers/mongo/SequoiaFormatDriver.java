@@ -132,7 +132,8 @@ final class SequoiaFormatDriver<R extends StateTreeNode> implements FormatDriver
 			.withReadConcern(LOCAL) // The revision field needs to be the latest
 			.find(documentFilter())
 			.limit(1)
-			.cursor()) {
+			.cursor()
+		) {
 			Document document = cursor.next();
 			Document state = document.get(DocumentFields.state.name(), Document.class);
 			Long revision = document.get(DocumentFields.revision.name(), 0L);
