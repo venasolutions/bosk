@@ -61,7 +61,7 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 
 	private volatile BsonInt64 revisionToSkip = null;
 
-	static final BsonString DOCUMENT_ID = new BsonString("boskDocument");
+	static final BsonString ROOT_DOCUMENT_ID = new BsonString("boskDocument");
 
 	PandoFormatDriver(
 		Bosk<R> bosk,
@@ -148,8 +148,7 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 	public StateAndMetadata<R> loadAllState() throws IOException, UninitializedCollectionException {
 		try (MongoCursor<Document> cursor = collection
 			.withReadConcern(LOCAL) // The revision field needs to be the latest
-			.find(documentFilter())
-			.limit(1) // TODO: load all docs and use bsonSurgeon to combine them
+			.find(rootDocumentFilter()).limit(1) // TODO: load all docs and use bsonSurgeon to combine them
 			.cursor()
 		) {
 			Document document = cursor.next();
@@ -176,9 +175,9 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 		}
 		BsonInt64 newRevision = new BsonInt64(1 + priorContents.revision.longValue());
 		BsonDocument update = new BsonDocument("$set", initialDocument(initialState, newRevision));
-		BsonDocument filter = documentFilter();
+		BsonDocument filter = rootDocumentFilter();
 		UpdateOptions options = new UpdateOptions().upsert(true);
-		LOGGER.debug("** Initial tenant upsert for {}", DOCUMENT_ID);
+		LOGGER.debug("** Initial tenant upsert for {}", ROOT_DOCUMENT_ID);
 		LOGGER.trace("| Filter: {}", filter);
 		LOGGER.trace("| Update: {}", update);
 		LOGGER.trace("| Options: {}", options);
@@ -353,12 +352,12 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 		}
 	}
 
-	private BsonDocument documentFilter() {
-		return new BsonDocument("_id", DOCUMENT_ID);
+	private BsonDocument rootDocumentFilter() {
+		return new BsonDocument("_id", ROOT_DOCUMENT_ID);
 	}
 
 	private <T> BsonDocument standardPreconditions(Reference<T> target) {
-		BsonDocument filter = documentFilter();
+		BsonDocument filter = rootDocumentFilter();
 		if (!target.path().isEmpty()) {
 			String enclosingObjectKey = dottedFieldNameOf(enclosingReference(target), rootRef);
 			BsonDocument condition = new BsonDocument("$type", new BsonString("object"));
@@ -393,7 +392,7 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 	}
 
 	private BsonDocument initialDocument(BsonValue initialState, BsonInt64 revision) {
-		BsonDocument fieldValues = new BsonDocument("_id", DOCUMENT_ID);
+		BsonDocument fieldValues = new BsonDocument("_id", ROOT_DOCUMENT_ID);
 
 		fieldValues.put(DocumentFields.path.name(), new BsonString("/"));
 		fieldValues.put(DocumentFields.state.name(), initialState);
@@ -493,6 +492,6 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 	}
 
 	private static final Set<String> ALREADY_WARNED = newSetFromMap(new ConcurrentHashMap<>());
-	private static final BsonDocument DOCUMENT_FILTER = new BsonDocument("_id", DOCUMENT_ID);
+	private static final BsonDocument DOCUMENT_FILTER = new BsonDocument("_id", ROOT_DOCUMENT_ID);
 	private static final Logger LOGGER = LoggerFactory.getLogger(PandoFormatDriver.class);
 }

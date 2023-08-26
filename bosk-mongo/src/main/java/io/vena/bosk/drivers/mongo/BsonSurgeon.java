@@ -28,6 +28,15 @@ import static java.util.Comparator.comparing;
  * Splits up a single large BSON document into multiple self-describing pieces,
  * and re-assembles them. Provides the core mechanism to carve large BSON structures
  * into pieces so they can stay under the MongoDB document size limit.
+ * <p>
+ *
+ * Jargon:
+ * <dl>
+ *     <dt>Root document</dt>
+ *     <dd>BSON document corresponding to the bosk root reference</dd>
+ *     <dt>Main document</dt>
+ *     <dd>BSON document corresponding to the part of the state tree being described</dd>
+ * </dl>
  */
 class BsonSurgeon {
 	final List<GraftPoint> graftPoints;
