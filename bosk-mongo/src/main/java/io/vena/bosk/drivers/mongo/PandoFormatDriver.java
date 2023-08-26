@@ -278,6 +278,7 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 		}
 		switch (event.getOperationType()) {
 			case INSERT: case REPLACE: {
+				// TODO: Handle insert/replace of part documents
 				Document fullDocument = event.getFullDocument();
 				if (fullDocument == null) {
 					throw new UnprocessableEventException("Missing fullDocument", event.getOperationType());
@@ -294,6 +295,7 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 				flushLock.finishedRevision(revision);
 			} break;
 			case UPDATE: {
+				// TODO: Handle update of part documents
 				// TODO: Include any queued up part documents
 				UpdateDescription updateDescription = event.getUpdateDescription();
 				if (updateDescription != null) {
