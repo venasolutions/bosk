@@ -80,14 +80,14 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 
 	@Override
 	public <T> void submitReplacement(Reference<T> target, T newValue) {
-		doUpdate(replacementDoc(target, newValue), standardPreconditions(target));
+		doUpdate(replacementDoc(target, formatter.object2bsonValue(newValue, target.targetType())), standardPreconditions(target));
 	}
 
 	@Override
 	public <T> void submitInitialization(Reference<T> target, T newValue) {
 		BsonDocument filter = standardPreconditions(target);
 		filter.put(dottedFieldNameOf(target, rootRef), new BsonDocument("$exists", FALSE));
-		if (doUpdate(replacementDoc(target, newValue), filter)) {
+		if (doUpdate(replacementDoc(target, formatter.object2bsonValue(newValue, target.targetType())), filter)) {
 			LOGGER.debug("| Object initialized");
 		} else {
 			LOGGER.debug("| No update");
@@ -102,7 +102,7 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 	@Override
 	public <T> void submitConditionalReplacement(Reference<T> target, T newValue, Reference<Identifier> precondition, Identifier requiredValue) {
 		doUpdate(
-			replacementDoc(target, newValue),
+			replacementDoc(target, formatter.object2bsonValue(newValue, target.targetType())),
 			explicitPreconditions(target, precondition, requiredValue));
 	}
 
@@ -351,9 +351,8 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 		return filter;
 	}
 
-	private <T> BsonDocument replacementDoc(Reference<T> target, T newValue) {
+	private <T> BsonDocument replacementDoc(Reference<T> target, BsonValue value) {
 		String key = dottedFieldNameOf(target, rootRef);
-		BsonValue value = formatter.object2bsonValue(newValue, target.targetType());
 		LOGGER.debug("| Set field {}: {}", key, value);
 		return updateDoc()
 			.append("$set", new BsonDocument(key, value));
