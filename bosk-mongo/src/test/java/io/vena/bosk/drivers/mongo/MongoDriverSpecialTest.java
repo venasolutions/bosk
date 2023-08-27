@@ -33,6 +33,7 @@ import org.bson.BsonInt64;
 import org.bson.BsonNull;
 import org.bson.BsonString;
 import org.bson.Document;
+import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -41,6 +42,7 @@ import static io.vena.bosk.ListingEntry.LISTING_ENTRY;
 import static io.vena.bosk.drivers.mongo.Formatter.DocumentFields.path;
 import static io.vena.bosk.drivers.mongo.Formatter.DocumentFields.revision;
 import static io.vena.bosk.drivers.mongo.MainDriver.COLLECTION_NAME;
+import static io.vena.bosk.drivers.mongo.MongoDriverSettings.DatabaseFormat.SEQUOIA;
 import static java.lang.Long.max;
 import static java.lang.System.currentTimeMillis;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -326,13 +328,13 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest implements TestPara
 	@UsesMongoService
 	void unrelatedDatabase_ignored() throws InvalidTypeException, IOException, InterruptedException {
 		tearDownActions.addFirst(mongoService.client().getDatabase("unrelated")::drop);
-		doUnrelatedChangeTest("unrelated", COLLECTION_NAME, "boskDocument");
+		doUnrelatedChangeTest("unrelated", COLLECTION_NAME, rootDocumentID().getValue());
 	}
 
 	@ParametersByName
 	@UsesMongoService
 	void unrelatedCollection_ignored() throws InvalidTypeException, IOException, InterruptedException {
-		doUnrelatedChangeTest(driverSettings.database(), "unrelated", "boskDocument");
+		doUnrelatedChangeTest(driverSettings.database(), "unrelated", rootDocumentID().getValue());
 	}
 
 	@ParametersByName
@@ -429,7 +431,7 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest implements TestPara
 			new BsonDocument("$inc", new BsonDocument("version", new BsonInt32(1)))
 		);
 		collection.updateOne(
-			new BsonDocument("_id", new BsonString("boskDocument")),
+			new BsonDocument("_id", rootDocumentID()),
 			new BsonDocument("$inc", new BsonDocument("revision", new BsonInt64(1)))
 		);
 
@@ -477,7 +479,7 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest implements TestPara
 		deleteFields(collection, revision);
 
 		// Verify that the fields are indeed gone
-		BsonDocument filterDoc = new BsonDocument("_id", new BsonString("boskDocument"));
+		BsonDocument filterDoc = new BsonDocument("_id", rootDocumentID());
 		try (MongoCursor<Document> cursor = collection.find(filterDoc).cursor()) {
 			Document doc = cursor.next();
 			assertNull(doc.get(path.name()));
@@ -496,12 +498,12 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest implements TestPara
 
 	}
 
-	private static void deleteFields(MongoCollection<Document> collection, DocumentFields... fields) {
+	private void deleteFields(MongoCollection<Document> collection, DocumentFields... fields) {
 		BsonDocument fieldsToUnset = new BsonDocument();
 		for (DocumentFields field: fields) {
 			fieldsToUnset.append(field.name(), new BsonNull()); // Value is ignored
 		}
-		BsonDocument filterDoc = new BsonDocument("_id", new BsonString("boskDocument"));
+		BsonDocument filterDoc = new BsonDocument("_id", rootDocumentID());
 		collection.updateOne(
 			filterDoc,
 			new BsonDocument("$unset", fieldsToUnset));
@@ -513,6 +515,13 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest implements TestPara
 				assertNull(doc.get(field.name()));
 			}
 		}
+	}
+
+	@NotNull
+	private BsonString rootDocumentID() {
+		return (SEQUOIA == driverSettings.preferredDatabaseFormat())
+			? SequoiaFormatDriver.DOCUMENT_ID
+			: PandoFormatDriver.ROOT_DOCUMENT_ID;
 	}
 
 	@Value
