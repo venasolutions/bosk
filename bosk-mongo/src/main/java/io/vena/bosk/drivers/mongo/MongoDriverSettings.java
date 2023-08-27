@@ -5,6 +5,10 @@ import lombok.Builder;
 import lombok.Builder.Default;
 import lombok.Value;
 
+import static io.vena.bosk.drivers.mongo.MongoDriverSettings.DatabaseFormat.PANDO;
+import static io.vena.bosk.drivers.mongo.MongoDriverSettings.DatabaseFormat.SEQUOIA;
+import static io.vena.bosk.drivers.mongo.MongoDriverSettings.ManifestMode.USE_IF_EXISTS;
+
 @Value
 @Builder
 public class MongoDriverSettings {
@@ -12,7 +16,7 @@ public class MongoDriverSettings {
 
 	@Default long flushTimeoutMS = 30_000;
 	@Default long recoveryPollingMS = 30_000;
-	@Default DatabaseFormat preferredDatabaseFormat = DatabaseFormat.SEQUOIA;
+	@Default DatabaseFormat preferredDatabaseFormat = SEQUOIA;
 	@Default InitialDatabaseUnavailableMode initialDatabaseUnavailableMode = InitialDatabaseUnavailableMode.DISCONNECT;
 
 	@Default Experimental experimental = Experimental.builder().build();
@@ -25,7 +29,7 @@ public class MongoDriverSettings {
 	@Builder
 	public static class Experimental {
 		@Default long changeStreamInitialWaitMS = 20;
-		@Default ManifestMode manifestMode = ManifestMode.ENABLED;
+		@Default ManifestMode manifestMode = ManifestMode.CREATE_IF_ABSENT;
 	}
 
 	/**
@@ -76,7 +80,14 @@ public class MongoDriverSettings {
 	}
 
 	public enum ManifestMode {
-		DISABLED,
-		ENABLED,
+		USE_IF_EXISTS,
+		CREATE_IF_ABSENT,
 	}
+
+	public void validate() {
+		if (preferredDatabaseFormat() == PANDO && experimental.manifestMode() == USE_IF_EXISTS) {
+			throw new IllegalArgumentException("Pando format requires a manifest. Databases with no manifest are interpreted as Sequoia.");
+		}
+	}
+
 }

@@ -22,7 +22,6 @@ import io.vena.bosk.Identifier;
 import io.vena.bosk.Reference;
 import io.vena.bosk.StateTreeNode;
 import io.vena.bosk.drivers.mongo.Formatter.DocumentFields;
-import io.vena.bosk.drivers.mongo.MongoDriverSettings.ManifestMode;
 import io.vena.bosk.exceptions.FlushFailureException;
 import io.vena.bosk.exceptions.InvalidTypeException;
 import java.io.IOException;
@@ -54,6 +53,7 @@ import static io.vena.bosk.drivers.mongo.Formatter.dottedFieldNameOf;
 import static io.vena.bosk.drivers.mongo.Formatter.enclosingReference;
 import static io.vena.bosk.drivers.mongo.Formatter.referenceTo;
 import static io.vena.bosk.drivers.mongo.MainDriver.MANIFEST_ID;
+import static io.vena.bosk.drivers.mongo.MongoDriverSettings.ManifestMode.CREATE_IF_ABSENT;
 import static java.util.Collections.newSetFromMap;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -234,7 +234,7 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 			}
 			UpdateResult result = collection.updateOne(filter, update, options);
 			LOGGER.debug("| Result: {}", result);
-			if (settings.experimental().manifestMode() == ManifestMode.ENABLED) {
+			if (settings.experimental().manifestMode() == CREATE_IF_ABSENT) {
 				writeManifest();
 			}
 			txn.commit();
@@ -257,14 +257,12 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 	 */
 	@Override
 	public void onEvent(ChangeStreamDocument<Document> event) throws UnprocessableEventException {
-		if (settings.experimental().manifestMode() == ManifestMode.ENABLED) {
-			if (event.getDocumentKey() == null) {
-				throw new UnprocessableEventException("Null document key", event.getOperationType());
-			}
-			if (MANIFEST_ID.equals(event.getDocumentKey().get("_id"))) {
-				onManifestEvent(event);
-				return;
-			}
+		if (event.getDocumentKey() == null) {
+			throw new UnprocessableEventException("Null document key", event.getOperationType());
+		}
+		if (MANIFEST_ID.equals(event.getDocumentKey().get("_id"))) {
+			onManifestEvent(event);
+			return;
 		}
 		if (!DOCUMENT_FILTER.equals(event.getDocumentKey())) {
 			LOGGER.debug("Ignoring event for unrecognized document key: {}", event.getDocumentKey());
@@ -536,8 +534,16 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 	}
 
 	private <T> void deleteParts(Reference<T> target) {
-		String prefix = "|" + String.join("|", containerSegments(rootRef, target)) + "|";
-		Bson filter = regex("_id", "^" + Pattern.quote(prefix));
+		String prefix;
+		if (target.path().isEmpty()) {
+			prefix = "|";
+		} else {
+			prefix = "|" + String.join("|", containerSegments(rootRef, target)) + "|";
+		}
+
+		// Every doc whose ID starts with the prefix and has at least one more character
+		Bson filter = regex("_id", "^" + Pattern.quote(prefix) + ".");
+
 		DeleteResult result = collection.deleteMany(filter);
 		LOGGER.debug("deleteParts({}) result: {} filter: {}", target, result, filter);
 	}
