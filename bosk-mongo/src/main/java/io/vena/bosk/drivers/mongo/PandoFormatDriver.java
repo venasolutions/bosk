@@ -8,11 +8,11 @@ import com.mongodb.client.ClientSession;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoCursor;
-import com.mongodb.client.model.Filters;
 import com.mongodb.client.model.UpdateOptions;
 import com.mongodb.client.model.changestream.ChangeStreamDocument;
 import com.mongodb.client.model.changestream.OperationType;
 import com.mongodb.client.model.changestream.UpdateDescription;
+import com.mongodb.client.result.DeleteResult;
 import com.mongodb.client.result.UpdateResult;
 import com.mongodb.lang.Nullable;
 import io.vena.bosk.Bosk;
@@ -39,10 +39,12 @@ import org.bson.BsonNull;
 import org.bson.BsonString;
 import org.bson.BsonValue;
 import org.bson.Document;
+import org.bson.conversions.Bson;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import static com.mongodb.ReadConcern.LOCAL;
+import static com.mongodb.client.model.Filters.regex;
 import static com.mongodb.client.model.Projections.fields;
 import static com.mongodb.client.model.Projections.include;
 import static com.mongodb.client.model.changestream.OperationType.INSERT;
@@ -73,7 +75,7 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 
 	private volatile BsonInt64 revisionToSkip = null;
 
-	static final BsonString ROOT_DOCUMENT_ID = new BsonString("boskDocument");
+	static final BsonString ROOT_DOCUMENT_ID = new BsonString("|");
 
 	PandoFormatDriver(
 		Bosk<R> bosk,
@@ -192,7 +194,7 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 		List<Document> allParts = new ArrayList<>();
 		try (MongoCursor<Document> cursor = collection
 			.withReadConcern(LOCAL) // The revision field needs to be the latest
-			.find()
+			.find(regex("_id", "^" + Pattern.quote("|")))
 			.cursor()
 		) {
 			while (cursor.hasNext()) {
@@ -208,18 +210,10 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 			.map(d -> d.toBsonDocument(BsonDocument.class, formatter.codecRegistry()))
 			.collect(toList());
 
-		BsonDocument combined = bsonSurgeon.gather(partsList);
-
-		// Note: at this point, mainPart has also been mutated by bsonSurgeon, so we can get the state from that!
-		BsonDocument state = combined.getDocument(DocumentFields.state);
-		if (state == null) {
-			throw new IOException("No existing state in document");
-		} else {
-			R root = formatter.document2object(state, rootRef);
-			BsonInt64 rev = new BsonInt64(revision);
-			return new StateAndMetadata<>(root, rev);
-		}
-
+		BsonDocument combinedState = bsonSurgeon.gather(partsList);
+		R root = formatter.document2object(combinedState, rootRef);
+		BsonInt64 rev = new BsonInt64(revision);
+		return new StateAndMetadata<>(root, rev);
 	}
 
 	@Override
@@ -231,7 +225,7 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 		UpdateOptions options = new UpdateOptions().upsert(true);
 
 		try (Transaction txn = new Transaction()) {
-			LOGGER.debug("** Initial tenant upsert for {}", ROOT_DOCUMENT_ID);
+			LOGGER.debug("** Initial tenant upsert for {}", ROOT_DOCUMENT_ID.getValue());
 			LOGGER.trace("| Filter: {}", filter);
 			LOGGER.trace("| Update: {}", update);
 			LOGGER.trace("| Options: {}", options);
@@ -542,8 +536,10 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 	}
 
 	private <T> void deleteParts(Reference<T> target) {
-		String prefix = "|" + String.join("|", containerSegments(rootRef, target));
-		collection.deleteMany(Filters.regex("_id", "^" + Pattern.quote(prefix)));
+		String prefix = "|" + String.join("|", containerSegments(rootRef, target)) + "|";
+		Bson filter = regex("_id", "^" + Pattern.quote(prefix));
+		DeleteResult result = collection.deleteMany(filter);
+		LOGGER.debug("deleteParts({}) result: {} filter: {}", target, result, filter);
 	}
 
 	/**
@@ -576,6 +572,7 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 					.build())
 				.build();
 			session = mongoClient.startSession(sessionOptions);
+			session.startTransaction();
 		}
 
 		public void commit() {

@@ -23,6 +23,7 @@ import static io.vena.bosk.drivers.mongo.Formatter.dottedFieldNameSegments;
 import static io.vena.bosk.drivers.mongo.Formatter.undottedFieldNameSegment;
 import static java.util.Collections.emptyList;
 import static java.util.Comparator.comparing;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Splits up a single large BSON document into multiple self-describing pieces,
@@ -224,14 +225,14 @@ class BsonSurgeon {
 		for (BsonDocument entry: partsList.subList(1, partsList.size())) {
 			BsonString bsonPath = entry.getString(BSON_PATH_FIELD);
 			if (!alreadySeen.add(bsonPath)) {
-				throw new IllegalArgumentException("Duplicate path \"" + bsonPath + "\"");
+				throw new IllegalArgumentException("Duplicate path \"" + bsonPath.getValue() + "\"");
 			}
 			List<String> bsonSegments = bsonPathSegments(bsonPath);
 			if (!bsonSegments.subList(0, prefix.size()).equals(prefix)) {
 				throw new IllegalArgumentException("Part doc is not contained within the root doc. Part: " + bsonSegments + " Root:" + prefix);
 			}
 			String key = bsonSegments.get(bsonSegments.size()-1);
-			BsonValue value = entry.get(STATE_FIELD);
+			BsonValue value = requireNonNull(entry.get(STATE_FIELD));
 
 			// The container should already have an entry. We'll be replacing it,
 			// and this does not affect the order of the entries.

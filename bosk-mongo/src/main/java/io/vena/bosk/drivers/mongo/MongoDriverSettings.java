@@ -45,7 +45,12 @@ public class MongoDriverSettings {
 		/**
 		 * Entire bosk state in a single MongoDB document.
 		 */
-		SEQUOIA
+		SEQUOIA,
+
+		/**
+		 * Bosk state in separate documents.
+		 */
+		PANDO,
 	}
 
 	public enum InitialDatabaseUnavailableMode {
