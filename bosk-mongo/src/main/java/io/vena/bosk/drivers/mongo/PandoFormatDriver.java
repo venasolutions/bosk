@@ -555,7 +555,7 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 		List<BsonDocument> allParts = bsonSurgeon.scatter(rootRef, target, value);
 		// NOTE: `value` has now been mutated so the parts have been stubbed out
 
-		BsonDocument mainPart = allParts.get(allParts.size()-1);
+//		BsonDocument mainPart = allParts.get(allParts.size()-1);
 		List<BsonDocument> subParts = allParts.subList(0, allParts.size() - 1);
 
 		UpdateOptions options = new UpdateOptions().upsert(true);
