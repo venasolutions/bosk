@@ -104,7 +104,7 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 		try (Transaction txn = new Transaction()) {
 			if (value instanceof BsonDocument) {
 				deleteParts(target);
-				upsertParts(target, value.asDocument());
+				upsertSubParts(target, value.asDocument());
 			}
 			doUpdate(replacementDoc(target, value), standardPreconditions(target));
 			txn.commit();
@@ -119,7 +119,7 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 		try (Transaction txn = new Transaction()) {
 			if (value instanceof BsonDocument) {
 				deleteParts(target);
-				upsertParts(target, value.asDocument());
+				upsertSubParts(target, value.asDocument());
 			}
 			if (doUpdate(replacementDoc(target, value), filter)) {
 				LOGGER.debug("| Object initialized");
@@ -149,7 +149,7 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 		try (Transaction txn = new Transaction()) {
 			if (value instanceof BsonDocument) {
 				deleteParts(target);
-				upsertParts(target, value.asDocument());
+				upsertSubParts(target, value.asDocument());
 			}
 			if (doUpdate(
 				replacementDoc(target, value),
@@ -220,18 +220,18 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 	public void initializeCollection(StateAndMetadata<R> priorContents) {
 		BsonValue initialState = formatter.object2bsonValue(priorContents.state, rootRef.targetType());
 		BsonInt64 newRevision = new BsonInt64(1 + priorContents.revision.longValue());
-		BsonDocument update = new BsonDocument("$set", initialDocument(initialState, newRevision));
-		BsonDocument filter = rootDocumentFilter();
-		UpdateOptions options = new UpdateOptions().upsert(true);
 
 		try (Transaction txn = new Transaction()) {
 			LOGGER.debug("** Initial tenant upsert for {}", ROOT_DOCUMENT_ID.getValue());
+			if (initialState instanceof BsonDocument) {
+				upsertSubParts(rootRef, initialState.asDocument()); // Mutates initialState!
+			}
+			BsonDocument update = new BsonDocument("$set", initialDocument(initialState, newRevision));
+			BsonDocument filter = rootDocumentFilter();
+			UpdateOptions options = new UpdateOptions().upsert(true);
 			LOGGER.trace("| Filter: {}", filter);
 			LOGGER.trace("| Update: {}", update);
 			LOGGER.trace("| Options: {}", options);
-			if (initialState instanceof BsonDocument) {
-				upsertParts(rootRef, initialState.asDocument());
-			}
 			UpdateResult result = collection.updateOne(filter, update, options);
 			LOGGER.debug("| Result: {}", result);
 			if (settings.experimental().manifestMode() == CREATE_IF_ABSENT) {
@@ -551,7 +551,7 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 	/**
 	 * @param value is mutated to stub-out the parts written to the database
 	 */
-	private <T> void upsertParts(Reference<T> target, BsonDocument value) {
+	private <T> void upsertSubParts(Reference<T> target, BsonDocument value) {
 		List<BsonDocument> allParts = bsonSurgeon.scatter(rootRef, target, value);
 		// NOTE: `value` has now been mutated so the parts have been stubbed out
 
