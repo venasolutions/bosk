@@ -8,7 +8,7 @@ import lombok.Value;
 public class Manifest implements StateTreeNode {
 	Integer version;
 	Optional<EmptyNode> sequoia;
-	Optional<EmptyNode> pando;
+	Optional<PandoSettings> pando;
 
 	@Value
 	public static class EmptyNode implements StateTreeNode {}
@@ -17,7 +17,7 @@ public class Manifest implements StateTreeNode {
 		return new Manifest(1, Optional.of(new EmptyNode()), Optional.empty());
 	}
 
-	public static Manifest forPando() {
-		return new Manifest(1, Optional.empty(), Optional.of(new EmptyNode()));
+	public static Manifest forPando(PandoSettings settings) {
+		return new Manifest(1, Optional.empty(), Optional.of(settings));
 	}
 }

@@ -243,7 +243,7 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 
 	private void writeManifest() {
 		BsonDocument doc = new BsonDocument("_id", MANIFEST_ID);
-		doc.putAll((BsonDocument) formatter.object2bsonValue(Manifest.forPando(), Manifest.class));
+		doc.putAll((BsonDocument) formatter.object2bsonValue(Manifest.forPando(new PandoSettings()), Manifest.class));
 		BsonDocument update = new BsonDocument("$set", doc);
 		BsonDocument filter = new BsonDocument("_id", MANIFEST_ID);
 		UpdateOptions options = new UpdateOptions().upsert(true);
