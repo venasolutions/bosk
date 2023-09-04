@@ -384,6 +384,7 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 	 */
 	private boolean doUpdate(BsonDocument updateDoc, BsonDocument filter) {
 		LOGGER.debug("| Update: {}", updateDoc);
+		LOGGER.debug("| Filter: {}", filter);
 		if (settings.testing().eventDelayMS() < 0) {
 			LOGGER.debug("| Sleeping");
 			try {
@@ -392,7 +393,6 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 				LOGGER.debug("| Interrupted");
 			}
 		}
-		LOGGER.debug("| Filter: {}", filter);
 		UpdateResult result = collection.updateOne(filter, updateDoc);
 		LOGGER.debug("| Update result: {}", result);
 		if (result.wasAcknowledged()) {
