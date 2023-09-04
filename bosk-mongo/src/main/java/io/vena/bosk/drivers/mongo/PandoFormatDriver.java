@@ -119,7 +119,7 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 		try (Transaction txn = new Transaction()) {
 			if (value instanceof BsonDocument) {
 				deleteParts(target);
-				upsertSubParts(target, value.asDocument());
+				upsertAndRemoveSubParts(target, value.asDocument());
 			}
 			doUpdate(replacementDoc(target, value), standardRootPreconditions(target));
 			txn.commit();
@@ -134,7 +134,7 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 		try (Transaction txn = new Transaction()) {
 			if (value instanceof BsonDocument) {
 				deleteParts(target);
-				upsertSubParts(target, value.asDocument());
+				upsertAndRemoveSubParts(target, value.asDocument());
 			}
 			if (doUpdate(replacementDoc(target, value), filter)) {
 				LOGGER.debug("| Object initialized");
@@ -164,7 +164,7 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 		try (Transaction txn = new Transaction()) {
 			if (value instanceof BsonDocument) {
 				deleteParts(target);
-				upsertSubParts(target, value.asDocument());
+				upsertAndRemoveSubParts(target, value.asDocument());
 			}
 			if (doUpdate(
 				replacementDoc(target, value),
@@ -239,7 +239,7 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 		try (Transaction txn = new Transaction()) {
 			LOGGER.debug("** Initial tenant upsert for {}", ROOT_DOCUMENT_ID.getValue());
 			if (initialState instanceof BsonDocument) {
-				upsertSubParts(rootRef, initialState.asDocument()); // Mutates initialState!
+				upsertAndRemoveSubParts(rootRef, initialState.asDocument()); // Mutates initialState!
 			}
 			BsonDocument update = new BsonDocument("$set", initialDocument(initialState, newRevision));
 			BsonDocument filter = rootDocumentFilter();
@@ -567,7 +567,7 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 	/**
 	 * @param value is mutated to stub-out the parts written to the database
 	 */
-	private <T> void upsertSubParts(Reference<T> target, BsonDocument value) {
+	private <T> void upsertAndRemoveSubParts(Reference<T> target, BsonDocument value) {
 		List<BsonDocument> allParts = bsonSurgeon.scatter(rootRef, target, value);
 		// NOTE: `value` has now been mutated so the parts have been stubbed out
 
