@@ -451,17 +451,17 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 	private <T> BsonDocument replacementDoc(Reference<T> target, BsonValue value, Reference<?> startingRef) {
 		String key = dottedFieldNameOf(target, startingRef);
 		LOGGER.debug("| Set field {}: {}", key, value);
-		return updateDoc()
+		return blankUpdateDoc()
 			.append("$set", new BsonDocument(key, value));
 	}
 
 	private <T> BsonDocument deletionDoc(Reference<T> target, Reference<?> startingRef) {
 		String key = dottedFieldNameOf(target, startingRef);
 		LOGGER.debug("| Unset field {}", key);
-		return updateDoc().append("$unset", new BsonDocument(key, new BsonNull())); // Value is ignored
+		return blankUpdateDoc().append("$unset", new BsonDocument(key, new BsonNull())); // Value is ignored
 	}
 
-	private BsonDocument updateDoc() {
+	private BsonDocument blankUpdateDoc() {
 		return new BsonDocument("$inc", new BsonDocument(DocumentFields.revision.name(), new BsonInt64(1)));
 	}
 
