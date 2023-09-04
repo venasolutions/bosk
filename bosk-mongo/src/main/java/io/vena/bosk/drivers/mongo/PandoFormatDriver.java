@@ -17,9 +17,11 @@ import com.mongodb.client.result.UpdateResult;
 import com.mongodb.lang.Nullable;
 import io.vena.bosk.Bosk;
 import io.vena.bosk.BoskDriver;
+import io.vena.bosk.Entity;
 import io.vena.bosk.EnumerableByIdentifier;
 import io.vena.bosk.Identifier;
 import io.vena.bosk.Reference;
+import io.vena.bosk.RootReference;
 import io.vena.bosk.StateTreeNode;
 import io.vena.bosk.drivers.mongo.Formatter.DocumentFields;
 import io.vena.bosk.exceptions.FlushFailureException;
@@ -47,13 +49,14 @@ import static com.mongodb.client.model.Filters.regex;
 import static com.mongodb.client.model.Projections.fields;
 import static com.mongodb.client.model.Projections.include;
 import static com.mongodb.client.model.changestream.OperationType.INSERT;
+import static io.vena.bosk.Path.parseParameterized;
 import static io.vena.bosk.drivers.mongo.BsonSurgeon.containerSegments;
 import static io.vena.bosk.drivers.mongo.Formatter.REVISION_ZERO;
 import static io.vena.bosk.drivers.mongo.Formatter.dottedFieldNameOf;
 import static io.vena.bosk.drivers.mongo.Formatter.enclosingReference;
-import static io.vena.bosk.drivers.mongo.Formatter.referenceTo;
 import static io.vena.bosk.drivers.mongo.MainDriver.MANIFEST_ID;
 import static io.vena.bosk.drivers.mongo.MongoDriverSettings.ManifestMode.CREATE_IF_ABSENT;
+import static io.vena.bosk.util.Classes.enumerableByIdentifier;
 import static java.util.Collections.newSetFromMap;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -64,11 +67,12 @@ import static org.bson.BsonBoolean.FALSE;
  */
 final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R> {
 	private final String description;
+	private final PandoFormat format;
 	private final MongoDriverSettings settings;
 	private final Formatter formatter;
 	private final MongoClient mongoClient;
 	private final MongoCollection<Document> collection;
-	private final Reference<R> rootRef;
+	private final RootReference<R> rootRef;
 	private final BoskDriver<R> downstream;
 	private final FlushLock flushLock;
 	private final BsonSurgeon bsonSurgeon;
@@ -81,21 +85,32 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 		Bosk<R> bosk,
 		MongoCollection<Document> collection,
 		MongoDriverSettings driverSettings,
-		BsonPlugin bsonPlugin,
+		PandoFormat format, BsonPlugin bsonPlugin,
 		MongoClient mongoClient,
 		FlushLock flushLock,
-		BoskDriver<R> downstream,
-		List<Reference<? extends EnumerableByIdentifier<?>>> separateCollections
+		BoskDriver<R> downstream
 	) {
 		this.description = PandoFormatDriver.class.getSimpleName() + ": " + driverSettings;
 		this.settings = driverSettings;
+		this.format = format;
 		this.mongoClient = mongoClient;
 		this.formatter = new Formatter(bosk, bsonPlugin);
 		this.collection = collection;
 		this.rootRef = bosk.rootReference();
 		this.downstream = downstream;
 		this.flushLock = flushLock;
-		this.bsonSurgeon = new BsonSurgeon(separateCollections);
+
+		this.bsonSurgeon = new BsonSurgeon(format.separateCollections().stream()
+			.map(s -> referenceTo(s, rootRef))
+			.collect(toList()));
+	}
+
+	private static Reference<EnumerableByIdentifier<Entity>> referenceTo(String pathString, RootReference<?> rootRef) {
+		try {
+			return rootRef.then(enumerableByIdentifier(Entity.class), parseParameterized(pathString));
+		} catch (InvalidTypeException e) {
+			throw new IllegalArgumentException("Invalid configuration -- path does not point to a Catalog or SideTable: " + pathString, e);
+		}
 	}
 
 	@Override
@@ -243,7 +258,7 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 
 	private void writeManifest() {
 		BsonDocument doc = new BsonDocument("_id", MANIFEST_ID);
-		doc.putAll((BsonDocument) formatter.object2bsonValue(Manifest.forPando(new PandoSettings()), Manifest.class));
+		doc.putAll((BsonDocument) formatter.object2bsonValue(Manifest.forPando(format), Manifest.class));
 		BsonDocument update = new BsonDocument("$set", doc);
 		BsonDocument filter = new BsonDocument("_id", MANIFEST_ID);
 		UpdateOptions options = new UpdateOptions().upsert(true);
@@ -315,16 +330,17 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 	 * but outside that, we want to be as strict as we can
 	 * so incompatible database changes don't go unnoticed.
 	 */
-	private static void onManifestEvent(ChangeStreamDocument<Document> event) throws UnprocessableEventException {
+	private void onManifestEvent(ChangeStreamDocument<Document> event) throws UnprocessableEventException {
 		if (event.getOperationType() == INSERT) {
-			Document manifest = requireNonNull(event.getFullDocument());
+			Document manifestDoc = requireNonNull(event.getFullDocument());
+			Manifest manifest;
 			try {
-				MainDriver.validateManifest(manifest);
+				manifest = formatter.decodeManifest(manifestDoc);
 			} catch (UnrecognizedFormatException e) {
 				throw new UnprocessableEventException("Invalid manifest", e, event.getOperationType());
 			}
-			if (!new Document().equals(manifest.get("pando"))) {
-				throw new UnprocessableEventException("Unexpected value in manifest \"pando\" field: " + manifest.get("pando"), event.getOperationType());
+			if (!manifest.equals(Manifest.forPando(format))) {
+				throw new UnprocessableEventException("Manifest indicates format has changed", event.getOperationType());
 			}
 		} else {
 			throw new UnprocessableEventException("Unexpected change to manifest document", event.getOperationType());
@@ -492,7 +508,7 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 				if (dottedName.startsWith(DocumentFields.state.name())) {
 					Reference<Object> ref;
 					try {
-						ref = referenceTo(dottedName, rootRef);
+						ref = Formatter.referenceTo(dottedName, rootRef);
 					} catch (InvalidTypeException e) {
 						logNonexistentField(dottedName, e);
 						continue;
@@ -519,7 +535,7 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 				if (dottedName.startsWith(DocumentFields.state.name())) {
 					Reference<Object> ref;
 					try {
-						ref = referenceTo(dottedName, rootRef);
+						ref = Formatter.referenceTo(dottedName, rootRef);
 					} catch (InvalidTypeException e) {
 						logNonexistentField(dottedName, e);
 						continue;

@@ -12,12 +12,16 @@ import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.Iterator;
+import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.function.UnaryOperator;
 import java.util.regex.Pattern;
 import org.bson.BsonDocument;
+import org.bson.BsonDocumentReader;
 import org.bson.BsonDocumentWriter;
 import org.bson.BsonInt64;
 import org.bson.BsonReader;
@@ -33,6 +37,7 @@ import org.bson.codecs.configuration.CodecRegistry;
 
 import static io.vena.bosk.ReferenceUtils.rawClass;
 import static java.lang.String.format;
+import static java.util.Arrays.asList;
 
 /**
  * Facilities to translate between in-DB and in-memory representations.
@@ -133,6 +138,49 @@ final class Formatter {
 		try (@SuppressWarnings("unused") BsonPlugin.DeserializationScope scope = deserializationScopeFunction.apply(target)) {
 			return objectClass.cast(objectCodec.decode(doc.asBsonReader(), DecoderContext.builder().build()));
 		}
+	}
+
+	void validateManifest(Document manifest) throws UnrecognizedFormatException {
+		try {
+			Set<String> keys = new HashSet<>(manifest.keySet());
+			List<String> supportedFormats = asList("sequoia", "pando");
+			String detectedFormat = null;
+			for (String format: supportedFormats) {
+				if (keys.remove(format)) {
+					if (detectedFormat == null) {
+						detectedFormat = format;
+					} else {
+						throw new UnrecognizedFormatException("Found two supported formats: " + detectedFormat + " and " + format);
+					}
+				}
+			}
+			if (detectedFormat == null) {
+				throw new UnrecognizedFormatException("Found none of the supported formats: " + supportedFormats);
+			}
+			HashSet<String> requiredKeys = new HashSet<>(asList("_id", "version"));
+			if (!keys.equals(requiredKeys)) {
+				keys.removeAll(requiredKeys);
+				if (keys.isEmpty()) {
+					requiredKeys.removeAll(manifest.keySet());
+					throw new UnrecognizedFormatException("Missing keys in manifest: " + requiredKeys);
+				} else {
+					throw new UnrecognizedFormatException("Unrecognized keys in manifest: " + keys);
+				}
+			}
+			if (manifest.getInteger("version") != 1) {
+				throw new UnrecognizedFormatException("Manifest version " + manifest.getInteger("version") + " not suppoted");
+			}
+		} catch (ClassCastException e) {
+			throw new UnrecognizedFormatException("Manifest field has unexpected type", e);
+		}
+	}
+
+	Manifest decodeManifest(Document manifestDoc) throws UnrecognizedFormatException {
+		validateManifest(manifestDoc);
+		return (Manifest) codecFor(Manifest.class)
+			.decode(
+				new BsonDocumentReader(manifestDoc.toBsonDocument(BsonDocument.class, codecRegistry())),
+				DecoderContext.builder().build());
 	}
 
 	/**

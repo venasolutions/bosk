@@ -5,7 +5,6 @@ import lombok.Builder;
 import lombok.Builder.Default;
 import lombok.Value;
 
-import static io.vena.bosk.drivers.mongo.MongoDriverSettings.DatabaseFormat.PANDO;
 import static io.vena.bosk.drivers.mongo.MongoDriverSettings.DatabaseFormat.SEQUOIA;
 import static io.vena.bosk.drivers.mongo.MongoDriverSettings.ManifestMode.USE_IF_EXISTS;
 
@@ -45,17 +44,11 @@ public class MongoDriverSettings {
 		@Default long eventDelayMS = 0;
 	}
 
-	public enum DatabaseFormat {
-		/**
-		 * Entire bosk state in a single MongoDB document.
-		 */
-		SEQUOIA,
-
-		/**
-		 * Bosk state in separate documents.
-		 */
-		PANDO,
+	public interface DatabaseFormat {
+		DatabaseFormat SEQUOIA = new SequoiaFormat();
 	}
+
+	private final static class SequoiaFormat implements DatabaseFormat {}
 
 	public enum InitialDatabaseUnavailableMode {
 		/**
@@ -85,7 +78,7 @@ public class MongoDriverSettings {
 	}
 
 	public void validate() {
-		if (preferredDatabaseFormat() == PANDO && experimental.manifestMode() == USE_IF_EXISTS) {
+		if (preferredDatabaseFormat() instanceof PandoFormat && experimental.manifestMode() == USE_IF_EXISTS) {
 			throw new IllegalArgumentException("Pando format requires a manifest. Databases with no manifest are interpreted as Sequoia.");
 		}
 	}

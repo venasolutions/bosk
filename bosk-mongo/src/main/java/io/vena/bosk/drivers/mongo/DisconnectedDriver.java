@@ -14,7 +14,7 @@ import org.slf4j.LoggerFactory;
 
 @RequiredArgsConstructor
 class DisconnectedDriver<R extends StateTreeNode> implements FormatDriver<R> {
-	private final String reason;
+	private final Throwable reason;
 	@Override
 	public <T> void submitReplacement(Reference<T> target, T newValue) {
 		throw disconnected();

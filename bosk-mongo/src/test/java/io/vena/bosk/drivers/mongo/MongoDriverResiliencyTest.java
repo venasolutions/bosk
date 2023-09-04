@@ -53,14 +53,14 @@ public class MongoDriverResiliencyTest extends AbstractMongoDriverTest {
 
 	@SuppressWarnings("unused")
 	static Stream<MongoDriverSettings.MongoDriverSettingsBuilder> driverSettings() {
-		return Stream.of(DatabaseFormat.values())
+		return Stream.of(DatabaseFormat.SEQUOIA, PandoFormat.oneBigDocument())
 			.flatMap(f -> Stream.of(EarlyOrLate.NORMAL)
 				.map(e -> MongoDriverSettings.builder()
 					.preferredDatabaseFormat(f)
 					.recoveryPollingMS(3000) // Note that some tests can take as long as 10x this
 					.flushTimeoutMS(4000) // A little more than recoveryPollingMS
 					.testing(Testing.builder().eventDelayMS(e.eventDelayMS).build())
-					.database(MongoDriverResiliencyTest.class.getSimpleName() + "_" + f.name().toLowerCase() + "_" + e.suffix)
+					.database(MongoDriverResiliencyTest.class.getSimpleName() + "_" + f.getClass().getSimpleName() + "_" + e.suffix)
 				));
 	}
 

@@ -19,7 +19,6 @@ import org.junit.jupiter.api.TestInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static io.vena.bosk.drivers.mongo.MongoDriverSettings.DatabaseFormat.PANDO;
 import static io.vena.bosk.drivers.mongo.MongoDriverSettings.DatabaseFormat.SEQUOIA;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -55,7 +54,7 @@ public class SchemaEvolutionTest {
 		return Stream.of(
 			new Helper(SEQUOIA, ManifestMode.USE_IF_EXISTS),
 			new Helper(SEQUOIA, ManifestMode.CREATE_IF_ABSENT),
-			new Helper(PANDO,   ManifestMode.CREATE_IF_ABSENT)
+			new Helper(PandoFormat.oneBigDocument(), ManifestMode.CREATE_IF_ABSENT)
 		);
 	}
 

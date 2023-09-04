@@ -13,6 +13,7 @@ import io.vena.bosk.ListingEntry;
 import io.vena.bosk.ListingReference;
 import io.vena.bosk.Reference;
 import io.vena.bosk.SideTable;
+import io.vena.bosk.TypeValidation;
 import io.vena.bosk.drivers.BufferingDriver;
 import io.vena.bosk.drivers.mongo.Formatter.DocumentFields;
 import io.vena.bosk.drivers.mongo.MongoDriverSettings.MongoDriverSettingsBuilder;

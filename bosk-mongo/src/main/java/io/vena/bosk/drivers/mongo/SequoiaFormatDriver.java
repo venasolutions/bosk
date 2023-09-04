@@ -14,7 +14,6 @@ import io.vena.bosk.Identifier;
 import io.vena.bosk.Reference;
 import io.vena.bosk.StateTreeNode;
 import io.vena.bosk.drivers.mongo.Formatter.DocumentFields;
-import io.vena.bosk.drivers.mongo.MongoDriverSettings.ManifestMode;
 import io.vena.bosk.exceptions.FlushFailureException;
 import io.vena.bosk.exceptions.InvalidTypeException;
 import java.io.IOException;
@@ -239,11 +238,11 @@ final class SequoiaFormatDriver<R extends StateTreeNode> implements FormatDriver
 	 * but outside that, we want to be as strict as we can
 	 * so incompatible database changes don't go unnoticed.
 	 */
-	private static void onManifestEvent(ChangeStreamDocument<Document> event) throws UnprocessableEventException {
+	private void onManifestEvent(ChangeStreamDocument<Document> event) throws UnprocessableEventException {
 		if (event.getOperationType() == INSERT) {
 			Document manifest = requireNonNull(event.getFullDocument());
 			try {
-				MainDriver.validateManifest(manifest);
+				formatter.validateManifest(manifest);
 			} catch (UnrecognizedFormatException e) {
 				throw new UnprocessableEventException("Invalid manifest", e, event.getOperationType());
 			}

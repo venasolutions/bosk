@@ -21,39 +21,28 @@ import io.vena.bosk.drivers.mongo.Formatter.DocumentFields;
 import io.vena.bosk.drivers.mongo.MappedDiagnosticContext.MDCScope;
 import io.vena.bosk.drivers.mongo.MongoDriverSettings.DatabaseFormat;
 import io.vena.bosk.drivers.mongo.MongoDriverSettings.InitialDatabaseUnavailableMode;
-import io.vena.bosk.drivers.mongo.MongoDriverSettings.ManifestMode;
 import io.vena.bosk.exceptions.FlushFailureException;
 import io.vena.bosk.exceptions.InitializationFailureException;
 import io.vena.bosk.exceptions.InvalidTypeException;
 import java.io.IOException;
 import java.lang.reflect.Type;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
-import java.util.stream.Stream;
 import org.bson.BsonDocument;
-import org.bson.BsonDocumentReader;
 import org.bson.BsonString;
 import org.bson.Document;
-import org.bson.codecs.DecoderContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import static io.vena.bosk.drivers.mongo.Formatter.REVISION_ONE;
 import static io.vena.bosk.drivers.mongo.Formatter.REVISION_ZERO;
 import static io.vena.bosk.drivers.mongo.MappedDiagnosticContext.setupMDC;
-import static io.vena.bosk.drivers.mongo.MongoDriverSettings.DatabaseFormat.PANDO;
 import static io.vena.bosk.drivers.mongo.MongoDriverSettings.DatabaseFormat.SEQUOIA;
-import static java.util.Arrays.asList;
-import static java.util.Collections.emptyList;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static java.util.stream.Collectors.toList;
 
 /**
  * This is the driver returned to the user by {@link MongoDriver#factory}.
@@ -73,12 +62,12 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 	private final MongoClient mongoClient;
 	private final MongoCollection<Document> collection;
 	private final Listener listener;
-	private final Formatter formatter;
+	final Formatter formatter;
 
 	private final ReentrantLock formatDriverLock = new ReentrantLock();
 	private final Condition formatDriverChanged = formatDriverLock.newCondition();
 
-	private volatile FormatDriver<R> formatDriver = new DisconnectedDriver<>("Driver not yet initialized");
+	private volatile FormatDriver<R> formatDriver = new DisconnectedDriver<>(new Exception("Driver not yet initialized"));
 	private volatile boolean isClosed = false;
 
 	public MainDriver(
@@ -164,7 +153,7 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 	 */
 	private R doInitialRoot(Type rootType) {
 		R root;
-		quietlySetFormatDriver(new DisconnectedDriver<>("Failure to compute initial root")); // Pessimistic fallback
+		quietlySetFormatDriver(new DisconnectedDriver<>(FAILURE_TO_COMPUTE_INITIAL_ROOT)); // Pessimistic fallback
 		try {
 			FormatDriver<R> detectedDriver = detectFormat();
 			StateAndMetadata<R> loadedState = detectedDriver.loadAllState();
@@ -181,7 +170,7 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 				publishFormatDriver(preferredDriver);
 			} catch (RuntimeException | IOException e2) {
 				LOGGER.debug("Failed to initialize database; disconnecting", e2);
-				quietlySetFormatDriver(new DisconnectedDriver<>(e2.toString()));
+				quietlySetFormatDriver(new DisconnectedDriver<>(e2));
 			}
 		} catch (RuntimeException | UnrecognizedFormatException | IOException e) {
 			switch (driverSettings.initialDatabaseUnavailableMode()) {
@@ -190,7 +179,7 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 					throw new InitialRootFailureException("Unable to load initial state from MongoDB", e);
 				case DISCONNECT:
 					LOGGER.debug("Unable to load initial root from database; will proceed with downstream.initialRoot", e);
-					quietlySetFormatDriver(new DisconnectedDriver<>(e.toString()));
+					quietlySetFormatDriver(new DisconnectedDriver<>(e));
 					root = callDownstreamInitialRoot(rootType);
 					break;
 				default:
@@ -410,18 +399,16 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 		public void onDisconnect(Exception e) {
 			LOGGER.debug("onDisconnect({})", e.toString());
 			formatDriver.close();
-			quietlySetFormatDriver(new DisconnectedDriver<>(e.toString()));
+			quietlySetFormatDriver(new DisconnectedDriver<>(e));
 		}
 	}
 
 	private FormatDriver<R> newPreferredFormatDriver() {
-		switch (driverSettings.preferredDatabaseFormat()) {
-			case SEQUOIA:
-			case PANDO:
-				return newSingleDocFormatDriver(REVISION_ZERO.longValue(), driverSettings.preferredDatabaseFormat());
-			default:
-				throw new AssertionError("Unknown database format setting: " + driverSettings.preferredDatabaseFormat());
+		DatabaseFormat preferred = driverSettings.preferredDatabaseFormat();
+		if (preferred.equals(SEQUOIA) || preferred instanceof PandoFormat) {
+			return newSingleDocFormatDriver(REVISION_ZERO.longValue(), preferred);
 		}
+		throw new AssertionError("Unknown database format setting: " + preferred);
 	}
 
 	private FormatDriver<R> detectFormat() throws UninitializedCollectionException, UnrecognizedFormatException {
@@ -429,20 +416,14 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 		try (MongoCursor<Document> cursor = collection.find(new BsonDocument("_id", MANIFEST_ID)).cursor()) {
 			if (cursor.hasNext()) {
 				LOGGER.debug("Found manifest");
-				Document manifestDoc = cursor.next();
-				validateManifest(manifestDoc);
-				manifest = (Manifest) formatter
-					.codecFor(Manifest.class)
-					.decode(
-						new BsonDocumentReader(manifestDoc.toBsonDocument(BsonDocument.class, formatter.codecRegistry())),
-						DecoderContext.builder().build());
+				manifest = formatter.decodeManifest(cursor.next());
 			} else {
 				// For legacy databases with no manifest
 				LOGGER.debug("Manifest is missing; assuming Sequoia format");
 			}
 		}
 
-		DatabaseFormat format = manifest.pando().isPresent()? PANDO : SEQUOIA;
+		DatabaseFormat format = manifest.pando().isPresent()? manifest.pando().get() : SEQUOIA;
 		BsonString documentId = (format == SEQUOIA)
 			? SequoiaFormatDriver.DOCUMENT_ID
 			: PandoFormatDriver.ROOT_DOCUMENT_ID;
@@ -459,67 +440,27 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 		}
 	}
 
-	static void validateManifest(Document manifest) throws UnrecognizedFormatException {
-		try {
-			Set<String> keys = new HashSet<>(manifest.keySet());
-			List<String> supportedFormats = Stream.of(DatabaseFormat.values())
-				.map(DatabaseFormat::name)
-				.map(String::toLowerCase)
-				.collect(toList());
-			String detectedFormat = null;
-			for (String format: supportedFormats) {
-				if (keys.remove(format)) {
-					if (detectedFormat == null) {
-						detectedFormat = format;
-					} else {
-						throw new UnrecognizedFormatException("Found two supported formats: " + detectedFormat + " and " + format);
-					}
-				}
-			}
-			if (detectedFormat == null) {
-				throw new UnrecognizedFormatException("Found none of the supported formats: " + supportedFormats);
-			}
-			HashSet<String> requiredKeys = new HashSet<>(asList("_id", "version"));
-			if (!keys.equals(requiredKeys)) {
-				keys.removeAll(requiredKeys);
-				if (keys.isEmpty()) {
-					requiredKeys.removeAll(manifest.keySet());
-					throw new UnrecognizedFormatException("Missing keys in manifest: " + requiredKeys);
-				} else {
-					throw new UnrecognizedFormatException("Unrecognized keys in manifest: " + keys);
-				}
-			}
-			if (manifest.getInteger("version") != 1) {
-				throw new UnrecognizedFormatException("Manifest version " + manifest.getInteger("version") + " not suppoted");
-			}
-		} catch (ClassCastException e) {
-			throw new UnrecognizedFormatException("Manifest field has unexpected type", e);
-		}
-	}
-
 	private FormatDriver<R> newSingleDocFormatDriver(long revisionAlreadySeen, DatabaseFormat format) {
-		switch (format) {
-			case SEQUOIA:
-				return new SequoiaFormatDriver<>(
-					bosk,
-					collection,
-					driverSettings,
-					bsonPlugin,
-					new FlushLock(driverSettings, revisionAlreadySeen),
-					downstream);
-			case PANDO:
-				return new PandoFormatDriver<>(
-					bosk,
-					collection,
-					driverSettings,
-					bsonPlugin,
-					mongoClient,
-					new FlushLock(driverSettings, revisionAlreadySeen),
-					downstream,
-					emptyList());
-			default:
-				throw new IllegalArgumentException("Unexpected database format: " + format);
+		if (format.equals(SEQUOIA)) {
+			return new SequoiaFormatDriver<>(
+				bosk,
+				collection,
+				driverSettings,
+				bsonPlugin,
+				new FlushLock(driverSettings, revisionAlreadySeen),
+				downstream);
+		} else if (format instanceof PandoFormat) {
+			return new PandoFormatDriver<>(
+				bosk,
+				collection,
+				driverSettings,
+				(PandoFormat) format,
+				bsonPlugin,
+				mongoClient,
+				new FlushLock(driverSettings, revisionAlreadySeen),
+				downstream);
 		}
+		throw new IllegalArgumentException("Unexpected database format: " + format);
 	}
 
 
@@ -620,5 +561,6 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 
 	public static final String COLLECTION_NAME = "boskCollection";
 	public static final BsonString MANIFEST_ID = new BsonString("manifest");
+	private static final Exception FAILURE_TO_COMPUTE_INITIAL_ROOT = new Exception("Failure to compute initial root");
 	private static final Logger LOGGER = LoggerFactory.getLogger(MainDriver.class);
 }

@@ -9,9 +9,9 @@
 		<appender-ref ref="CONSOLE" />
 	</root>
 
+	<!-- How to add more tracing during unit tests
 	<logger name="io.vena.bosk.drivers.mongo" level="DEBUG"/>
 	<logger name="io.vena.bosk.drivers.mongo.PandoFormatDriver" level="TRACE"/>
-	<!-- How to add more tracing during unit tests
 	 -->
 
 </configuration>
