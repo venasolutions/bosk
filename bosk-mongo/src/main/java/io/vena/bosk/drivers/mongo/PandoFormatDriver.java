@@ -121,13 +121,48 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 	public <T> void submitReplacement(Reference<T> target, T newValue) {
 		BsonValue value = formatter.object2bsonValue(newValue, target.targetType());
 		try (Transaction txn = new Transaction()) {
+			BsonDocument rootUpdate;
 			if (value instanceof BsonDocument) {
 				deleteParts(target);
 				BsonDocument mainPart = upsertAndRemoveSubParts(target, value.asDocument());
+				Reference<?> mainRef = mainRef(target);
+				if (rootRef.equals(mainRef)) {
+					rootUpdate = replacementDoc(target, value, rootRef);
+				} else {
+					if (target.equals(mainRef)) {
+						// Upsert the main doc
+					} else {
+						// Update part of the main doc (which must already exist)
+						String key = dottedFieldNameOf(target, mainRef);
+						LOGGER.debug("| Set field {} in {}: {}", key, mainRef, value);
+						BsonDocument mainUpdate = new BsonDocument("$set", new BsonDocument(key, value));
+						BsonDocument filter = new BsonDocument("_id", mainPart.get("_id"));
+						doUpdate(mainUpdate, standardPreconditions(target, mainRef, filter));
+					}
+					// On the root doc, we're only bumping the revision
+					rootUpdate = blankUpdateDoc();
+				}
+			} else {
+				rootUpdate = replacementDoc(target, value, rootRef);
 			}
-			doUpdate(replacementDoc(target, value, rootRef), standardRootPreconditions(target));
+			doUpdate(rootUpdate, standardRootPreconditions(target));
 			txn.commit();
 		}
+	}
+
+	private Reference<?> mainRef(Reference<?> target) {
+		// The main reference is the "deepest" one that matches the target reference.
+		// separateCollections is in descending order of depth.
+		// TODO: This could be done more efficiently, perhaps using a trie
+		int targetPathLength = target.path().length();
+		for (Reference<? extends EnumerableByIdentifier<?>> candidate: separateCollections) {
+			if (candidate.path().length() <= targetPathLength) {
+				if (candidate.path().matches(target.path().truncatedTo(candidate.path().length()))) {
+					return candidate;
+				}
+			}
+		}
+		return rootRef;
 	}
 
 	@Override
@@ -431,9 +466,12 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 	}
 
 	private <T> BsonDocument standardRootPreconditions(Reference<T> target) {
-		BsonDocument filter = rootDocumentFilter();
-		if (!target.path().isEmpty()) {
-			String enclosingObjectKey = dottedFieldNameOf(enclosingReference(target), rootRef);
+		return standardPreconditions(target, rootRef, rootDocumentFilter());
+	}
+
+	private <T> BsonDocument standardPreconditions(Reference<T> target, Reference<?> startingRef, BsonDocument filter) {
+		if (!target.path().equals(startingRef.path())) {
+			String enclosingObjectKey = dottedFieldNameOf(enclosingReference(target), startingRef);
 			BsonDocument condition = new BsonDocument("$type", new BsonString("object"));
 			filter.put(enclosingObjectKey, condition);
 			LOGGER.debug("| Precondition: {} {}", enclosingObjectKey, condition);
@@ -489,7 +527,7 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 				LOGGER.debug("| Interrupted");
 			}
 		}
-		UpdateResult result = collection.updateOne(filter, updateDoc);
+		UpdateResult result = collection.updateOne(filter, updateDoc, new UpdateOptions().upsert(true));
 		LOGGER.debug("| Update result: {}", result);
 		if (result.wasAcknowledged()) {
 			assert result.getMatchedCount() <= 1;
