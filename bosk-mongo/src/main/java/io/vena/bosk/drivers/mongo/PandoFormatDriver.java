@@ -327,7 +327,7 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 
 	/**
 	 * We're required to cope with anything we might ourselves do in {@link #initializeCollection},
-	 * but outside that, we want to be as strict as we can
+	 * but outside that, we want to be as strict as possible
 	 * so incompatible database changes don't go unnoticed.
 	 */
 	private void onManifestEvent(ChangeStreamDocument<Document> event) throws UnprocessableEventException {
