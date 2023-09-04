@@ -121,14 +121,14 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 				deleteParts(target);
 				upsertSubParts(target, value.asDocument());
 			}
-			doUpdate(replacementDoc(target, value), standardPreconditions(target));
+			doUpdate(replacementDoc(target, value), standardRootPreconditions(target));
 			txn.commit();
 		}
 	}
 
 	@Override
 	public <T> void submitInitialization(Reference<T> target, T newValue) {
-		BsonDocument filter = standardPreconditions(target);
+		BsonDocument filter = standardRootPreconditions(target);
 		filter.put(dottedFieldNameOf(target, rootRef), new BsonDocument("$exists", FALSE));
 		BsonValue value = formatter.object2bsonValue(newValue, target.targetType());
 		try (Transaction txn = new Transaction()) {
@@ -150,7 +150,7 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 	public <T> void submitDeletion(Reference<T> target) {
 		try (Transaction txn = new Transaction()) {
 			deleteParts(target);
-			if (doUpdate(deletionDoc(target), standardPreconditions(target))) {
+			if (doUpdate(deletionDoc(target), standardRootPreconditions(target))) {
 				txn.commit();
 			} else {
 				txn.abort();
@@ -426,7 +426,7 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 		return new BsonDocument("_id", ROOT_DOCUMENT_ID);
 	}
 
-	private <T> BsonDocument standardPreconditions(Reference<T> target) {
+	private <T> BsonDocument standardRootPreconditions(Reference<T> target) {
 		BsonDocument filter = rootDocumentFilter();
 		if (!target.path().isEmpty()) {
 			String enclosingObjectKey = dottedFieldNameOf(enclosingReference(target), rootRef);
@@ -438,7 +438,7 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 	}
 
 	private <T> BsonDocument explicitPreconditions(Reference<T> target, Reference<Identifier> preconditionRef, Identifier requiredValue) {
-		BsonDocument filter = standardPreconditions(target);
+		BsonDocument filter = standardRootPreconditions(target);
 		BsonDocument precondition = new BsonDocument("$eq", new BsonString(requiredValue.toString()));
 		filter.put(dottedFieldNameOf(preconditionRef, rootRef), precondition);
 		return filter;
