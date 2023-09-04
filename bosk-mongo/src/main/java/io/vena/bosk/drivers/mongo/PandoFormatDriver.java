@@ -121,7 +121,7 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 				deleteParts(target);
 				upsertAndRemoveSubParts(target, value.asDocument());
 			}
-			doUpdate(replacementDoc(target, value), standardRootPreconditions(target));
+			doUpdate(replacementDoc(target, value, rootRef), standardRootPreconditions(target));
 			txn.commit();
 		}
 	}
@@ -136,7 +136,7 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 				deleteParts(target);
 				upsertAndRemoveSubParts(target, value.asDocument());
 			}
-			if (doUpdate(replacementDoc(target, value), filter)) {
+			if (doUpdate(replacementDoc(target, value, rootRef), filter)) {
 				LOGGER.debug("| Object initialized");
 				txn.commit();
 			} else {
@@ -150,7 +150,7 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 	public <T> void submitDeletion(Reference<T> target) {
 		try (Transaction txn = new Transaction()) {
 			deleteParts(target);
-			if (doUpdate(deletionDoc(target), standardRootPreconditions(target))) {
+			if (doUpdate(deletionDoc(target, rootRef), standardRootPreconditions(target))) {
 				txn.commit();
 			} else {
 				txn.abort();
@@ -167,7 +167,7 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 				upsertAndRemoveSubParts(target, value.asDocument());
 			}
 			if (doUpdate(
-				replacementDoc(target, value),
+				replacementDoc(target, value, rootRef),
 				explicitPreconditions(target, precondition, requiredValue))
 			) {
 				txn.commit();
@@ -181,7 +181,7 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 	public <T> void submitConditionalDeletion(Reference<T> target, Reference<Identifier> precondition, Identifier requiredValue) {
 		try (Transaction txn = new Transaction()) {
 			if (doUpdate(
-				deletionDoc(target),
+				deletionDoc(target, rootRef),
 				explicitPreconditions(target, precondition, requiredValue))
 			) {
 				txn.commit();
@@ -444,15 +444,15 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 		return filter;
 	}
 
-	private <T> BsonDocument replacementDoc(Reference<T> target, BsonValue value) {
-		String key = dottedFieldNameOf(target, rootRef);
+	private <T> BsonDocument replacementDoc(Reference<T> target, BsonValue value, Reference<?> startingRef) {
+		String key = dottedFieldNameOf(target, startingRef);
 		LOGGER.debug("| Set field {}: {}", key, value);
 		return updateDoc()
 			.append("$set", new BsonDocument(key, value));
 	}
 
-	private <T> BsonDocument deletionDoc(Reference<T> target) {
-		String key = dottedFieldNameOf(target, rootRef);
+	private <T> BsonDocument deletionDoc(Reference<T> target, Reference<?> startingRef) {
+		String key = dottedFieldNameOf(target, startingRef);
 		LOGGER.debug("| Unset field {}", key);
 		return updateDoc().append("$unset", new BsonDocument(key, new BsonNull())); // Value is ignored
 	}
