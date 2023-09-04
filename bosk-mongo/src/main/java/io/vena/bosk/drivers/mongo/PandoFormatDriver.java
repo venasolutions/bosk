@@ -123,7 +123,7 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 		try (Transaction txn = new Transaction()) {
 			if (value instanceof BsonDocument) {
 				deleteParts(target);
-				upsertAndRemoveSubParts(target, value.asDocument());
+				BsonDocument mainPart = upsertAndRemoveSubParts(target, value.asDocument());
 			}
 			doUpdate(replacementDoc(target, value, rootRef), standardRootPreconditions(target));
 			txn.commit();
@@ -138,7 +138,7 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 		try (Transaction txn = new Transaction()) {
 			if (value instanceof BsonDocument) {
 				deleteParts(target);
-				upsertAndRemoveSubParts(target, value.asDocument());
+				BsonDocument mainPart = upsertAndRemoveSubParts(target, value.asDocument());
 			}
 			if (doUpdate(replacementDoc(target, value, rootRef), filter)) {
 				LOGGER.debug("| Object initialized");
@@ -168,7 +168,7 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 		try (Transaction txn = new Transaction()) {
 			if (value instanceof BsonDocument) {
 				deleteParts(target);
-				upsertAndRemoveSubParts(target, value.asDocument());
+				BsonDocument mainPart = upsertAndRemoveSubParts(target, value.asDocument());
 			}
 			if (doUpdate(
 				replacementDoc(target, value, rootRef),
@@ -243,7 +243,7 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 		try (Transaction txn = new Transaction()) {
 			LOGGER.debug("** Initial tenant upsert for {}", ROOT_DOCUMENT_ID.getValue());
 			if (initialState instanceof BsonDocument) {
-				upsertAndRemoveSubParts(rootRef, initialState.asDocument()); // Mutates initialState!
+				BsonDocument mainPart = upsertAndRemoveSubParts(rootRef, initialState.asDocument()); // Mutates initialState!
 			}
 			BsonDocument update = new BsonDocument("$set", initialDocument(initialState, newRevision));
 			BsonDocument filter = rootDocumentFilter();
@@ -570,12 +570,13 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 
 	/**
 	 * @param value is mutated to stub-out the parts written to the database
+	 * @return the <em>main part</em> document, representing the root of the tree of part-documents
+	 * (which is not the root of the bosk state tree, unless of course <code>target</code> is the root reference)
 	 */
-	private <T> void upsertAndRemoveSubParts(Reference<T> target, BsonDocument value) {
+	private <T> BsonDocument upsertAndRemoveSubParts(Reference<T> target, BsonDocument value) {
 		List<BsonDocument> allParts = bsonSurgeon.scatter(rootRef, target, value);
 		// NOTE: `value` has now been mutated so the parts have been stubbed out
 
-//		BsonDocument mainPart = allParts.get(allParts.size()-1);
 		List<BsonDocument> subParts = allParts.subList(0, allParts.size() - 1);
 
 		UpdateOptions options = new UpdateOptions().upsert(true);
@@ -584,6 +585,8 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 			BsonDocument filter = new BsonDocument("_id", part.get("_id"));
 			collection.updateOne(filter, update, options);
 		}
+
+		return allParts.get(allParts.size()-1);
 	}
 
 	private class Transaction implements AutoCloseable {
