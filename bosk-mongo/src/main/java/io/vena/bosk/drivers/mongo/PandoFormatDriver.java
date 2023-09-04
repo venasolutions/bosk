@@ -58,6 +58,7 @@ import static io.vena.bosk.drivers.mongo.MainDriver.MANIFEST_ID;
 import static io.vena.bosk.drivers.mongo.MongoDriverSettings.ManifestMode.CREATE_IF_ABSENT;
 import static io.vena.bosk.util.Classes.enumerableByIdentifier;
 import static java.util.Collections.newSetFromMap;
+import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.bson.BsonBoolean.FALSE;
@@ -75,6 +76,7 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 	private final RootReference<R> rootRef;
 	private final BoskDriver<R> downstream;
 	private final FlushLock flushLock;
+	private final List<Reference<? extends EnumerableByIdentifier<?>>> separateCollections;
 	private final BsonSurgeon bsonSurgeon;
 
 	private volatile BsonInt64 revisionToSkip = null;
@@ -100,9 +102,11 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 		this.downstream = downstream;
 		this.flushLock = flushLock;
 
-		this.bsonSurgeon = new BsonSurgeon(format.separateCollections().stream()
+		separateCollections = format.separateCollections().stream()
 			.map(s -> referenceTo(s, rootRef))
-			.collect(toList()));
+			.sorted(comparing((Reference<?> ref) -> ref.path().length()).reversed())
+			.collect(toList());
+		this.bsonSurgeon = new BsonSurgeon(separateCollections);
 	}
 
 	private static Reference<EnumerableByIdentifier<Entity>> referenceTo(String pathString, RootReference<?> rootRef) {
