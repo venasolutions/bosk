@@ -228,8 +228,11 @@ public abstract class Path implements Iterable<String> {
 
 	/**
 	 * @return true if there exists a hypothetical binding environment in which
-	 * this path equals <code>other</code>. (I don't say "if and only if" because
-	 * I suspect SAT could be reduced to that, making it NP-complete. -pdoyle)
+	 * this path equals <code>other</code>. If there is no parameter name common
+	 * to both paths, the match is reliable, and becomes "if and only if".
+	 * If there is a parameter name in common, there are cases where this could return an incorrect
+	 * <code>true</code> value, such as <code>/-a-/123</code> and <code>/456/-a-</code>.
+	 * (We could fix this, if it turns out to matter, though I'm not sure it isn't NP-complete. -pdoyle)
 	 */
 	public final boolean matches(Path other) {
 		if (this == other) {
