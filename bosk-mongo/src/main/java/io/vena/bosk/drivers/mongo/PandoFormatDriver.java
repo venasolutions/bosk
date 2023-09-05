@@ -122,21 +122,24 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 		BsonValue value = formatter.object2bsonValue(newValue, target.targetType());
 		try (Transaction txn = new Transaction()) {
 			BsonDocument rootUpdate;
+			Reference<?> mainRef = mainRef(target);
 			if (value instanceof BsonDocument) {
 				deleteParts(target);
 				BsonDocument mainPart = upsertAndRemoveSubParts(target, value.asDocument());
-				Reference<?> mainRef = mainRef(target);
 				if (rootRef.equals(mainRef)) {
 					rootUpdate = replacementDoc(target, value, rootRef);
 				} else {
+					BsonDocument filter = new BsonDocument("_id", mainPart.get("_id"));
 					if (target.equals(mainRef)) {
 						// Upsert the main doc
+						// TODO: merge this with the same code in upsertAndRemoveSubParts
+						BsonDocument update = new BsonDocument("$set", mainPart);
+						collection.updateOne(filter, update, new UpdateOptions().upsert(true));
 					} else {
 						// Update part of the main doc (which must already exist)
 						String key = dottedFieldNameOf(target, mainRef);
 						LOGGER.debug("| Set field {} in {}: {}", key, mainRef, value);
 						BsonDocument mainUpdate = new BsonDocument("$set", new BsonDocument(key, value));
-						BsonDocument filter = new BsonDocument("_id", mainPart.get("_id"));
 						doUpdate(mainUpdate, standardPreconditions(target, mainRef, filter));
 					}
 					// On the root doc, we're only bumping the revision
@@ -527,7 +530,7 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 				LOGGER.debug("| Interrupted");
 			}
 		}
-		UpdateResult result = collection.updateOne(filter, updateDoc, new UpdateOptions().upsert(true));
+		UpdateResult result = collection.updateOne(filter, updateDoc);
 		LOGGER.debug("| Update result: {}", result);
 		if (result.wasAcknowledged()) {
 			assert result.getMatchedCount() <= 1;

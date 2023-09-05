@@ -95,6 +95,7 @@ public abstract class AbstractDriverTest {
 	}
 
 	void assertCorrectBoskContents() {
+		LOGGER.debug("assertCorrectBoskContents");
 		try {
 			driver.flush();
 		} catch (InterruptedException e) {

@@ -18,6 +18,8 @@ import io.vena.bosk.junit.ParametersByName;
 import java.io.IOException;
 import java.time.temporal.ChronoUnit;
 import java.util.stream.Stream;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import static io.vena.bosk.ListingEntry.LISTING_ENTRY;
 import static io.vena.bosk.util.Classes.listValue;
@@ -255,6 +257,7 @@ public abstract class DriverConformanceTest extends AbstractDriverTest {
 	void testString() throws InvalidTypeException {
 		Reference<TestValues> ref = initializeBoskWithBlankValues(Path.just(TestEntity.Fields.catalog));
 		Reference<String> stringRef = ref.then(String.class, TestValues.Fields.string);
+		LOGGER.debug("Submitting changed string");
 		driver.submitReplacement(stringRef, "changed");
 		assertCorrectBoskContents();
 
@@ -334,6 +337,7 @@ public abstract class DriverConformanceTest extends AbstractDriverTest {
 	}
 
 	private Reference<TestValues> initializeBoskWithBlankValues(Path enclosingCatalogPath) throws InvalidTypeException {
+		LOGGER.debug("initializeBoskWithBlankValues({})", enclosingCatalogPath);
 		CatalogReference<TestEntity> catalogRef = initializeBoskWithCatalog(enclosingCatalogPath);
 		Reference<TestValues> ref = catalogRef.then(child1ID).then(TestValues.class,
 			TestEntity.Fields.values);
@@ -342,6 +346,7 @@ public abstract class DriverConformanceTest extends AbstractDriverTest {
 	}
 
 	private CatalogReference<TestEntity> initializeBoskWithCatalog(Path enclosingCatalogPath) {
+		LOGGER.debug("initializeBoskWithCatalog({})", enclosingCatalogPath);
 		setupBosksAndReferences(driverFactory);
 		try {
 			CatalogReference<TestEntity> ref = bosk.rootReference().thenCatalog(TestEntity.class, enclosingCatalogPath);
@@ -404,4 +409,5 @@ public abstract class DriverConformanceTest extends AbstractDriverTest {
 		);
 	}
 
+	private static final Logger LOGGER = LoggerFactory.getLogger(DriverConformanceTest.class);
 }
