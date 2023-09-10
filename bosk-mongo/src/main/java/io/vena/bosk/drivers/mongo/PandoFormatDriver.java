@@ -468,6 +468,11 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 		return new BsonDocument("_id", ROOT_DOCUMENT_ID);
 	}
 
+	private BsonDocument documentFilter(Reference<?> docRef) {
+		String id = '|' + String.join("|", BsonSurgeon.docSegments(rootRef, docRef));
+		return new BsonDocument("_id", new BsonString(id));
+	}
+
 	private <T> BsonDocument standardRootPreconditions(Reference<T> target) {
 		return standardPreconditions(target, rootRef, rootDocumentFilter());
 	}
