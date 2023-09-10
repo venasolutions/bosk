@@ -11,6 +11,9 @@
 
 	<!-- How to add more tracing during unit tests
 	<logger name="io.vena.bosk.drivers.mongo" level="DEBUG"/>
+	<logger name="io.vena.bosk.drivers.DriverConformanceTest" level="DEBUG"/>
+	<logger name="io.vena.bosk.drivers.mongo.PandoFormatDriver" level="TRACE"/>
+	<logger name="io.vena.bosk.drivers.mongo.MainDriver" level="TRACE"/>
 	 -->
 
 </configuration>

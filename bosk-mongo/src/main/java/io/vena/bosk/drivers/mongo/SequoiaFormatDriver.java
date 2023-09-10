@@ -14,7 +14,6 @@ import io.vena.bosk.Identifier;
 import io.vena.bosk.Reference;
 import io.vena.bosk.StateTreeNode;
 import io.vena.bosk.drivers.mongo.Formatter.DocumentFields;
-import io.vena.bosk.drivers.mongo.MongoDriverSettings.ManifestMode;
 import io.vena.bosk.exceptions.FlushFailureException;
 import io.vena.bosk.exceptions.InvalidTypeException;
 import java.io.IOException;
@@ -41,6 +40,7 @@ import static io.vena.bosk.drivers.mongo.Formatter.dottedFieldNameOf;
 import static io.vena.bosk.drivers.mongo.Formatter.enclosingReference;
 import static io.vena.bosk.drivers.mongo.Formatter.referenceTo;
 import static io.vena.bosk.drivers.mongo.MainDriver.MANIFEST_ID;
+import static io.vena.bosk.drivers.mongo.MongoDriverSettings.ManifestMode.ENABLED;
 import static java.util.Collections.newSetFromMap;
 import static java.util.Objects.requireNonNull;
 import static org.bson.BsonBoolean.FALSE;
@@ -156,13 +156,17 @@ final class SequoiaFormatDriver<R extends StateTreeNode> implements FormatDriver
 		BsonDocument update = new BsonDocument("$set", initialDocument(initialState, newRevision));
 		BsonDocument filter = documentFilter();
 		UpdateOptions options = new UpdateOptions().upsert(true);
-		LOGGER.debug("** Initial tenant upsert for {}", DOCUMENT_ID);
+		LOGGER.debug("** Initial upsert for {}", DOCUMENT_ID);
 		LOGGER.trace("| Filter: {}", filter);
 		LOGGER.trace("| Update: {}", update);
 		LOGGER.trace("| Options: {}", options);
 		UpdateResult result = collection.updateOne(filter, update, options);
 		LOGGER.debug("| Result: {}", result);
-		if (settings.experimental().manifestMode() == ManifestMode.ENABLED) {
+		if (settings.experimental().manifestMode() == ENABLED) {
+			// This is the only time Sequoia changes two documents for the same operation.
+			// Aside from refurbish, it's the only reason we'd want multi-document transactions,
+			// and it's not even a strong reason, because this still works correctly
+			// if interpreted as two separate events.
 			writeManifest();
 		}
 	}
