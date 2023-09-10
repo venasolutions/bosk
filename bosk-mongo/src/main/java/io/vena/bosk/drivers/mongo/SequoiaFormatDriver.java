@@ -157,7 +157,7 @@ final class SequoiaFormatDriver<R extends StateTreeNode> implements FormatDriver
 		BsonDocument update = new BsonDocument("$set", initialDocument(initialState, newRevision));
 		BsonDocument filter = documentFilter();
 		UpdateOptions options = new UpdateOptions().upsert(true);
-		LOGGER.debug("** Initial tenant upsert for {}", DOCUMENT_ID);
+		LOGGER.debug("** Initial upsert for {}", DOCUMENT_ID);
 		LOGGER.trace("| Filter: {}", filter);
 		LOGGER.trace("| Update: {}", update);
 		LOGGER.trace("| Options: {}", options);
