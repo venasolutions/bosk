@@ -28,7 +28,6 @@ import io.vena.bosk.StateTreeNode;
 import io.vena.bosk.drivers.mongo.Formatter.DocumentFields;
 import io.vena.bosk.exceptions.FlushFailureException;
 import io.vena.bosk.exceptions.InvalidTypeException;
-import io.vena.bosk.exceptions.TunneledCheckedException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.EnumSet;
@@ -39,7 +38,6 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
 import lombok.NonNull;
-import lombok.SneakyThrows;
 import org.bson.BsonDocument;
 import org.bson.BsonInt64;
 import org.bson.BsonNull;
@@ -130,42 +128,46 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 
 	@Override
 	public <T> void submitReplacement(Reference<T> target, T newValue) {
-		withTransaction(txn-> doReplacement(target, newValue, txn));
+		try (Transaction txn = new Transaction()) {
+			doReplacement(target, newValue, txn);
+		}
 	}
 
 	@Override
 	public <T> void submitInitialization(Reference<T> target, T newValue) {
-		withTransaction(txn -> {
+		try (Transaction txn = new Transaction()) {
 			if (documentExists(documentFilter(mainRef(target)))) {
 				return;
 			}
 			doReplacement(target, newValue, txn);
-		});
+		};
 	}
 
 	@Override
 	public <T> void submitDeletion(Reference<T> target) {
-		withTransaction(txn -> doDelete(target, txn));
+		try (Transaction txn = new Transaction()) {
+			doDelete(target, txn);
+		}
 	}
 
 	@Override
 	public <T> void submitConditionalReplacement(Reference<T> target, T newValue, Reference<Identifier> precondition, Identifier requiredValue) {
-		withTransaction(txn -> {
+		try (Transaction txn = new Transaction()) {
 			if (preconditionFailed(precondition, requiredValue)) {
 				return;
 			}
 			doReplacement(target, newValue, txn);
-		});
+		};
 	}
 
 	@Override
 	public <T> void submitConditionalDeletion(Reference<T> target, Reference<Identifier> precondition, Identifier requiredValue) {
-		withTransaction(txn -> {
+		try (Transaction txn = new Transaction()) {
 			if (preconditionFailed(precondition, requiredValue)) {
 				return;
 			}
 			doDelete(target, txn);
-		});
+		};
 	}
 
 	@Override
@@ -216,7 +218,7 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 		try (Transaction txn = new Transaction()) {
 			LOGGER.debug("** Initial upsert for {}", ROOT_DOCUMENT_ID.getValue());
 			if (initialState instanceof BsonDocument) {
-				upsertAndRemoveSubParts(rootRef, initialState.asDocument(), txn); // Mutates initialState!
+				upsertAndRemoveSubParts(rootRef, initialState.asDocument()); // Mutates initialState!
 			}
 			BsonDocument update = new BsonDocument("$set", initialDocument(initialState, newRevision));
 			BsonDocument filter = rootDocumentFilter();
@@ -486,13 +488,13 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 	// MongoDB helpers
 	//
 
-	private <T> void doReplacement(Reference<T> target, T newValue, ClientSession txn) {
+	private <T> void doReplacement(Reference<T> target, T newValue, Transaction txn) {
 		BsonDocument rootUpdate;
 		Reference<?> mainRef = mainRef(target);
 		BsonValue value = formatter.object2bsonValue(newValue, target.targetType());
 		if (value instanceof BsonDocument) {
 			deleteParts(mainRef);
-			BsonDocument mainPart = upsertAndRemoveSubParts(target, value.asDocument(), txn);
+			BsonDocument mainPart = upsertAndRemoveSubParts(target, value.asDocument());
 			if (rootRef.equals(mainRef)) {
 				rootUpdate = replacementDoc(target, value, rootRef);
 			} else {
@@ -502,13 +504,13 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 					// Upsert the main doc
 					// TODO: merge this with the same code in upsertAndRemoveSubParts
 					BsonDocument update = new BsonDocument("$set", mainPart);
-					collection.updateOne(txn, filter, update, new UpdateOptions().upsert(true));
+					collection.updateOne(filter, update, new UpdateOptions().upsert(true));
 				} else {
 					// Update part of the main doc (which must already exist)
 					String key = dottedFieldNameOf(target, mainRef);
 					LOGGER.debug("| Set field {} in {}: {}", key, mainRef, value);
 					BsonDocument mainUpdate = new BsonDocument("$set", new BsonDocument(key, value));
-					doUpdate(mainUpdate, standardPreconditions(target, mainRef, filter), txn);
+					doUpdate(mainUpdate, standardPreconditions(target, mainRef, filter));
 				}
 				// On the root doc, we're only bumping the revision
 				rootUpdate = blankUpdateDoc();
@@ -516,16 +518,16 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 		} else {
 			rootUpdate = replacementDoc(target, value, rootRef);
 		}
-		doUpdate(rootUpdate, standardRootPreconditions(target), txn);
-		txn.commitTransaction();
+		doUpdate(rootUpdate, standardRootPreconditions(target));
+		txn.commit();
 	}
 
-	private <T> void doDelete(Reference<T> target, ClientSession txn) {
+	private <T> void doDelete(Reference<T> target, Transaction txn) {
 		deleteParts(mainRef(target));
-		if (doUpdate(deletionDoc(target, rootRef), standardRootPreconditions(target), txn)) {
-			txn.commitTransaction();
+		if (doUpdate(deletionDoc(target, rootRef), standardRootPreconditions(target))) {
+			txn.commit();
 		} else {
-			txn.abortTransaction();
+			txn.abort();
 		}
 	}
 
@@ -662,7 +664,7 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 	/**
 	 * @return true if something changed
 	 */
-	private boolean doUpdate(BsonDocument updateDoc, BsonDocument filter, ClientSession txn) {
+	private boolean doUpdate(BsonDocument updateDoc, BsonDocument filter) {
 		LOGGER.debug("| Update: {}", updateDoc);
 		LOGGER.debug("| Filter: {}", filter);
 		if (settings.testing().eventDelayMS() < 0) {
@@ -673,7 +675,7 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 				LOGGER.debug("| Interrupted");
 			}
 		}
-		UpdateResult result = collection.updateOne(txn, filter, updateDoc);
+		UpdateResult result = collection.updateOne(filter, updateDoc);
 		LOGGER.debug("| Update result: {}", result);
 		if (result.wasAcknowledged()) {
 			assert result.getMatchedCount() <= 1;
@@ -774,11 +776,10 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 
 	/**
 	 * @param value is mutated to stub-out the parts written to the database
-	 * @param txn
 	 * @return the <em>main part</em> document, representing the root of the tree of part-documents
 	 * (which is not the root of the bosk state tree, unless of course <code>target</code> is the root reference)
 	 */
-	private <T> BsonDocument upsertAndRemoveSubParts(Reference<T> target, BsonDocument value, ClientSession txn) {
+	private <T> BsonDocument upsertAndRemoveSubParts(Reference<T> target, BsonDocument value) {
 		List<BsonDocument> allParts = bsonSurgeon.scatter(rootRef, target, value);
 		// NOTE: `value` has now been mutated so the parts have been stubbed out
 
@@ -790,49 +791,11 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 			BsonDocument update = new BsonDocument("$set", part);
 			BsonDocument filter = new BsonDocument("_id", part.get("_id"));
 			LOGGER.debug("Upsert sub-part: filter={} update={}", filter, update);
-			UpdateResult result = collection.updateOne(txn, filter, update, options);
+			UpdateResult result = collection.updateOne(filter, update, options);
 			LOGGER.debug("| Update result: {}", result);
 		}
 
 		return allParts.get(allParts.size()-1);
-	}
-
-	/**
-	 * Our version of {@link ClientSession#withTransaction} which:
-	 * <ul><li>
-	 * Passes the {@link ClientSession} object to <code>body</code>
-	 * </li><li>
-	 * Allows the <code>body</code> to throw a checked exception.
-	 * </li></ul>
-	 */
-	@SneakyThrows // We actually obey the throwing rules. X will automatically be the right exception type
-	private <X extends Exception> void withTransaction(TransactionBody<X> body) throws X {
-		LOGGER.debug("Begin transaction {}", identityHashCode(this));
-		ClientSessionOptions sessionOptions = ClientSessionOptions.builder()
-			.causallyConsistent(true)
-			.defaultTransactionOptions(TransactionOptions.builder()
-				.writeConcern(WriteConcern.MAJORITY)
-				.readConcern(ReadConcern.MAJORITY)
-				.build())
-			.build();
-		ClientSession session = mongoClient.startSession(sessionOptions);
-
-		try {
-			session.withTransaction(()->{
-				try {
-					body.run(session);
-				} catch (Exception e) {
-					throw new TunneledCheckedException(e);
-				}
-				return "done";
-			});
-		} catch (TunneledCheckedException e) {
-			throw e.getCause();
-		}
-	}
-
-	private interface TransactionBody<X extends Throwable> {
-		void run(ClientSession session) throws X;
 	}
 
 	private class Transaction implements AutoCloseable {
