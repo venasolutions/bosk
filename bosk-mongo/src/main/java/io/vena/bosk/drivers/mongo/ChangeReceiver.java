@@ -11,6 +11,8 @@ import java.util.NoSuchElementException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeoutException;
+import lombok.var;
+import org.bson.BsonDocument;
 import org.bson.Document;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,11 +30,11 @@ class ChangeReceiver implements Closeable {
 	private final String boskName;
 	private final ChangeListener listener;
 	private final MongoDriverSettings settings;
-	private final MongoCollection<Document> collection;
+	private final MongoCollection<BsonDocument> collection;
 	private final ScheduledExecutorService ex = Executors.newScheduledThreadPool(1);
 	private volatile boolean isClosed = false;
 
-	ChangeReceiver(String boskName, ChangeListener listener, MongoDriverSettings settings, MongoCollection<Document> collection) {
+	ChangeReceiver(String boskName, ChangeListener listener, MongoDriverSettings settings, MongoCollection<BsonDocument> collection) {
 		this.boskName = boskName;
 		this.listener = listener;
 		this.settings = settings;
@@ -90,7 +92,7 @@ class ChangeReceiver implements Closeable {
 					// though this must be done cautiously, since even disabled log statements still have nonzero overhead.
 					//
 					LOGGER.debug("Opening cursor");
-					try (MongoChangeStreamCursor<ChangeStreamDocument<Document>> cursor = openCursor()) {
+					try (var cursor = openCursor()) {
 						try {
 							try {
 								listener.onConnectionSucceeded();
@@ -134,7 +136,7 @@ class ChangeReceiver implements Closeable {
 							LOGGER.warn("Timed out waiting for bosk state to initialize; will wait and retry", e);
 							listener.onDisconnect(e);
 							return;
-						} catch (RuntimeException e) {
+						} catch (RuntimeException | Error e) {
 							LOGGER.warn("Unexpected exception after connecting to MongoDB; will wait and retry", e);
 							listener.onDisconnect(e);
 							return;
@@ -159,8 +161,8 @@ class ChangeReceiver implements Closeable {
 		}
 	}
 
-	private MongoChangeStreamCursor<ChangeStreamDocument<Document>> openCursor() {
-		MongoChangeStreamCursor<ChangeStreamDocument<Document>> result = collection
+	private MongoChangeStreamCursor<ChangeStreamDocument<BsonDocument>> openCursor() {
+		MongoChangeStreamCursor<ChangeStreamDocument<BsonDocument>> result = collection
 			.watch()
 			.maxAwaitTime(settings.recoveryPollingMS(), MILLISECONDS)
 			.cursor();
@@ -171,7 +173,7 @@ class ChangeReceiver implements Closeable {
 	/**
 	 * Should not throw RuntimeException, or else {@link #connectionLoop()} is likely to overreact.
 	 */
-	private void eventLoop(MongoChangeStreamCursor<ChangeStreamDocument<Document>> cursor) throws UnprocessableEventException, UnexpectedEventProcessingException {
+	private void eventLoop(MongoChangeStreamCursor<ChangeStreamDocument<BsonDocument>> cursor) throws UnprocessableEventException, UnexpectedEventProcessingException {
 		if (isClosed) {
 			LOGGER.debug("Receiver is closed");
 			return;
@@ -179,7 +181,7 @@ class ChangeReceiver implements Closeable {
 		try {
 			LOGGER.debug("Starting event loop");
 			while (!isClosed) {
-				ChangeStreamDocument<Document> event;
+				ChangeStreamDocument<BsonDocument> event;
 				try {
 					event = cursor.next();
 				} catch (NoSuchElementException e) {
@@ -199,7 +201,7 @@ class ChangeReceiver implements Closeable {
 		}
 	}
 
-	private void processEvent(ChangeStreamDocument<Document> event) throws UnprocessableEventException {
+	private void processEvent(ChangeStreamDocument<BsonDocument> event) throws UnprocessableEventException {
 		switch (event.getOperationType()) {
 			case INSERT:
 			case UPDATE:

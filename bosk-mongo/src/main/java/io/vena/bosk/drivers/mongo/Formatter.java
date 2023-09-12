@@ -23,10 +23,10 @@ import java.util.regex.Pattern;
 import org.bson.BsonDocument;
 import org.bson.BsonDocumentReader;
 import org.bson.BsonDocumentWriter;
+import org.bson.BsonInt32;
 import org.bson.BsonInt64;
 import org.bson.BsonReader;
 import org.bson.BsonValue;
-import org.bson.Document;
 import org.bson.codecs.Codec;
 import org.bson.codecs.DecoderContext;
 import org.bson.codecs.DocumentCodecProvider;
@@ -93,6 +93,8 @@ final class Formatter {
 		revision,
 	}
 
+	private final BsonInt32 SUPPORTED_MANIFEST_VERSION = new BsonInt32(1);
+
 	//
 	// Helpers to translate Bosk <-> MongoDB
 	//
@@ -129,14 +131,6 @@ final class Formatter {
 		};
 	}
 
-	<T> T document2object(Document document, Reference<T> target) {
-		return document2object(document2BsonDocument(document), target);
-	}
-
-	public BsonDocument document2BsonDocument(Document document) {
-		return document.toBsonDocument(BsonDocument.class, codecRegistry());
-	}
-
 	@SuppressWarnings("unchecked")
 	<T> T document2object(BsonDocument document, Reference<T> target) {
 		Type type = target.targetType();
@@ -147,7 +141,7 @@ final class Formatter {
 		}
 	}
 
-	void validateManifest(Document manifest) throws UnrecognizedFormatException {
+	void validateManifest(BsonDocument manifest) throws UnrecognizedFormatException {
 		try {
 			Set<String> keys = new HashSet<>(manifest.keySet());
 			List<String> supportedFormats = asList("sequoia", "pando");
@@ -174,19 +168,19 @@ final class Formatter {
 					throw new UnrecognizedFormatException("Unrecognized keys in manifest: " + keys);
 				}
 			}
-			if (manifest.getInteger("version") != 1) {
-				throw new UnrecognizedFormatException("Manifest version " + manifest.getInteger("version") + " not suppoted");
+			if (!SUPPORTED_MANIFEST_VERSION.equals(manifest.getInt32("version"))) {
+				throw new UnrecognizedFormatException("Manifest version " + manifest.getInt32("version") + " not suppoted");
 			}
 		} catch (ClassCastException e) {
 			throw new UnrecognizedFormatException("Manifest field has unexpected type", e);
 		}
 	}
 
-	Manifest decodeManifest(Document manifestDoc) throws UnrecognizedFormatException {
+	Manifest decodeManifest(BsonDocument manifestDoc) throws UnrecognizedFormatException {
 		validateManifest(manifestDoc);
 		return (Manifest) codecFor(Manifest.class)
 			.decode(
-				new BsonDocumentReader(document2BsonDocument(manifestDoc)),
+				new BsonDocumentReader(manifestDoc),
 				DecoderContext.builder().build());
 	}
 
