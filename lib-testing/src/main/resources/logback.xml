@@ -1,7 +1,7 @@
 <configuration>
 	<appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
 		<encoder>
-			<pattern>%d %-5level [%thread]%X{MongoDriver} %logger{25}: %msg%n</pattern>
+			<pattern>%d %-5level [%thread]%X{MongoDriver}%X{MongoDriver.transaction}%X{MongoDriver.event} %logger{25}: %msg%n</pattern>
 		</encoder>
 		<immediateFlush>true</immediateFlush>
 	</appender>
@@ -11,7 +11,7 @@
 
 	<logger name="io.vena.bosk.drivers.mongo" level="DEBUG"/>
 	<logger name="io.vena.bosk.drivers.DriverConformanceTest" level="DEBUG"/>
-	<logger name="io.vena.bosk.drivers.mongo.PandoFormatDriver" level="DEBUG"/>
+	<logger name="io.vena.bosk.drivers.mongo.PandoFormatDriver" level="TRACE"/>
 	<logger name="io.vena.bosk.drivers.mongo.MainDriver" level="TRACE"/>
 	<!-- How to add more tracing during unit tests
 	 -->

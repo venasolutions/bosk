@@ -38,14 +38,14 @@ import com.mongodb.client.result.InsertManyResult;
 import com.mongodb.client.result.InsertOneResult;
 import com.mongodb.client.result.UpdateResult;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
 import lombok.RequiredArgsConstructor;
 import org.bson.Document;
 import org.bson.codecs.configuration.CodecRegistry;
 import org.bson.conversions.Bson;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import static java.lang.System.identityHashCode;
+import org.slf4j.MDC;
 
 @SuppressWarnings("NullableProblems")
 @RequiredArgsConstructor(staticName = "of")
@@ -53,18 +53,23 @@ class TransactionalCollection<TDocument> implements MongoCollection<TDocument> {
 	private final MongoCollection<TDocument> downstream;
 	private final MongoClient mongoClient;
 	private final ThreadLocal<ClientSession> currentSession = new ThreadLocal<>();
+	private static final AtomicLong identityCounter = new AtomicLong(1);
 
 	public Transaction newTransaction() {
 		return new Transaction();
 	}
 
 	public class Transaction implements AutoCloseable {
+		final String name;
+		final String oldMDC;
 		final boolean isNested;
 
 		public Transaction() {
+			name = "t" + identityCounter.getAndIncrement();
+			oldMDC = MDC.get(MDC_KEY);
 			isNested = (currentSession.get() != null);
 			if (isNested) {
-				LOGGER.debug("Enter nested transaction {}", identity());
+				LOGGER.debug("Enter nested transaction {}", name);
 			} else {
 				ClientSessionOptions sessionOptions = ClientSessionOptions.builder()
 					.causallyConsistent(true)
@@ -77,7 +82,8 @@ class TransactionalCollection<TDocument> implements MongoCollection<TDocument> {
 				ClientSession session = mongoClient.startSession(sessionOptions);
 				session.startTransaction();
 				currentSession.set(session);
-				LOGGER.debug("Begin transaction {}", identity());
+				MDC.put(MDC_KEY, name);
+				LOGGER.debug("Begin transaction {}", name);
 			}
 		}
 
@@ -90,24 +96,23 @@ class TransactionalCollection<TDocument> implements MongoCollection<TDocument> {
 		 * is not committed; however, it makes the calling code more self-documenting.
 		 */
 		public void abort() {
-			LOGGER.debug("Abort transaction {}", identity());
+			LOGGER.debug("Abort transaction {}", name);
 			currentSession.get().abortTransaction();
 		}
 
 		@Override
 		public void close() {
 			if (isNested) {
-				LOGGER.debug("Exiting nested transaction {}", identity());
+				LOGGER.debug("Exiting nested transaction {}", name);
 			} else {
-				LOGGER.debug("Close transaction {}", identity());
+				LOGGER.debug("Close transaction {}", name);
 				currentSession.get().close();
 				currentSession.remove();
 			}
+			MDC.put(MDC_KEY, oldMDC);
 		}
 
-		private int identity() {
-			return identityHashCode(currentSession.get());
-		}
+		private static final String MDC_KEY = "MongoDriver.transaction";
 	}
 
 	private ClientSession currentSession() {
