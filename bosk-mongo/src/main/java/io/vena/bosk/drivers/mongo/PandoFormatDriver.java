@@ -1,10 +1,5 @@
 package io.vena.bosk.drivers.mongo;
 
-import com.mongodb.ClientSessionOptions;
-import com.mongodb.ReadConcern;
-import com.mongodb.TransactionOptions;
-import com.mongodb.WriteConcern;
-import com.mongodb.client.ClientSession;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoCursor;
@@ -38,6 +33,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
 import lombok.NonNull;
+import lombok.var;
 import org.bson.BsonDocument;
 import org.bson.BsonInt64;
 import org.bson.BsonNull;
@@ -63,7 +59,6 @@ import static io.vena.bosk.drivers.mongo.MainDriver.MANIFEST_ID;
 import static io.vena.bosk.drivers.mongo.MongoDriverSettings.ManifestMode.CREATE_IF_ABSENT;
 import static io.vena.bosk.drivers.mongo.MongoDriverSettings.OrphanDocumentMode.HASTY;
 import static io.vena.bosk.util.Classes.enumerableByIdentifier;
-import static java.lang.System.identityHashCode;
 import static java.util.Collections.newSetFromMap;
 import static java.util.Collections.singletonList;
 import static java.util.Comparator.comparing;
@@ -80,8 +75,7 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 	private final PandoFormat format;
 	private final MongoDriverSettings settings;
 	private final Formatter formatter;
-	private final MongoClient mongoClient;
-	private final MongoCollection<Document> collection;
+	private final TransactionalCollection<Document> collection;
 	private final RootReference<R> rootRef;
 	private final BoskDriver<R> downstream;
 	private final FlushLock flushLock;
@@ -104,9 +98,8 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 		this.description = PandoFormatDriver.class.getSimpleName() + ": " + driverSettings;
 		this.settings = driverSettings;
 		this.format = format;
-		this.mongoClient = mongoClient;
 		this.formatter = new Formatter(bosk, bsonPlugin);
-		this.collection = collection;
+		this.collection = TransactionalCollection.of(collection, mongoClient);
 		this.rootRef = bosk.rootReference();
 		this.downstream = downstream;
 		this.flushLock = flushLock;
@@ -128,46 +121,46 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 
 	@Override
 	public <T> void submitReplacement(Reference<T> target, T newValue) {
-		try (Transaction txn = new Transaction()) {
+		try (var txn = collection.newTransaction()) {
 			doReplacement(target, newValue, txn);
 		}
 	}
 
 	@Override
 	public <T> void submitInitialization(Reference<T> target, T newValue) {
-		try (Transaction txn = new Transaction()) {
+		try (var txn = collection.newTransaction()) {
 			if (documentExists(documentFilter(mainRef(target)))) {
 				return;
 			}
 			doReplacement(target, newValue, txn);
-		};
+		}
 	}
 
 	@Override
 	public <T> void submitDeletion(Reference<T> target) {
-		try (Transaction txn = new Transaction()) {
+		try (var txn = collection.newTransaction()) {
 			doDelete(target, txn);
 		}
 	}
 
 	@Override
 	public <T> void submitConditionalReplacement(Reference<T> target, T newValue, Reference<Identifier> precondition, Identifier requiredValue) {
-		try (Transaction txn = new Transaction()) {
+		try (var txn = collection.newTransaction()) {
 			if (preconditionFailed(precondition, requiredValue)) {
 				return;
 			}
 			doReplacement(target, newValue, txn);
-		};
+		}
 	}
 
 	@Override
 	public <T> void submitConditionalDeletion(Reference<T> target, Reference<Identifier> precondition, Identifier requiredValue) {
-		try (Transaction txn = new Transaction()) {
+		try (var txn = collection.newTransaction()) {
 			if (preconditionFailed(precondition, requiredValue)) {
 				return;
 			}
 			doDelete(target, txn);
-		};
+		}
 	}
 
 	@Override
@@ -215,7 +208,7 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 		BsonValue initialState = formatter.object2bsonValue(priorContents.state, rootRef.targetType());
 		BsonInt64 newRevision = new BsonInt64(1 + priorContents.revision.longValue());
 
-		try (Transaction txn = new Transaction()) {
+		try (var txn = collection.newTransaction()) {
 			LOGGER.debug("** Initial upsert for {}", ROOT_DOCUMENT_ID.getValue());
 			if (initialState instanceof BsonDocument) {
 				upsertAndRemoveSubParts(rootRef, initialState.asDocument()); // Mutates initialState!
@@ -271,8 +264,11 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 			processTransaction(singletonList(event));
 		} else {
 			demultiplexer.add(event);
-			if (bsonDocumentID.asString().getValue().startsWith("|")) {
+			if (ROOT_DOCUMENT_ID.equals(bsonDocumentID)) {
+				LOGGER.debug("Processing final event {} on {}", event.getOperationType(), event.getDocumentKey());
 				processTransaction(demultiplexer.pop(event));
+			} else {
+				LOGGER.debug("Queueing transaction event {} on {}", event.getOperationType(), event.getDocumentKey());
 			}
 		}
 	}
@@ -377,12 +373,11 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 	}
 
 	private List<BsonDocument> subpartDocuments(List<ChangeStreamDocument<Document>> priorEvents) {
-		List<BsonDocument> parts = priorEvents.stream()
+		return priorEvents.stream()
 			.filter(e -> OPERATIONS_TO_INCLUDE_IN_GATHER.contains(e.getOperationType()))
 			.map(this::fullDocumentForSubPart)
 			.map(formatter::document2BsonDocument)
 			.collect(toCollection(ArrayList::new));
-		return parts;
 	}
 
 	private @NonNull Document fullDocumentForSubPart(ChangeStreamDocument<Document> event) {
@@ -488,7 +483,7 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 	// MongoDB helpers
 	//
 
-	private <T> void doReplacement(Reference<T> target, T newValue, Transaction txn) {
+	private <T> void doReplacement(Reference<T> target, T newValue, TransactionalCollection<Document>.Transaction txn) {
 		BsonDocument rootUpdate;
 		Reference<?> mainRef = mainRef(target);
 		BsonValue value = formatter.object2bsonValue(newValue, target.targetType());
@@ -522,7 +517,7 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 		txn.commit();
 	}
 
-	private <T> void doDelete(Reference<T> target, Transaction txn) {
+	private <T> void doDelete(Reference<T> target, TransactionalCollection<Document>.Transaction txn) {
 		deleteParts(mainRef(target));
 		if (doUpdate(deletionDoc(target, rootRef), standardRootPreconditions(target))) {
 			txn.commit();
@@ -711,7 +706,7 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 					} else {
 						alreadyUsedSubparts = true;
 					}
-					String mainID = "|" + String.join("|", BsonSurgeon.containerSegments(rootRef, ref));
+					String mainID = "|" + String.join("|", BsonSurgeon.docSegments(rootRef, ref));
 					BsonDocument mainDocument = new BsonDocument()
 						.append("_id", new BsonString(mainID))
 						.append("state", entry.getValue());
@@ -796,42 +791,6 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 		}
 
 		return allParts.get(allParts.size()-1);
-	}
-
-	private class Transaction implements AutoCloseable {
-		private final ClientSession session;
-
-		Transaction() {
-			LOGGER.debug("Begin transaction {}", identityHashCode(this));
-			ClientSessionOptions sessionOptions = ClientSessionOptions.builder()
-				.causallyConsistent(true)
-				.defaultTransactionOptions(TransactionOptions.builder()
-					.writeConcern(WriteConcern.MAJORITY)
-					.readConcern(ReadConcern.MAJORITY)
-					.build())
-				.build();
-			session = mongoClient.startSession(sessionOptions);
-			session.startTransaction();
-		}
-
-		public void commit() {
-			session.commitTransaction();
-		}
-
-		/**
-		 * Not strictly necessary, because this is the default if the transaction
-		 * is not committed; however, it makes the calling code more self-documenting.
-		 */
-		public void abort() {
-			LOGGER.debug("Abort transaction {}", identityHashCode(this));
-			session.abortTransaction();
-		}
-
-		@Override
-		public void close() {
-			LOGGER.debug("Close transaction {}", identityHashCode(this));
-			session.close();
-		}
 	}
 
 	private void logNonexistentField(String dottedName, InvalidTypeException e) {
