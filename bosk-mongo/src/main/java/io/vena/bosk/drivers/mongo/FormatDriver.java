@@ -52,8 +52,6 @@ interface FormatDriver<R extends StateTreeNode> extends MongoDriver<R> {
 	StateAndMetadata<R> loadAllState() throws IOException, UninitializedCollectionException;
 
 	/**
-	 * Can assume there is an active database transaction.
-	 * <p>
 	 * Can assume that the collection is empty or nonexistent,
 	 * in the sense that there is no mess to clean up,
 	 * but should tolerate documents already existing,

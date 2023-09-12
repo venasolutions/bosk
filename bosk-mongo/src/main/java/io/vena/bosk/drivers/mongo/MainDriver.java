@@ -1,11 +1,8 @@
 package io.vena.bosk.drivers.mongo;
 
-import com.mongodb.ClientSessionOptions;
 import com.mongodb.MongoClientSettings;
 import com.mongodb.ReadConcern;
-import com.mongodb.TransactionOptions;
 import com.mongodb.WriteConcern;
-import com.mongodb.client.ClientSession;
 import com.mongodb.client.FindIterable;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
@@ -22,7 +19,6 @@ import io.vena.bosk.drivers.mongo.MappedDiagnosticContext.MDCScope;
 import io.vena.bosk.drivers.mongo.MongoDriverSettings.InitialDatabaseUnavailableMode;
 import io.vena.bosk.drivers.mongo.MongoDriverSettings.ManifestMode;
 import io.vena.bosk.exceptions.FlushFailureException;
-import io.vena.bosk.exceptions.InitializationFailureException;
 import io.vena.bosk.exceptions.InvalidTypeException;
 import java.io.IOException;
 import java.lang.reflect.Type;
@@ -34,6 +30,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
+import lombok.var;
 import org.bson.BsonDocument;
 import org.bson.BsonInt32;
 import org.bson.BsonInt64;
@@ -63,8 +60,7 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 	private final MongoDriverSettings driverSettings;
 	private final BsonPlugin bsonPlugin;
 	private final BoskDriver<R> downstream;
-	private final MongoClient mongoClient;
-	private final MongoCollection<BsonDocument> collection;
+	private final TransactionalCollection<BsonDocument> collection;
 	private final Listener listener;
 
 	private final ReentrantLock formatDriverLock = new ReentrantLock();
@@ -86,19 +82,20 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 			this.bsonPlugin = bsonPlugin;
 			this.downstream = downstream;
 
-			this.mongoClient = MongoClients.create(
+			MongoClient mongoClient = MongoClients.create(
 				MongoClientSettings.builder(clientSettings)
 					// By default, let's deal only with durable data that won't get rolled back
 					.readConcern(ReadConcern.MAJORITY)
 					.writeConcern(WriteConcern.MAJORITY)
 					.build());
-			this.collection = mongoClient
+			MongoCollection<BsonDocument> rawCollection = mongoClient
 				.getDatabase(driverSettings.database())
 				.getCollection(COLLECTION_NAME, BsonDocument.class);
+			this.collection = TransactionalCollection.of(rawCollection, mongoClient);
 
 			Type rootType = bosk.rootReference().targetType();
 			this.listener = new Listener(new FutureTask<>(() -> doInitialRoot(rootType)));
-			this.receiver = new ChangeReceiver(bosk.name(), listener, driverSettings, collection);
+			this.receiver = new ChangeReceiver(bosk.name(), listener, driverSettings, rawCollection);
 		}
 	}
 
@@ -156,7 +153,7 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 	private R doInitialRoot(Type rootType) {
 		R root;
 		quietlySetFormatDriver(new DisconnectedDriver<>(FAILURE_TO_COMPUTE_INITIAL_ROOT)); // Pessimistic fallback
-		try {
+		try (var __ = collection.newReadOnlySession()){
 			FormatDriver<R> detectedDriver = detectFormat();
 			StateAndMetadata<R> loadedState = detectedDriver.loadAllState();
 			root = loadedState.state;
@@ -165,10 +162,12 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 		} catch (UninitializedCollectionException e) {
 			LOGGER.debug("Database collection is uninitialized; will initialize using downstream.initialRoot");
 			root = callDownstreamInitialRoot(rootType);
-			try {
+			try (var session = collection.newSession()) {
 				FormatDriver<R> preferredDriver = newPreferredFormatDriver();
-				initializeCollectionTransaction(root, preferredDriver);
+				preferredDriver.initializeCollection(new StateAndMetadata<>(root, REVISION_ZERO));
 				preferredDriver.onRevisionToSkip(REVISION_ONE); // initialRoot handles REVISION_ONE; downstream only needs to know about changes after that
+				session.commitTransactionIfAny();
+				// We can now publish the driver knowing that the transaction, if there is one, has committed
 				publishFormatDriver(preferredDriver);
 			} catch (RuntimeException | IOException e2) {
 				LOGGER.warn("Failed to initialize database; disconnecting", e2);
@@ -205,59 +204,28 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 		return root;
 	}
 
-	private void initializeCollectionTransaction(R result, FormatDriver<R> newDriver) throws InitializationFailureException {
-		ClientSessionOptions sessionOptions = ClientSessionOptions.builder()
-			.causallyConsistent(true)
-			.defaultTransactionOptions(TransactionOptions.builder()
-				.writeConcern(WriteConcern.MAJORITY)
-				.readConcern(ReadConcern.MAJORITY)
-				.build())
-			.build();
-		try (ClientSession session = mongoClient.startSession(sessionOptions)) {
-			try {
-				newDriver.initializeCollection(new StateAndMetadata<>(result, REVISION_ZERO));
-			} finally {
-				if (session.hasActiveTransaction()) {
-					session.abortTransaction();
-				}
-			}
-		}
-	}
-
 	/**
 	 * Refurbish is the one operation that always <em>must</em> happen in a transaction,
 	 * or else we could fail after deleting the existing contents but before rewriting them,
 	 * which would be catastrophic.
 	 */
 	private void refurbishTransaction() throws IOException {
-		ClientSessionOptions sessionOptions = ClientSessionOptions.builder()
-			.causallyConsistent(true)
-			.defaultTransactionOptions(TransactionOptions.builder()
-				.writeConcern(WriteConcern.MAJORITY)
-				.readConcern(ReadConcern.MAJORITY)
-				.build())
-			.build();
-		try (ClientSession session = mongoClient.startSession(sessionOptions)) {
-			try {
-				// Design note: this operation shouldn't do any special coordination with
-				// the receiver/listener system, because other replicas won't.
-				// That system needs to cope with a refurbish operations without any help.
-				session.startTransaction();
-				StateAndMetadata<R> result = formatDriver.loadAllState();
-				FormatDriver<R> newFormatDriver = newPreferredFormatDriver();
-				collection.deleteMany(new BsonDocument());
-				newFormatDriver.initializeCollection(result);
-				session.commitTransaction();
-				publishFormatDriver(newFormatDriver);
-			} catch (UninitializedCollectionException e) {
-				throw new IOException("Unable to refurbish uninitialized database collection", e);
-			} finally {
-				if (session.hasActiveTransaction()) {
-					session.abortTransaction();
-				}
-			}
+		collection.ensureTransactionStarted();
+		try {
+			// Design note: this operation shouldn't do any special coordination with
+			// the receiver/listener system, because other replicas won't.
+			// That system needs to cope with a refurbish operations without any help.
+			StateAndMetadata<R> result = formatDriver.loadAllState();
+			FormatDriver<R> newFormatDriver = newPreferredFormatDriver();
+			collection.deleteMany(new BsonDocument());
+			newFormatDriver.initializeCollection(result);
+			collection.commitTransaction();
+			publishFormatDriver(newFormatDriver);
+		} catch (UninitializedCollectionException e) {
+			throw new IOException("Unable to refurbish uninitialized database collection", e);
 		}
 	}
+
 	@Override
 	public <T> void submitReplacement(Reference<T> target, T newValue) {
 		doRetryableDriverOperation(()->{
@@ -296,7 +264,7 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 	@Override
 	public void flush() throws IOException, InterruptedException {
 		try {
-			RetryableOperation<IOException, InterruptedException> flushOperation = () -> formatDriver.flush();
+			RetryableOperation<IOException, InterruptedException> flushOperation = this::doFlush;
 			try (MDCScope __ = beginDriverOperation("flush")) {
 				try {
 					flushOperation.run();
@@ -307,10 +275,19 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 					// TODO: Really, at the moment the damage is noticed, we should probably make the receiver reboot; but we currently have no way to do so!
 					LOGGER.debug("Revision field has been disrupted; wait for receiver to notice something is wrong", e);
 					waitAndRetry(flushOperation, "flush");
+				} catch (CannotOpenSessionException e) {
+					LOGGER.debug("Cannot open MongoDB session; will wait and retry flush", e);
+					waitAndRetry(flushOperation, "flush");
 				}
 			}
-		} catch (DisconnectedException e) {
+		} catch (DisconnectedException | CannotOpenSessionException e) {
 			throw new FlushFailureException(e);
+		}
+	}
+
+	private void doFlush() throws IOException, InterruptedException {
+		try (var ___ = collection.newReadOnlySession()) {
+			formatDriver.flush();
 		}
 	}
 
@@ -353,12 +330,14 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 			LOGGER.debug("onConnectionSucceeded");
 			FutureTask<R> initialRootAction = this.taskRef.get();
 			if (initialRootAction == null) {
-				LOGGER.debug("Loading database state to submit to downstream driver");
-				FormatDriver<R> newDriver = detectFormat();
-				StateAndMetadata<R> loadedState = newDriver.loadAllState();
-				downstream.submitReplacement(bosk.rootReference(), loadedState.state);
-				newDriver.onRevisionToSkip(loadedState.revision);
-				publishFormatDriver(newDriver);
+				try (var __ = collection.newReadOnlySession()) {
+					LOGGER.debug("Loading database state to submit to downstream driver");
+					FormatDriver<R> newDriver = detectFormat();
+					StateAndMetadata<R> loadedState = newDriver.loadAllState();
+					downstream.submitReplacement(bosk.rootReference(), loadedState.state);
+					newDriver.onRevisionToSkip(loadedState.revision);
+					publishFormatDriver(newDriver);
+				}
 			} else {
 				LOGGER.debug("Running initialRoot action");
 				runInitialRootAction(initialRootAction);
@@ -488,12 +467,21 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 	}
 
 	private <X extends Exception, Y extends Exception> void doRetryableDriverOperation(RetryableOperation<X,Y> operation, String description, Object... args) throws X,Y {
-		try (MDCScope __ = beginDriverOperation(description, args)) {
-			try {
+		RetryableOperation<X,Y> operationInSession = () -> {
+			try (var session = collection.newSession()) {
 				operation.run();
+				session.commitTransactionIfAny();
+			} catch (CannotOpenSessionException e) {
+				quietlySetFormatDriver(new DisconnectedDriver<>(e));
+				throw new DisconnectedException(e);
+			}
+		};
+		try (var __ = beginDriverOperation(description, args)) {
+			try {
+				operationInSession.run();
 			} catch (DisconnectedException e) {
 				LOGGER.debug("Driver is disconnected ({}); will wait and retry operation", e.getMessage());
-				waitAndRetry(operation, description, args);
+				waitAndRetry(operationInSession, description, args);
 			}
 		}
 	}
