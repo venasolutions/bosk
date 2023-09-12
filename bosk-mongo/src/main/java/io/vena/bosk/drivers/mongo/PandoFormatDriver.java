@@ -28,14 +28,18 @@ import io.vena.bosk.StateTreeNode;
 import io.vena.bosk.drivers.mongo.Formatter.DocumentFields;
 import io.vena.bosk.exceptions.FlushFailureException;
 import io.vena.bosk.exceptions.InvalidTypeException;
+import io.vena.bosk.exceptions.TunneledCheckedException;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
+import lombok.NonNull;
+import lombok.SneakyThrows;
 import org.bson.BsonDocument;
 import org.bson.BsonInt64;
 import org.bson.BsonNull;
@@ -50,6 +54,7 @@ import static com.mongodb.ReadConcern.LOCAL;
 import static com.mongodb.client.model.Filters.regex;
 import static com.mongodb.client.model.Projections.fields;
 import static com.mongodb.client.model.Projections.include;
+import static com.mongodb.client.model.changestream.OperationType.DELETE;
 import static com.mongodb.client.model.changestream.OperationType.INSERT;
 import static io.vena.bosk.Path.parseParameterized;
 import static io.vena.bosk.drivers.mongo.BsonSurgeon.docSegments;
@@ -58,10 +63,15 @@ import static io.vena.bosk.drivers.mongo.Formatter.dottedFieldNameOf;
 import static io.vena.bosk.drivers.mongo.Formatter.enclosingReference;
 import static io.vena.bosk.drivers.mongo.MainDriver.MANIFEST_ID;
 import static io.vena.bosk.drivers.mongo.MongoDriverSettings.ManifestMode.CREATE_IF_ABSENT;
+import static io.vena.bosk.drivers.mongo.MongoDriverSettings.OrphanDocumentMode.HASTY;
 import static io.vena.bosk.util.Classes.enumerableByIdentifier;
+import static java.lang.System.identityHashCode;
 import static java.util.Collections.newSetFromMap;
+import static java.util.Collections.singletonList;
 import static java.util.Comparator.comparing;
+import static java.util.EnumSet.complementOf;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toCollection;
 import static java.util.stream.Collectors.toList;
 
 /**
@@ -78,6 +88,7 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 	private final BoskDriver<R> downstream;
 	private final FlushLock flushLock;
 	private final BsonSurgeon bsonSurgeon;
+	private final Demultiplexer demultiplexer = new Demultiplexer();
 
 	private volatile BsonInt64 revisionToSkip = null;
 
@@ -119,46 +130,42 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 
 	@Override
 	public <T> void submitReplacement(Reference<T> target, T newValue) {
-		try (Transaction txn = new Transaction()) {
-			doReplacement(target, newValue, txn);
-		}
+		withTransaction(txn-> doReplacement(target, newValue, txn));
 	}
 
 	@Override
 	public <T> void submitInitialization(Reference<T> target, T newValue) {
-		try (Transaction txn = new Transaction()) {
+		withTransaction(txn -> {
 			if (documentExists(documentFilter(mainRef(target)))) {
 				return;
 			}
 			doReplacement(target, newValue, txn);
-		}
+		});
 	}
 
 	@Override
 	public <T> void submitDeletion(Reference<T> target) {
-		try (Transaction txn = new Transaction()) {
-			doDelete(target, txn);
-		}
+		withTransaction(txn -> doDelete(target, txn));
 	}
 
 	@Override
 	public <T> void submitConditionalReplacement(Reference<T> target, T newValue, Reference<Identifier> precondition, Identifier requiredValue) {
-		try (Transaction txn = new Transaction()) {
+		withTransaction(txn -> {
 			if (preconditionFailed(precondition, requiredValue)) {
 				return;
 			}
 			doReplacement(target, newValue, txn);
-		}
+		});
 	}
 
 	@Override
 	public <T> void submitConditionalDeletion(Reference<T> target, Reference<Identifier> precondition, Identifier requiredValue) {
-		try (Transaction txn = new Transaction()) {
+		withTransaction(txn -> {
 			if (preconditionFailed(precondition, requiredValue)) {
 				return;
 			}
 			doDelete(target, txn);
-		}
+		});
 	}
 
 	@Override
@@ -209,7 +216,7 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 		try (Transaction txn = new Transaction()) {
 			LOGGER.debug("** Initial upsert for {}", ROOT_DOCUMENT_ID.getValue());
 			if (initialState instanceof BsonDocument) {
-				upsertAndRemoveSubParts(rootRef, initialState.asDocument()); // Mutates initialState!
+				upsertAndRemoveSubParts(rootRef, initialState.asDocument(), txn); // Mutates initialState!
 			}
 			BsonDocument update = new BsonDocument("$set", initialDocument(initialState, newRevision));
 			BsonDocument filter = rootDocumentFilter();
@@ -245,53 +252,161 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 		if (event.getDocumentKey() == null) {
 			throw new UnprocessableEventException("Null document key", event.getOperationType());
 		}
-		if (MANIFEST_ID.equals(event.getDocumentKey().get("_id"))) {
+		BsonValue bsonDocumentID = event.getDocumentKey().get("_id");
+		if (!(bsonDocumentID instanceof BsonString)) {
+			LOGGER.debug("Ignoring event for unrecognized non-string document key: {}", event.getDocumentKey());
+			return;
+		}
+		if (MANIFEST_ID.equals(bsonDocumentID)) {
 			onManifestEvent(event);
 			return;
 		}
-		if (!DOCUMENT_FILTER.equals(event.getDocumentKey())) {
-			LOGGER.debug("Ignoring event for unrecognized document key: {}", event.getDocumentKey());
-			return;
+
+		// This is an event we care about
+
+		if (event.getTxnNumber() == null) {
+			LOGGER.debug("Processing standalone event {} on {}", event.getOperationType(), event.getDocumentKey());
+			processTransaction(singletonList(event));
+		} else {
+			demultiplexer.add(event);
+			if (bsonDocumentID.asString().getValue().startsWith("|")) {
+				processTransaction(demultiplexer.pop(event));
+			}
 		}
-		switch (event.getOperationType()) {
+	}
+
+	private void processTransaction(List<ChangeStreamDocument<Document>> events) throws UnprocessableEventException {
+		ChangeStreamDocument<Document> finalEvent = events.get(events.size() - 1);
+		switch (finalEvent.getOperationType()) {
 			case INSERT: case REPLACE: {
-				// TODO: Handle insert/replace of part documents
-				Document fullDocument = event.getFullDocument();
+				Document fullDocument = finalEvent.getFullDocument();
 				if (fullDocument == null) {
-					throw new UnprocessableEventException("Missing fullDocument", event.getOperationType());
+					throw new UnprocessableEventException("Missing fullDocument on final event", finalEvent.getOperationType());
 				}
+
 				BsonInt64 revision = getRevisionFromFullDocumentEvent(fullDocument);
+				if (shouldSkip(revision)) {
+					LOGGER.debug("Skipping revision {}", revision.longValue());
+					return;
+				}
+
 				Document state = fullDocument.get(DocumentFields.state.name(), Document.class);
 				if (state == null) {
-					throw new UnprocessableEventException("Missing state field", event.getOperationType());
+					ChangeStreamDocument<Document> mainEvent = events.get(events.size() - 2);
+					LOGGER.debug("Main event is {} on {}", mainEvent.getOperationType(), mainEvent.getDocumentKey());
+					propagateDownstream(mainEvent, events.subList(0, events.size() - 2));
+				} else {
+					LOGGER.debug("Main event is final event");
+					propagateDownstream(finalEvent, events.subList(0, events.size() - 1));
 				}
-				R newRoot = formatter.document2object(state, rootRef);
-				// TODO: Queue up part documents, and submit downstream only once the main event arrives
-				LOGGER.debug("| Replace {}", rootRef);
-				downstream.submitReplacement(rootRef, newRoot);
+
 				flushLock.finishedRevision(revision);
 			} break;
 			case UPDATE: {
-				// TODO: Handle update of part documents
-				// TODO: Include any queued up part documents
-				UpdateDescription updateDescription = event.getUpdateDescription();
-				if (updateDescription != null) {
-					BsonInt64 revision = getRevisionFromUpdateEvent(event);
-					if (shouldNotSkip(revision)) {
-						replaceUpdatedFields(updateDescription.getUpdatedFields());
-						deleteRemovedFields(updateDescription.getRemovedFields(), event.getOperationType());
-					}
-					flushLock.finishedRevision(revision);
+				// TODO: Combine code with INSERT and REPLACE events
+				BsonInt64 revision = getRevisionFromUpdateEvent(finalEvent);
+				boolean mainEventIsFinalEvent = updateEventHasStateField(finalEvent);
+				if (mainEventIsFinalEvent) {
+					LOGGER.debug("Main event is final event");
+					propagateDownstream(finalEvent, events.subList(0, events.size() - 1));
+				} else {
+					ChangeStreamDocument<Document> mainEvent = events.get(events.size() - 2);
+					assert updateEventHasStateField(mainEvent);
+					LOGGER.debug("Main event is {} on {}", mainEvent.getOperationType(), mainEvent.getDocumentKey());
+					propagateDownstream(mainEvent, events.subList(0, events.size() - 2));
 				}
+				flushLock.finishedRevision(revision);
 			} break;
 			case DELETE: {
-				// TODO: Handle deletion of part documents
+				// No other events in the transaction matter if the root document is gone
 				LOGGER.debug("Document containing revision field has been deleted; assuming revision=0");
 				flushLock.finishedRevision(REVISION_ZERO);
 			} break;
+		}
+	}
+
+	private void propagateDownstream(ChangeStreamDocument<Document> mainEvent, List<ChangeStreamDocument<Document>> priorEvents) throws UnprocessableEventException {
+		switch (mainEvent.getOperationType()) {
+			case INSERT: case REPLACE: {
+				Document fullDocument = mainEvent.getFullDocument();
+				if (fullDocument == null) {
+					throw new UnprocessableEventException("Missing fullDocument on main event", mainEvent.getOperationType());
+				}
+
+				Document state = fullDocument.get(DocumentFields.state.name(), Document.class);
+				if (state == null) {
+					throw new UnprocessableEventException("Missing state field", mainEvent.getOperationType());
+				}
+
+				Reference<?> mainRef;
+				BsonDocument bsonState;
+				if (priorEvents == null) {
+					LOGGER.debug("No prior events");
+					bsonState = formatter.document2BsonDocument(state);
+					mainRef = documentID2MainRef(mainEvent.getDocumentKey().getString("_id").getValue(), mainEvent);
+				} else {
+					LOGGER.debug("{} prior events", priorEvents.size());
+					List<BsonDocument> parts = subpartDocuments(priorEvents);
+					parts.add(formatter.document2BsonDocument(fullDocument));
+					bsonState = bsonSurgeon.gather(parts);
+					mainRef = documentID2MainRef(fullDocument.getString("_id"), mainEvent);
+				}
+
+				LOGGER.debug("| Replace {}", mainRef);
+				submitReplacementDownstream(mainRef, bsonState);
+			} break;
+			case UPDATE: {
+				UpdateDescription updateDescription = mainEvent.getUpdateDescription();
+				if (updateDescription != null) {
+					replaceUpdatedFields(updateDescription.getUpdatedFields(), subpartDocuments(priorEvents));
+					deleteRemovedFields(updateDescription.getRemovedFields(), mainEvent.getOperationType());
+				}
+			} break;
+			case DELETE: {
+				// No other events in the transaction matter if the main document is deleted
+				Reference<?> mainRef = mainRef(documentID2MainRef(mainEvent.getDocumentKey().getString("_id").getValue(), mainEvent));
+				LOGGER.debug("| Replace {}", mainRef);
+				downstream.submitDeletion(mainRef);
+			} break;
 			default: {
-				throw new UnprocessableEventException("Cannot process event", event.getOperationType());
+				throw new UnprocessableEventException("Cannot process event", mainEvent.getOperationType());
 			}
+		}
+	}
+
+	private List<BsonDocument> subpartDocuments(List<ChangeStreamDocument<Document>> priorEvents) {
+		List<BsonDocument> parts = priorEvents.stream()
+			.filter(e -> OPERATIONS_TO_INCLUDE_IN_GATHER.contains(e.getOperationType()))
+			.map(this::fullDocumentForSubPart)
+			.map(formatter::document2BsonDocument)
+			.collect(toCollection(ArrayList::new));
+		return parts;
+	}
+
+	private @NonNull Document fullDocumentForSubPart(ChangeStreamDocument<Document> event) {
+		Document result = event.getFullDocument();
+		if (result == null) {
+			throw new IllegalStateException("No full document in change stream event for subpart: " + event.getOperationType() + " on " + event.getDocumentKey());
+		}
+		return result;
+	}
+
+	/**
+	 * This lets us use Java generics to avoid some ugly typecasts
+	 */
+	private <T> void submitReplacementDownstream(Reference<T> mainRef, BsonDocument bsonState) {
+		T newValue = formatter.document2object(bsonState, mainRef);
+		LOGGER.debug("| Replace {}", mainRef);
+		downstream.submitReplacement(mainRef, newValue);
+	}
+
+	private Reference<?> documentID2MainRef(String pipedPath, ChangeStreamDocument<Document> event) throws UnprocessableEventException {
+		// referenceTo does everything we need already. Build a fake dotted field name and use that
+		String dottedName = "state" + pipedPath.replace('|', '.');
+		try {
+			return Formatter.referenceTo(dottedName, rootRef);
+		} catch (InvalidTypeException e) {
+			throw new UnprocessableEventException("Invalid path from document ID: \"" + pipedPath + "\"", e, event.getOperationType());
 		}
 	}
 
@@ -351,17 +466,33 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 		return updatedFields.getInt64(DocumentFields.revision.name(), null);
 	}
 
+	private static boolean updateEventHasStateField(ChangeStreamDocument<Document> event) {
+		if (event == null) {
+			return false;
+		}
+		UpdateDescription updateDescription = event.getUpdateDescription();
+		if (updateDescription == null) {
+			return false;
+		}
+		BsonDocument updatedFields = updateDescription.getUpdatedFields();
+		if (updatedFields == null) {
+			return false;
+		}
+
+		return updatedFields.keySet().stream().anyMatch(k -> k.startsWith(DocumentFields.state.name()));
+	}
+
 	//
 	// MongoDB helpers
 	//
 
-	private <T> void doReplacement(Reference<T> target, T newValue, Transaction txn) {
+	private <T> void doReplacement(Reference<T> target, T newValue, ClientSession txn) {
 		BsonDocument rootUpdate;
 		Reference<?> mainRef = mainRef(target);
 		BsonValue value = formatter.object2bsonValue(newValue, target.targetType());
 		if (value instanceof BsonDocument) {
 			deleteParts(mainRef);
-			BsonDocument mainPart = upsertAndRemoveSubParts(target, value.asDocument());
+			BsonDocument mainPart = upsertAndRemoveSubParts(target, value.asDocument(), txn);
 			if (rootRef.equals(mainRef)) {
 				rootUpdate = replacementDoc(target, value, rootRef);
 			} else {
@@ -371,13 +502,13 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 					// Upsert the main doc
 					// TODO: merge this with the same code in upsertAndRemoveSubParts
 					BsonDocument update = new BsonDocument("$set", mainPart);
-					collection.updateOne(filter, update, new UpdateOptions().upsert(true));
+					collection.updateOne(txn, filter, update, new UpdateOptions().upsert(true));
 				} else {
 					// Update part of the main doc (which must already exist)
 					String key = dottedFieldNameOf(target, mainRef);
 					LOGGER.debug("| Set field {} in {}: {}", key, mainRef, value);
 					BsonDocument mainUpdate = new BsonDocument("$set", new BsonDocument(key, value));
-					doUpdate(mainUpdate, standardPreconditions(target, mainRef, filter));
+					doUpdate(mainUpdate, standardPreconditions(target, mainRef, filter), txn);
 				}
 				// On the root doc, we're only bumping the revision
 				rootUpdate = blankUpdateDoc();
@@ -385,16 +516,16 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 		} else {
 			rootUpdate = replacementDoc(target, value, rootRef);
 		}
-		doUpdate(rootUpdate, standardRootPreconditions(target));
-		txn.commit();
+		doUpdate(rootUpdate, standardRootPreconditions(target), txn);
+		txn.commitTransaction();
 	}
 
-	private <T> void doDelete(Reference<T> target, Transaction txn) {
+	private <T> void doDelete(Reference<T> target, ClientSession txn) {
 		deleteParts(mainRef(target));
-		if (doUpdate(deletionDoc(target, rootRef), standardRootPreconditions(target))) {
-			txn.commit();
+		if (doUpdate(deletionDoc(target, rootRef), standardRootPreconditions(target), txn)) {
+			txn.commitTransaction();
 		} else {
-			txn.abort();
+			txn.abortTransaction();
 		}
 	}
 
@@ -443,7 +574,7 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 		try {
 			try (MongoCursor<Document> cursor = collection
 				.withReadConcern(LOCAL) // The revision field needs to be the latest
-				.find(DOCUMENT_FILTER)
+				.find(ROOT_DOCUMENT_FILTER)
 				.limit(1)
 				.projection(fields(include(DocumentFields.revision.name())))
 				.cursor()
@@ -531,7 +662,7 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 	/**
 	 * @return true if something changed
 	 */
-	private boolean doUpdate(BsonDocument updateDoc, BsonDocument filter) {
+	private boolean doUpdate(BsonDocument updateDoc, BsonDocument filter, ClientSession txn) {
 		LOGGER.debug("| Update: {}", updateDoc);
 		LOGGER.debug("| Filter: {}", filter);
 		if (settings.testing().eventDelayMS() < 0) {
@@ -542,7 +673,7 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 				LOGGER.debug("| Interrupted");
 			}
 		}
-		UpdateResult result = collection.updateOne(filter, updateDoc);
+		UpdateResult result = collection.updateOne(txn, filter, updateDoc);
 		LOGGER.debug("| Update result: {}", result);
 		if (result.wasAcknowledged()) {
 			assert result.getMatchedCount() <= 1;
@@ -558,8 +689,9 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 	 * Call <code>downstream.{@link BoskDriver#submitReplacement submitReplacement}</code>
 	 * for each updated field.
 	 */
-	private void replaceUpdatedFields(@Nullable BsonDocument updatedFields) {
+	private void replaceUpdatedFields(@Nullable BsonDocument updatedFields, List<BsonDocument> subParts) {
 		if (updatedFields != null) {
+			boolean alreadyUsedSubparts = false;
 			for (Map.Entry<String, BsonValue> entry : updatedFields.entrySet()) {
 				String dottedName = entry.getKey();
 				if (dottedName.startsWith(DocumentFields.state.name())) {
@@ -571,15 +703,30 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 						continue;
 					}
 					LOGGER.debug("| Replace {}", ref);
-					Object replacement = formatter.bsonValue2object(entry.getValue(), ref);
+
+					if (alreadyUsedSubparts) {
+						throw new IllegalStateException("Not expecting an update event that changes multiple state fields");
+					} else {
+						alreadyUsedSubparts = true;
+					}
+					String mainID = "|" + String.join("|", BsonSurgeon.containerSegments(rootRef, ref));
+					BsonDocument mainDocument = new BsonDocument()
+						.append("_id", new BsonString(mainID))
+						.append("state", entry.getValue());
+					ArrayList<BsonDocument> parts = new ArrayList<>(subParts.size() + 1);
+					parts.addAll(subParts);
+					parts.add(mainDocument);
+
+					BsonValue value = bsonSurgeon.gather(parts);
+					Object replacement = formatter.bsonValue2object(value, ref);
 					downstream.submitReplacement(ref, replacement);
 				}
 			}
 		}
 	}
 
-	private boolean shouldNotSkip(BsonInt64 revision) {
-		return revision == null || revisionToSkip == null || revision.longValue() > revisionToSkip.longValue();
+	private boolean shouldSkip(BsonInt64 revision) {
+		return revision != null && revisionToSkip != null && revision.longValue() <= revisionToSkip.longValue();
 	}
 
 	/**
@@ -607,26 +754,31 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 	}
 
 	private <T> void deleteParts(Reference<T> mainRef) {
-		String prefix;
-		if (mainRef.path().isEmpty()) {
-			prefix = "|";
+		if (settings.experimental().orphanDocumentMode() == HASTY) {
+			LOGGER.debug("Skipping deleteParts({}) in {} mode", mainRef, HASTY);
 		} else {
-			prefix = "|" + String.join("|", docSegments(rootRef, mainRef)) + "|";
+			String prefix;
+			if (mainRef.path().isEmpty()) {
+				prefix = "|";
+			} else {
+				prefix = "|" + String.join("|", docSegments(rootRef, mainRef)) + "|";
+			}
+
+			// Every doc whose ID starts with the prefix and has at least one more character
+			Bson filter = regex("_id", "^" + Pattern.quote(prefix) + ".");
+
+			DeleteResult result = collection.deleteMany(filter);
+			LOGGER.debug("deleteParts({}) result: {} filter: {}", mainRef, result, filter);
 		}
-
-		// Every doc whose ID starts with the prefix and has at least one more character
-		Bson filter = regex("_id", "^" + Pattern.quote(prefix) + ".");
-
-		DeleteResult result = collection.deleteMany(filter);
-		LOGGER.debug("deleteParts({}) result: {} filter: {}", mainRef, result, filter);
 	}
 
 	/**
 	 * @param value is mutated to stub-out the parts written to the database
+	 * @param txn
 	 * @return the <em>main part</em> document, representing the root of the tree of part-documents
 	 * (which is not the root of the bosk state tree, unless of course <code>target</code> is the root reference)
 	 */
-	private <T> BsonDocument upsertAndRemoveSubParts(Reference<T> target, BsonDocument value) {
+	private <T> BsonDocument upsertAndRemoveSubParts(Reference<T> target, BsonDocument value, ClientSession txn) {
 		List<BsonDocument> allParts = bsonSurgeon.scatter(rootRef, target, value);
 		// NOTE: `value` has now been mutated so the parts have been stubbed out
 
@@ -638,17 +790,56 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 			BsonDocument update = new BsonDocument("$set", part);
 			BsonDocument filter = new BsonDocument("_id", part.get("_id"));
 			LOGGER.debug("Upsert sub-part: filter={} update={}", filter, update);
-			UpdateResult result = collection.updateOne(filter, update, options);
+			UpdateResult result = collection.updateOne(txn, filter, update, options);
 			LOGGER.debug("| Update result: {}", result);
 		}
 
 		return allParts.get(allParts.size()-1);
 	}
 
+	/**
+	 * Our version of {@link ClientSession#withTransaction} which:
+	 * <ul><li>
+	 * Passes the {@link ClientSession} object to <code>body</code>
+	 * </li><li>
+	 * Allows the <code>body</code> to throw a checked exception.
+	 * </li></ul>
+	 */
+	@SneakyThrows // We actually obey the throwing rules. X will automatically be the right exception type
+	private <X extends Exception> void withTransaction(TransactionBody<X> body) throws X {
+		LOGGER.debug("Begin transaction {}", identityHashCode(this));
+		ClientSessionOptions sessionOptions = ClientSessionOptions.builder()
+			.causallyConsistent(true)
+			.defaultTransactionOptions(TransactionOptions.builder()
+				.writeConcern(WriteConcern.MAJORITY)
+				.readConcern(ReadConcern.MAJORITY)
+				.build())
+			.build();
+		ClientSession session = mongoClient.startSession(sessionOptions);
+
+		try {
+			session.withTransaction(()->{
+				try {
+					body.run(session);
+				} catch (Exception e) {
+					throw new TunneledCheckedException(e);
+				}
+				return "done";
+			});
+		} catch (TunneledCheckedException e) {
+			throw e.getCause();
+		}
+	}
+
+	private interface TransactionBody<X extends Throwable> {
+		void run(ClientSession session) throws X;
+	}
+
 	private class Transaction implements AutoCloseable {
 		private final ClientSession session;
 
 		Transaction() {
+			LOGGER.debug("Begin transaction {}", identityHashCode(this));
 			ClientSessionOptions sessionOptions = ClientSessionOptions.builder()
 				.causallyConsistent(true)
 				.defaultTransactionOptions(TransactionOptions.builder()
@@ -669,11 +860,13 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 		 * is not committed; however, it makes the calling code more self-documenting.
 		 */
 		public void abort() {
+			LOGGER.debug("Abort transaction {}", identityHashCode(this));
 			session.abortTransaction();
 		}
 
 		@Override
 		public void close() {
+			LOGGER.debug("Close transaction {}", identityHashCode(this));
 			session.close();
 		}
 	}
@@ -691,6 +884,7 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 	}
 
 	private static final Set<String> ALREADY_WARNED = newSetFromMap(new ConcurrentHashMap<>());
-	private static final BsonDocument DOCUMENT_FILTER = new BsonDocument("_id", ROOT_DOCUMENT_ID);
+	private static final BsonDocument ROOT_DOCUMENT_FILTER = new BsonDocument("_id", ROOT_DOCUMENT_ID);
+	private static final EnumSet<OperationType> OPERATIONS_TO_INCLUDE_IN_GATHER = complementOf(EnumSet.of(DELETE));
 	private static final Logger LOGGER = LoggerFactory.getLogger(PandoFormatDriver.class);
 }

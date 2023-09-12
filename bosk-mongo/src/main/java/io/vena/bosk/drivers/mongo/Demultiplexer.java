@@ -16,7 +16,7 @@ class Demultiplexer {
 	private final Map<TransactionID, List<ChangeStreamDocument<Document>>> transactionsInProgress = new ConcurrentHashMap<>();
 
 	public void add(ChangeStreamDocument<Document> event) {
-		TransactionID key = TransactionID.from(event);
+		TransactionID key = TransactionID.from(requireNonNull(event));
 		transactionsInProgress
 			.computeIfAbsent(key, __ -> new ArrayList<>())
 			.add(event);

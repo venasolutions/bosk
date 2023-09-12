@@ -130,7 +130,11 @@ final class Formatter {
 	}
 
 	<T> T document2object(Document document, Reference<T> target) {
-		return document2object(document.toBsonDocument(BsonDocument.class, codecRegistry()), target);
+		return document2object(document2BsonDocument(document), target);
+	}
+
+	public BsonDocument document2BsonDocument(Document document) {
+		return document.toBsonDocument(BsonDocument.class, codecRegistry());
 	}
 
 	@SuppressWarnings("unchecked")
@@ -182,7 +186,7 @@ final class Formatter {
 		validateManifest(manifestDoc);
 		return (Manifest) codecFor(Manifest.class)
 			.decode(
-				new BsonDocumentReader(manifestDoc.toBsonDocument(BsonDocument.class, codecRegistry())),
+				new BsonDocumentReader(document2BsonDocument(manifestDoc)),
 				DecoderContext.builder().build());
 	}
 
@@ -265,7 +269,7 @@ final class Formatter {
 	 * @see #dottedFieldNameOf(Reference, Reference)
 	 */
 	@SuppressWarnings("unchecked")
-	static <T> Reference<T> referenceTo(String dottedName, Reference<?> startingReference) throws InvalidTypeException {
+	public static <T> Reference<T> referenceTo(String dottedName, Reference<?> startingReference) throws InvalidTypeException {
 		Reference<?> ref = startingReference;
 		Iterator<String> iter = Arrays.asList(dottedName.split(Pattern.quote("."))).iterator();
 		skipField(ref, iter, DocumentFields.state.name()); // The entire Bosk state is in this field
