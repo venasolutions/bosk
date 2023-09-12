@@ -8,7 +8,6 @@ import lombok.Value;
 import org.bson.BsonDocument;
 import org.bson.BsonInt64;
 import org.bson.BsonString;
-import org.bson.Document;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -28,15 +27,15 @@ class DemultiplexerTest {
 	void test() {
 		BsonDocument lsid1 = new BsonDocument("_id", new BsonInt64(1));
 		BsonDocument lsid2 = new BsonDocument("_id", new BsonInt64(2));
-		List<ChangeStreamDocument<Document>> list1 = asList(
+		List<ChangeStreamDocument<BsonDocument>> list1 = asList(
 			event(lsid1, 3),
 			event(lsid1, 3)
 		);
-		List<ChangeStreamDocument<Document>> list2 = asList(
+		List<ChangeStreamDocument<BsonDocument>> list2 = asList(
 			event(lsid1, 4),
 			event(lsid1, 4)
 		);
-		List<ChangeStreamDocument<Document>> list3 = asList(
+		List<ChangeStreamDocument<BsonDocument>> list3 = asList(
 			event(lsid2, 3),
 			event(lsid2, 3)
 		);
@@ -52,7 +51,7 @@ class DemultiplexerTest {
 		assertSameElements(list3, dem.pop(list3.get(0)));
 	}
 
-	private void assertSameElements(List<ChangeStreamDocument<Document>> expected, List<ChangeStreamDocument<Document>> actual) {
+	private void assertSameElements(List<ChangeStreamDocument<BsonDocument>> expected, List<ChangeStreamDocument<BsonDocument>> actual) {
 		assertEquals(new IdentityList<>(expected), actual);
 	}
 
@@ -99,7 +98,7 @@ class DemultiplexerTest {
 		}
 	}
 
-	static ChangeStreamDocument<Document> event(BsonDocument lsid, long txnNumber) {
+	static ChangeStreamDocument<BsonDocument> event(BsonDocument lsid, long txnNumber) {
 		BsonDocument ns = new BsonDocument()
 			.append("coll", new BsonString("collection"))
 			.append("db", new BsonString("database"));

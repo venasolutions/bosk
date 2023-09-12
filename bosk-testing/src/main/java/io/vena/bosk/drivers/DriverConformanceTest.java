@@ -270,6 +270,7 @@ public abstract class DriverConformanceTest extends AbstractDriverTest {
 	@ParametersByName
 	void testEnum() throws InvalidTypeException {
 		Reference<TestValues> ref = initializeBoskWithBlankValues(Path.just(TestEntity.Fields.catalog));
+		assertCorrectBoskContents();
 		Reference<ChronoUnit> enumRef = ref.then(ChronoUnit.class, TestValues.Fields.chronoUnit);
 		driver.submitReplacement(enumRef, MINUTES);
 		assertCorrectBoskContents();

@@ -40,7 +40,6 @@ import org.bson.BsonInt64;
 import org.bson.BsonNull;
 import org.bson.BsonString;
 import org.bson.BsonValue;
-import org.bson.Document;
 import org.bson.conversions.Bson;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -76,7 +75,7 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 	private final PandoFormat format;
 	private final MongoDriverSettings settings;
 	private final Formatter formatter;
-	private final TransactionalCollection<Document> collection;
+	private final TransactionalCollection<BsonDocument> collection;
 	private final RootReference<R> rootRef;
 	private final BoskDriver<R> downstream;
 	private final FlushLock flushLock;
@@ -89,7 +88,7 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 
 	PandoFormatDriver(
 		Bosk<R> bosk,
-		MongoCollection<Document> collection,
+		MongoCollection<BsonDocument> collection,
 		MongoDriverSettings driverSettings,
 		PandoFormat format, BsonPlugin bsonPlugin,
 		MongoClient mongoClient,
@@ -179,8 +178,8 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 
 	@Override
 	public StateAndMetadata<R> loadAllState() throws IOException, UninitializedCollectionException {
-		List<Document> allParts = new ArrayList<>();
-		try (MongoCursor<Document> cursor = collection
+		List<BsonDocument> allParts = new ArrayList<>();
+		try (MongoCursor<BsonDocument> cursor = collection
 			.withReadConcern(LOCAL) // The revision field needs to be the latest
 			.find(regex("_id", "^" + Pattern.quote("|")))
 			.cursor()
@@ -191,8 +190,8 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 		} catch (NoSuchElementException e) {
 			throw new UninitializedCollectionException("No existing document", e);
 		}
-		Document mainPart = allParts.get(allParts.size()-1);
-		Long revision = mainPart.get(DocumentFields.revision.name(), 0L);
+		BsonDocument mainPart = allParts.get(allParts.size()-1);
+		BsonValue revision = mainPart.get(DocumentFields.revision.name(), REVISION_ZERO);
 		List<BsonDocument> partsList = allParts
 			.stream()
 			.map(d -> d.toBsonDocument(BsonDocument.class, formatter.codecRegistry()))
@@ -200,8 +199,7 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 
 		BsonDocument combinedState = bsonSurgeon.gather(partsList);
 		R root = formatter.document2object(combinedState, rootRef);
-		BsonInt64 rev = new BsonInt64(revision);
-		return new StateAndMetadata<>(root, rev);
+		return new StateAndMetadata<>(root, revision.asInt64());
 	}
 
 	@Override
@@ -244,13 +242,13 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 	 * We're required to cope with anything we might ourselves do in {@link #initializeCollection}.
 	 */
 	@Override
-	public void onEvent(ChangeStreamDocument<Document> event) throws UnprocessableEventException {
+	public void onEvent(ChangeStreamDocument<BsonDocument> event) throws UnprocessableEventException {
 		if (event.getDocumentKey() == null) {
 			throw new UnprocessableEventException("Null document key", event.getOperationType());
 		}
 		BsonValue bsonDocumentID = event.getDocumentKey().get("_id");
 		if (!(bsonDocumentID instanceof BsonString)) {
-			LOGGER.debug("Ignoring event for unrecognized non-string document key: {}", event.getDocumentKey());
+			LOGGER.debug("Ignoring event for unrecognized non-string document key: {} type {}", event.getDocumentKey(), bsonDocumentID.getClass());
 			return;
 		}
 		if (MANIFEST_ID.equals(bsonDocumentID)) {
@@ -274,11 +272,11 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 		}
 	}
 
-	private void processTransaction(List<ChangeStreamDocument<Document>> events) throws UnprocessableEventException {
-		ChangeStreamDocument<Document> finalEvent = events.get(events.size() - 1);
+	private void processTransaction(List<ChangeStreamDocument<BsonDocument>> events) throws UnprocessableEventException {
+		ChangeStreamDocument<BsonDocument> finalEvent = events.get(events.size() - 1);
 		switch (finalEvent.getOperationType()) {
 			case INSERT: case REPLACE: {
-				Document fullDocument = finalEvent.getFullDocument();
+				BsonDocument fullDocument = finalEvent.getFullDocument();
 				if (fullDocument == null) {
 					throw new UnprocessableEventException("Missing fullDocument on final event", finalEvent.getOperationType());
 				}
@@ -289,9 +287,9 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 					return;
 				}
 
-				Document state = fullDocument.get(DocumentFields.state.name(), Document.class);
+				BsonDocument state = fullDocument.getDocument(DocumentFields.state.name());
 				if (state == null) {
-					ChangeStreamDocument<Document> mainEvent = events.get(events.size() - 2);
+					ChangeStreamDocument<BsonDocument> mainEvent = events.get(events.size() - 2);
 					LOGGER.debug("Main event is {} on {}", mainEvent.getOperationType(), mainEvent.getDocumentKey());
 					propagateDownstream(mainEvent, events.subList(0, events.size() - 2));
 				} else {
@@ -304,15 +302,20 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 			case UPDATE: {
 				// TODO: Combine code with INSERT and REPLACE events
 				BsonInt64 revision = getRevisionFromUpdateEvent(finalEvent);
-				boolean mainEventIsFinalEvent = updateEventHasStateField(finalEvent);
+				boolean mainEventIsFinalEvent = updateEventHasField(finalEvent, DocumentFields.state); // If the final update changes only the revision field, then it's not the main event
 				if (mainEventIsFinalEvent) {
 					LOGGER.debug("Main event is final event");
 					propagateDownstream(finalEvent, events.subList(0, events.size() - 1));
+				} else if (events.size() < 2) {
+					throw new UnprocessableEventException("Event does not update bosk state", finalEvent.getOperationType());
 				} else {
-					ChangeStreamDocument<Document> mainEvent = events.get(events.size() - 2);
-					assert updateEventHasStateField(mainEvent);
-					LOGGER.debug("Main event is {} on {}", mainEvent.getOperationType(), mainEvent.getDocumentKey());
-					propagateDownstream(mainEvent, events.subList(0, events.size() - 2));
+					ChangeStreamDocument<BsonDocument> mainEvent = events.get(events.size() - 2);
+					if (updateEventHasField(mainEvent, DocumentFields.state)) {
+						LOGGER.debug("Main event is {} on {}", mainEvent.getOperationType(), mainEvent.getDocumentKey());
+						propagateDownstream(mainEvent, events.subList(0, events.size() - 2));
+					} else {
+						throw new UnprocessableEventException("Transaction does not update bosk state", finalEvent.getOperationType());
+					}
 				}
 				flushLock.finishedRevision(revision);
 			} break;
@@ -324,15 +327,15 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 		}
 	}
 
-	private void propagateDownstream(ChangeStreamDocument<Document> mainEvent, List<ChangeStreamDocument<Document>> priorEvents) throws UnprocessableEventException {
+	private void propagateDownstream(ChangeStreamDocument<BsonDocument> mainEvent, List<ChangeStreamDocument<BsonDocument>> priorEvents) throws UnprocessableEventException {
 		switch (mainEvent.getOperationType()) {
 			case INSERT: case REPLACE: {
-				Document fullDocument = mainEvent.getFullDocument();
+				BsonDocument fullDocument = mainEvent.getFullDocument();
 				if (fullDocument == null) {
 					throw new UnprocessableEventException("Missing fullDocument on main event", mainEvent.getOperationType());
 				}
 
-				Document state = fullDocument.get(DocumentFields.state.name(), Document.class);
+				BsonDocument state = fullDocument.getDocument(DocumentFields.state.name(), null);
 				if (state == null) {
 					throw new UnprocessableEventException("Missing state field", mainEvent.getOperationType());
 				}
@@ -341,14 +344,14 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 				BsonDocument bsonState;
 				if (priorEvents == null) {
 					LOGGER.debug("No prior events");
-					bsonState = formatter.document2BsonDocument(state);
+					bsonState = state;
 					mainRef = documentID2MainRef(mainEvent.getDocumentKey().getString("_id").getValue(), mainEvent);
 				} else {
 					LOGGER.debug("{} prior events", priorEvents.size());
 					List<BsonDocument> parts = subpartDocuments(priorEvents);
-					parts.add(formatter.document2BsonDocument(fullDocument));
+					parts.add(fullDocument);
 					bsonState = bsonSurgeon.gather(parts);
-					mainRef = documentID2MainRef(fullDocument.getString("_id"), mainEvent);
+					mainRef = documentID2MainRef(fullDocument.getString("_id").getValue(), mainEvent);
 				}
 
 				LOGGER.debug("| Replace {}", mainRef);
@@ -373,16 +376,15 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 		}
 	}
 
-	private List<BsonDocument> subpartDocuments(List<ChangeStreamDocument<Document>> priorEvents) {
+	private List<BsonDocument> subpartDocuments(List<ChangeStreamDocument<BsonDocument>> priorEvents) {
 		return priorEvents.stream()
 			.filter(e -> OPERATIONS_TO_INCLUDE_IN_GATHER.contains(e.getOperationType()))
 			.map(this::fullDocumentForSubPart)
-			.map(formatter::document2BsonDocument)
 			.collect(toCollection(ArrayList::new));
 	}
 
-	private @NonNull Document fullDocumentForSubPart(ChangeStreamDocument<Document> event) {
-		Document result = event.getFullDocument();
+	private @NonNull BsonDocument fullDocumentForSubPart(ChangeStreamDocument<BsonDocument> event) {
+		BsonDocument result = event.getFullDocument();
 		if (result == null) {
 			throw new IllegalStateException("No full document in change stream event for subpart: " + event.getOperationType() + " on " + event.getDocumentKey());
 		}
@@ -398,7 +400,7 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 		downstream.submitReplacement(mainRef, newValue);
 	}
 
-	private Reference<?> documentID2MainRef(String pipedPath, ChangeStreamDocument<Document> event) throws UnprocessableEventException {
+	private Reference<?> documentID2MainRef(String pipedPath, ChangeStreamDocument<BsonDocument> event) throws UnprocessableEventException {
 		// referenceTo does everything we need already. Build a fake dotted field name and use that
 		String dottedName = "state" + pipedPath.replace('|', '.');
 		try {
@@ -413,9 +415,9 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 	 * but outside that, we want to be as strict as possible
 	 * so incompatible database changes don't go unnoticed.
 	 */
-	private void onManifestEvent(ChangeStreamDocument<Document> event) throws UnprocessableEventException {
+	private void onManifestEvent(ChangeStreamDocument<BsonDocument> event) throws UnprocessableEventException {
 		if (event.getOperationType() == INSERT) {
-			Document manifestDoc = requireNonNull(event.getFullDocument());
+			BsonDocument manifestDoc = requireNonNull(event.getFullDocument());
 			Manifest manifest;
 			try {
 				manifest = formatter.decodeManifest(manifestDoc);
@@ -437,19 +439,19 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 		flushLock.finishedRevision(revision);
 	}
 
-	private BsonInt64 getRevisionFromFullDocumentEvent(Document fullDocument) {
+	private BsonInt64 getRevisionFromFullDocumentEvent(BsonDocument fullDocument) {
 		if (fullDocument == null) {
 			return null;
 		}
-		Long revision = fullDocument.getLong(DocumentFields.revision.name());
+		BsonValue revision = fullDocument.get(DocumentFields.revision.name());
 		if (revision == null) {
 			return null;
 		} else {
-			return new BsonInt64(revision);
+			return revision.asInt64();
 		}
 	}
 
-	private static BsonInt64 getRevisionFromUpdateEvent(ChangeStreamDocument<Document> event) {
+	private static BsonInt64 getRevisionFromUpdateEvent(ChangeStreamDocument<BsonDocument> event) {
 		if (event == null) {
 			return null;
 		}
@@ -464,7 +466,7 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 		return updatedFields.getInt64(DocumentFields.revision.name(), null);
 	}
 
-	private static boolean updateEventHasStateField(ChangeStreamDocument<Document> event) {
+	private static boolean updateEventHasField(ChangeStreamDocument<BsonDocument> event, DocumentFields field) {
 		if (event == null) {
 			return false;
 		}
@@ -477,48 +479,52 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 			return false;
 		}
 
-		return updatedFields.keySet().stream().anyMatch(k -> k.startsWith(DocumentFields.state.name()));
+		return updatedFields.keySet().stream().anyMatch(k -> k.startsWith(field.name()));
 	}
 
 	//
 	// MongoDB helpers
 	//
 
-	private <T> void doReplacement(Reference<T> target, T newValue, TransactionalCollection<Document>.Transaction txn) {
+	private <T> void doReplacement(Reference<T> target, T newValue, TransactionalCollection<BsonDocument>.Transaction txn) {
 		BsonDocument rootUpdate;
 		Reference<?> mainRef = mainRef(target);
 		BsonValue value = formatter.object2bsonValue(newValue, target.targetType());
 		if (value instanceof BsonDocument) {
 			deleteParts(mainRef);
-			BsonDocument mainPart = upsertAndRemoveSubParts(target, value.asDocument());
-			if (rootRef.equals(mainRef)) {
-				rootUpdate = replacementDoc(target, value, rootRef);
-			} else {
-				// Note: don't use mainPart's ID. TODO: Is this ok? Why is the ID wrong?
-				BsonDocument filter = new BsonDocument("_id", documentFilter(mainRef));
-				if (target.equals(mainRef)) {
-					// Upsert the main doc
-					// TODO: merge this with the same code in upsertAndRemoveSubParts
-					BsonDocument update = new BsonDocument("$set", mainPart);
-					collection.updateOne(filter, update, new UpdateOptions().upsert(true));
-				} else {
-					// Update part of the main doc (which must already exist)
-					String key = dottedFieldNameOf(target, mainRef);
-					LOGGER.debug("| Set field {} in {}: {}", key, mainRef, value);
-					BsonDocument mainUpdate = new BsonDocument("$set", new BsonDocument(key, value));
-					doUpdate(mainUpdate, standardPreconditions(target, mainRef, filter));
-				}
-				// On the root doc, we're only bumping the revision
-				rootUpdate = blankUpdateDoc();
-			}
-		} else {
-			rootUpdate = replacementDoc(target, value, rootRef);
+			upsertAndRemoveSubParts(target, value.asDocument());
+			// Note that value will now have the sub-parts removed
 		}
+		if (rootRef.equals(mainRef)) {
+			LOGGER.debug("| Root ref is main ref");
+			rootUpdate = replacementDoc(target, value, rootRef);
+		} else {
+			// Note: don't use mainPart's ID. TODO: Is this ok? Why is the ID wrong?
+			BsonDocument filter = documentFilter(mainRef);
+			if (target.equals(mainRef)) {
+				// Upsert the main doc
+				// TODO: merge this with the same code in upsertAndRemoveSubParts
+				LOGGER.debug("| Update main document");
+				BsonDocument update = new BsonDocument("$set",
+					filter.clone()
+						.append(DocumentFields.state.name(), value));
+				collection.updateOne(filter, update, new UpdateOptions().upsert(true));
+			} else {
+				// Update part of the main doc (which must already exist)
+				String key = dottedFieldNameOf(target, mainRef);
+				LOGGER.debug("| Set field {} in {}: {}", key, mainRef, value);
+				BsonDocument mainUpdate = new BsonDocument("$set", new BsonDocument(key, value));
+				doUpdate(mainUpdate, standardPreconditions(target, mainRef, filter));
+			}
+			// On the root doc, we're only bumping the revision
+			rootUpdate = blankUpdateDoc();
+		}
+		LOGGER.debug("| Update root document");
 		doUpdate(rootUpdate, standardRootPreconditions(target));
 		txn.commit();
 	}
 
-	private <T> void doDelete(Reference<T> target, TransactionalCollection<Document>.Transaction txn) {
+	private <T> void doDelete(Reference<T> target, TransactionalCollection<BsonDocument>.Transaction txn) {
 		deleteParts(mainRef(target));
 		if (doUpdate(deletionDoc(target, rootRef), standardRootPreconditions(target))) {
 			txn.commit();
@@ -553,11 +559,19 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 		// TODO: This could be done more efficiently, perhaps using a trie
 		int targetPathLength = target.path().length();
 		for (GraftPoint graftPoint: bsonSurgeon.graftPoints) {
-			Reference<?> candidate = graftPoint.entryRef();
-			if (candidate.path().length() <= targetPathLength) {
-				Path portionToMatch = target.path().truncatedTo(candidate.path().length());
-				if (candidate.path().matches(portionToMatch)) {
-					return candidate.boundBy(portionToMatch);
+			Reference<?> candidateContainer = graftPoint.containerRef();
+			int containerPathLength = candidateContainer.path().length();
+			if (containerPathLength <= targetPathLength - 1) {
+				Path portionToMatch = target.path().truncatedTo(containerPathLength);
+				if (candidateContainer.path().matches(portionToMatch)) {
+					try {
+						return candidateContainer.then(Object.class,
+							// The container plus one segment from the target ref
+							target.path().segment(containerPathLength)
+						);
+					} catch (InvalidTypeException e) {
+						throw new AssertionError("Unexpected exception forming mainRef from container " + candidateContainer + " and target " + target);
+					}
 				}
 			}
 		}
@@ -571,15 +585,15 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 	private BsonInt64 readRevisionNumber() throws FlushFailureException {
 		LOGGER.debug("readRevisionNumber");
 		try {
-			try (MongoCursor<Document> cursor = collection
+			try (MongoCursor<BsonDocument> cursor = collection
 				.withReadConcern(LOCAL) // The revision field needs to be the latest
 				.find(ROOT_DOCUMENT_FILTER)
 				.limit(1)
 				.projection(fields(include(DocumentFields.revision.name())))
 				.cursor()
 			) {
-				Document doc = cursor.next();
-				Long result = doc.get(DocumentFields.revision.name(), Long.class);
+				BsonDocument doc = cursor.next();
+				BsonInt64 result = doc.getInt64(DocumentFields.revision.name(), null);
 				if (result == null) {
 					// Document exists but has no revision field.
 					// In that case, newer servers (including this one) will create the
@@ -589,7 +603,7 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 					return REVISION_ZERO;
 				} else {
 					LOGGER.debug("Read revision {}", result);
-					return new BsonInt64(result);
+					return result;
 				}
 			}
 		} catch (NoSuchElementException e) {
@@ -782,13 +796,11 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 
 		List<BsonDocument> subParts = allParts.subList(0, allParts.size() - 1);
 
-		UpdateOptions options = new UpdateOptions().upsert(true);
 		LOGGER.debug("Document has {} sub-parts", subParts.size());
 		for (BsonDocument part: subParts) {
-			BsonDocument update = new BsonDocument("$set", part);
 			BsonDocument filter = new BsonDocument("_id", part.get("_id"));
-			LOGGER.debug("Upsert sub-part: filter={} update={}", filter, update);
-			UpdateResult result = collection.updateOne(filter, update, options);
+			LOGGER.debug("Replace sub-part: filter={} update={}", filter, part);
+			UpdateResult result = collection.replaceOne(filter, part);
 			LOGGER.debug("| Update result: {}", result);
 		}
 

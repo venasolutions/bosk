@@ -44,11 +44,14 @@ class BsonSurgeon {
 
 	@Value(staticConstructor = "of")
 	public static class GraftPoint {
-//		Reference<?> containerRef;
-		Reference<?> entryRef;
+		Reference<? extends EnumerableByIdentifier<?>> containerRef;
+		Reference<?> entryPlaceholderRef;
 
 		public GraftPoint boundTo(Identifier id) {
-			return GraftPoint.of(entryRef.boundTo(id));
+			return GraftPoint.of(
+				containerRef.boundTo(id),
+				entryPlaceholderRef.boundTo(id)
+			);
 		}
 	}
 
@@ -65,7 +68,7 @@ class BsonSurgeon {
 			// Scatter bottom-up so we don't have to worry about scattering already-scattered documents
 			.sorted(comparing((Reference<?> ref) -> ref.path().length()).reversed())
 			.forEachOrdered(containerRef -> this.graftPoints.add(
-				GraftPoint.of(entryRef(containerRef))));
+				GraftPoint.of(containerRef, entryRef(containerRef))));
 	}
 
 	static Reference<?> entryRef(Reference<? extends EnumerableByIdentifier<?>> containerRef) {
@@ -126,7 +129,7 @@ class BsonSurgeon {
 
 	private void scatterOneCollection(Reference<?> rootRef, Reference<?> docRef, GraftPoint graftPoint, BsonDocument docToScatter, List<BsonDocument> parts) {
 		// Only continue if the graft point could to a proper descendant node of docRef
-		Path graftPath = graftPoint.entryRef.path();
+		Path graftPath = graftPoint.entryPlaceholderRef.path();
 		Path docPath = docRef.path();
 		if (graftPath.length() <= docPath.length()) {
 			return;
@@ -134,7 +137,7 @@ class BsonSurgeon {
 			return;
 		}
 
-		Reference<?> entryRef = graftPoint.entryRef.boundBy(docPath);
+		Reference<?> entryRef = graftPoint.entryPlaceholderRef.boundBy(docPath);
 		List<String> segmentsFromDoc = containerSegments(docRef, entryRef);
 		Path path = entryRef.path();
 		if (path.numParameters() == 0) {
