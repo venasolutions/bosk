@@ -22,6 +22,7 @@ import org.bson.BsonDocumentWriter;
 import org.bson.BsonInt64;
 import org.bson.BsonReader;
 import org.bson.BsonValue;
+import org.bson.Document;
 import org.bson.codecs.Codec;
 import org.bson.codecs.DecoderContext;
 import org.bson.codecs.DocumentCodecProvider;
