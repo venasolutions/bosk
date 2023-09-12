@@ -20,6 +20,7 @@ import io.vena.bosk.Path;
 import io.vena.bosk.Reference;
 import io.vena.bosk.RootReference;
 import io.vena.bosk.StateTreeNode;
+import io.vena.bosk.drivers.mongo.BsonSurgeon.GraftPoint;
 import io.vena.bosk.drivers.mongo.Formatter.DocumentFields;
 import io.vena.bosk.exceptions.FlushFailureException;
 import io.vena.bosk.exceptions.InvalidTypeException;
@@ -551,7 +552,8 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 		// separateCollections is in descending order of depth.
 		// TODO: This could be done more efficiently, perhaps using a trie
 		int targetPathLength = target.path().length();
-		for (Reference<?> candidate: bsonSurgeon.graftPoints) {
+		for (GraftPoint graftPoint: bsonSurgeon.graftPoints) {
+			Reference<?> candidate = graftPoint.entryRef();
 			if (candidate.path().length() <= targetPathLength) {
 				Path portionToMatch = target.path().truncatedTo(candidate.path().length());
 				if (candidate.path().matches(portionToMatch)) {

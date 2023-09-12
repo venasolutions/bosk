@@ -12,6 +12,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import lombok.Value;
 import org.bson.BsonBoolean;
 import org.bson.BsonDocument;
 import org.bson.BsonInvalidOperationException;
@@ -39,7 +40,17 @@ import static java.util.Objects.requireNonNull;
  * </dl>
  */
 class BsonSurgeon {
-	final List<Reference<?>> graftPoints;
+	final List<GraftPoint> graftPoints;
+
+	@Value(staticConstructor = "of")
+	public static class GraftPoint {
+//		Reference<?> containerRef;
+		Reference<?> entryRef;
+
+		public GraftPoint boundTo(Identifier id) {
+			return GraftPoint.of(entryRef.boundTo(id));
+		}
+	}
 
 	/**
 	 * We put the whole path in _id so that it will be present in change stream documents
@@ -53,9 +64,8 @@ class BsonSurgeon {
 		separateCollections.stream()
 			// Scatter bottom-up so we don't have to worry about scattering already-scattered documents
 			.sorted(comparing((Reference<?> ref) -> ref.path().length()).reversed())
-			.forEachOrdered(containerRef -> {
-				this.graftPoints.add(entryRef(containerRef));
-			});
+			.forEachOrdered(containerRef -> this.graftPoints.add(
+				GraftPoint.of(entryRef(containerRef))));
 	}
 
 	static Reference<?> entryRef(Reference<? extends EnumerableByIdentifier<?>> containerRef) {
@@ -84,7 +94,7 @@ class BsonSurgeon {
 	 */
 	public List<BsonDocument> scatter(Reference<?> rootRef, Reference<?> docRef, BsonDocument document) {
 		List<BsonDocument> parts = new ArrayList<>();
-		for (Reference<?> graftPoint: graftPoints) {
+		for (GraftPoint graftPoint: graftPoints) {
 			scatterOneCollection(rootRef, docRef, graftPoint, document, parts);
 		}
 
@@ -114,9 +124,9 @@ class BsonSurgeon {
 		return segmentsFromRoot.subList(0, segmentsFromRoot.size() - 1); // Remove entry placeholder segment
 	}
 
-	private void scatterOneCollection(Reference<?> rootRef, Reference<?> docRef, Reference<?> graftPoint, BsonDocument docToScatter, List<BsonDocument> parts) {
+	private void scatterOneCollection(Reference<?> rootRef, Reference<?> docRef, GraftPoint graftPoint, BsonDocument docToScatter, List<BsonDocument> parts) {
 		// Only continue if the graft point could to a proper descendant node of docRef
-		Path graftPath = graftPoint.path();
+		Path graftPath = graftPoint.entryRef.path();
 		Path docPath = docRef.path();
 		if (graftPath.length() <= docPath.length()) {
 			return;
@@ -124,7 +134,7 @@ class BsonSurgeon {
 			return;
 		}
 
-		Reference<?> entryRef = graftPoint.boundBy(docPath);
+		Reference<?> entryRef = graftPoint.entryRef.boundBy(docPath);
 		List<String> segmentsFromDoc = containerSegments(docRef, entryRef);
 		Path path = entryRef.path();
 		if (path.numParameters() == 0) {
