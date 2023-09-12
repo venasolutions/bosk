@@ -35,9 +35,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 import org.bson.BsonDocument;
-import org.bson.BsonInt32;
-import org.bson.BsonInt64;
 import org.bson.BsonString;
+import org.bson.Document;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -64,7 +63,7 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 	private final BsonPlugin bsonPlugin;
 	private final BoskDriver<R> downstream;
 	private final MongoClient mongoClient;
-	private final MongoCollection<BsonDocument> collection;
+	private final MongoCollection<Document> collection;
 	private final Listener listener;
 
 	private final ReentrantLock formatDriverLock = new ReentrantLock();
@@ -94,7 +93,7 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 					.build());
 			this.collection = mongoClient
 				.getDatabase(driverSettings.database())
-				.getCollection(COLLECTION_NAME, BsonDocument.class);
+				.getCollection(COLLECTION_NAME);
 
 			Type rootType = bosk.rootReference().targetType();
 			this.listener = new Listener(new FutureTask<>(() -> doInitialRoot(rootType)));
@@ -375,7 +374,7 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 		}
 
 		@Override
-		public void onEvent(ChangeStreamDocument<BsonDocument> event) throws UnprocessableEventException {
+		public void onEvent(ChangeStreamDocument<Document> event) throws UnprocessableEventException {
 			LOGGER.debug("onEvent({})", event.getOperationType().getValue());
 			formatDriver.onEvent(event);
 		}
@@ -403,7 +402,7 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 
 	private FormatDriver<R> newPreferredFormatDriver() {
 		if (driverSettings.preferredDatabaseFormat() == SEQUOIA) {
-			return newSingleDocFormatDriver(REVISION_ZERO);
+			return newSingleDocFormatDriver(REVISION_ZERO.longValue());
 		} else {
 			throw new AssertionError("Unknown database format setting: " + driverSettings.preferredDatabaseFormat());
 		}
@@ -411,7 +410,7 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 
 	private FormatDriver<R> detectFormat() throws UninitializedCollectionException, UnrecognizedFormatException {
 		if (driverSettings.experimental().manifestMode() == ManifestMode.ENABLED) {
-			try (MongoCursor<BsonDocument> cursor = collection.find(new BsonDocument("_id", MANIFEST_ID)).cursor()) {
+			try (MongoCursor<Document> cursor = collection.find(new BsonDocument("_id", MANIFEST_ID)).cursor()) {
 				if (cursor.hasNext()) {
 					LOGGER.debug("Found manifest");
 					validateManifest(cursor.next());
@@ -421,12 +420,12 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 			}
 		}
 
-		FindIterable<BsonDocument> result = collection.find(new BsonDocument("_id", SequoiaFormatDriver.DOCUMENT_ID));
-		try (MongoCursor<BsonDocument> cursor = result.cursor()) {
+		FindIterable<Document> result = collection.find(new BsonDocument("_id", SequoiaFormatDriver.DOCUMENT_ID));
+		try (MongoCursor<Document> cursor = result.cursor()) {
 			if (cursor.hasNext()) {
-				BsonInt64 revision = cursor
+				Long revision = cursor
 					.next()
-					.getInt64(DocumentFields.revision.name(), REVISION_ZERO);
+					.get(DocumentFields.revision.name(), 0L);
 				return newSingleDocFormatDriver(revision);
 			} else {
 				throw new UninitializedCollectionException("Document doesn't exist");
@@ -434,7 +433,7 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 		}
 	}
 
-	static void validateManifest(BsonDocument manifest) throws UnrecognizedFormatException {
+	static void validateManifest(Document manifest) throws UnrecognizedFormatException {
 		try {
 			Set<String> keys = manifest.keySet();
 			HashSet<String> expectedKeys = new HashSet<>(asList("_id", "version", "sequoia"));
@@ -447,21 +446,21 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 					throw new UnrecognizedFormatException("Unrecognized keys in manifest: " + keys);
 				}
 			}
-			if (!SUPPORTED_MANIFEST_VERSION.equals(manifest.getInt32("version"))) {
-				throw new UnrecognizedFormatException("Manifest version " + manifest.getInt32("version") + " not suppoted");
+			if (manifest.getInteger("version") != 1) {
+				throw new UnrecognizedFormatException("Manifest version " + manifest.getInteger("version") + " not suppoted");
 			}
 		} catch (ClassCastException e) {
 			throw new UnrecognizedFormatException("Manifest field has unexpected type", e);
 		}
 	}
 
-	private SequoiaFormatDriver<R> newSingleDocFormatDriver(BsonInt64 revisionAlreadySeen) {
+	private SequoiaFormatDriver<R> newSingleDocFormatDriver(long revisionAlreadySeen) {
 		return new SequoiaFormatDriver<>(
 			bosk,
 			collection,
 			driverSettings,
 			bsonPlugin,
-			new FlushLock(driverSettings, revisionAlreadySeen.longValue()),
+			new FlushLock(driverSettings, revisionAlreadySeen),
 			downstream);
 	}
 
@@ -563,6 +562,5 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 
 	public static final String COLLECTION_NAME = "boskCollection";
 	public static final BsonString MANIFEST_ID = new BsonString("manifest");
-	public static final BsonInt32 SUPPORTED_MANIFEST_VERSION = new BsonInt32(1);
 	private static final Logger LOGGER = LoggerFactory.getLogger(MainDriver.class);
 }

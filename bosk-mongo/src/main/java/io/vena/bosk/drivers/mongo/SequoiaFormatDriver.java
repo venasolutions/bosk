@@ -28,6 +28,7 @@ import org.bson.BsonInt64;
 import org.bson.BsonNull;
 import org.bson.BsonString;
 import org.bson.BsonValue;
+import org.bson.Document;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -51,7 +52,7 @@ final class SequoiaFormatDriver<R extends StateTreeNode> implements FormatDriver
 	private final String description;
 	private final MongoDriverSettings settings;
 	private final Formatter formatter;
-	private final MongoCollection<BsonDocument> collection;
+	private final MongoCollection<Document> collection;
 	private final Reference<R> rootRef;
 	private final BoskDriver<R> downstream;
 	private final FlushLock flushLock;
@@ -62,7 +63,7 @@ final class SequoiaFormatDriver<R extends StateTreeNode> implements FormatDriver
 
 	SequoiaFormatDriver(
 		Bosk<R> bosk,
-		MongoCollection<BsonDocument> collection,
+		MongoCollection<Document> collection,
 		MongoDriverSettings driverSettings,
 		BsonPlugin bsonPlugin,
 		FlushLock flushLock,
@@ -127,19 +128,20 @@ final class SequoiaFormatDriver<R extends StateTreeNode> implements FormatDriver
 
 	@Override
 	public StateAndMetadata<R> loadAllState() throws IOException, UninitializedCollectionException {
-		try (MongoCursor<BsonDocument> cursor = collection
+		try (MongoCursor<Document> cursor = collection
 			.withReadConcern(LOCAL) // The revision field needs to be the latest
 			.find(documentFilter())
 			.limit(1)
 			.cursor()) {
-			BsonDocument document = cursor.next();
-			BsonDocument state = document.getDocument(DocumentFields.state.name(), null);
-			BsonInt64 revision = document.getInt64(DocumentFields.revision.name(), REVISION_ZERO);
+			Document document = cursor.next();
+			Document state = document.get(DocumentFields.state.name(), Document.class);
+			Long revision = document.get(DocumentFields.revision.name(), 0L);
 			if (state == null) {
 				throw new IOException("No existing state in document");
 			} else {
 				R root = formatter.document2object(state, rootRef);
-				return new StateAndMetadata<>(root, revision);
+				BsonInt64 rev = new BsonInt64(revision);
+				return new StateAndMetadata<>(root, rev);
 			}
 		} catch (NoSuchElementException e) {
 			throw new UninitializedCollectionException("No existing document", e);
@@ -180,7 +182,7 @@ final class SequoiaFormatDriver<R extends StateTreeNode> implements FormatDriver
 	 * We're required to cope with anything we might ourselves do in {@link #initializeCollection}.
 	 */
 	@Override
-	public void onEvent(ChangeStreamDocument<BsonDocument> event) throws UnprocessableEventException {
+	public void onEvent(ChangeStreamDocument<Document> event) throws UnprocessableEventException {
 		if (settings.experimental().manifestMode() == ManifestMode.ENABLED) {
 			if (event.getDocumentKey() == null) {
 				throw new UnprocessableEventException("Null document key", event.getOperationType());
@@ -196,12 +198,12 @@ final class SequoiaFormatDriver<R extends StateTreeNode> implements FormatDriver
 		}
 		switch (event.getOperationType()) {
 			case INSERT: case REPLACE: {
-				BsonDocument fullDocument = event.getFullDocument();
+				Document fullDocument = event.getFullDocument();
 				if (fullDocument == null) {
 					throw new UnprocessableEventException("Missing fullDocument", event.getOperationType());
 				}
 				BsonInt64 revision = getRevisionFromFullDocumentEvent(fullDocument);
-				BsonDocument state = fullDocument.getDocument(DocumentFields.state.name(), null);
+				Document state = fullDocument.get(DocumentFields.state.name(), Document.class);
 				if (state == null) {
 					throw new UnprocessableEventException("Missing state field", event.getOperationType());
 				}
@@ -236,15 +238,15 @@ final class SequoiaFormatDriver<R extends StateTreeNode> implements FormatDriver
 	 * but outside that, we want to be as strict as we can
 	 * so incompatible database changes don't go unnoticed.
 	 */
-	private static void onManifestEvent(ChangeStreamDocument<BsonDocument> event) throws UnprocessableEventException {
+	private static void onManifestEvent(ChangeStreamDocument<Document> event) throws UnprocessableEventException {
 		if (event.getOperationType() == INSERT) {
-			BsonDocument manifest = requireNonNull(event.getFullDocument());
+			Document manifest = requireNonNull(event.getFullDocument());
 			try {
 				MainDriver.validateManifest(manifest);
 			} catch (UnrecognizedFormatException e) {
 				throw new UnprocessableEventException("Invalid manifest", e, event.getOperationType());
 			}
-			if (!new BsonDocument().equals(manifest.get("sequoia"))) {
+			if (!new Document().equals(manifest.get("sequoia"))) {
 				throw new UnprocessableEventException("Unexpected value in manifest \"sequoia\" field: " + manifest.get("sequoia"), event.getOperationType());
 			}
 		} else {
@@ -259,14 +261,19 @@ final class SequoiaFormatDriver<R extends StateTreeNode> implements FormatDriver
 		flushLock.finishedRevision(revision);
 	}
 
-	private BsonInt64 getRevisionFromFullDocumentEvent(BsonDocument fullDocument) {
+	private BsonInt64 getRevisionFromFullDocumentEvent(Document fullDocument) {
 		if (fullDocument == null) {
 			return null;
 		}
-		return fullDocument.getInt64(DocumentFields.revision.name(), null);
+		Long revision = fullDocument.getLong(DocumentFields.revision.name());
+		if (revision == null) {
+			return null;
+		} else {
+			return new BsonInt64(revision);
+		}
 	}
 
-	private static BsonInt64 getRevisionFromUpdateEvent(ChangeStreamDocument<BsonDocument> event) {
+	private static BsonInt64 getRevisionFromUpdateEvent(ChangeStreamDocument<Document> event) {
 		if (event == null) {
 			return null;
 		}
@@ -292,15 +299,15 @@ final class SequoiaFormatDriver<R extends StateTreeNode> implements FormatDriver
 	private BsonInt64 readRevisionNumber() throws FlushFailureException {
 		LOGGER.debug("readRevisionNumber");
 		try {
-			try (MongoCursor<BsonDocument> cursor = collection
+			try (MongoCursor<Document> cursor = collection
 				.withReadConcern(LOCAL) // The revision field needs to be the latest
 				.find(DOCUMENT_FILTER)
 				.limit(1)
 				.projection(fields(include(DocumentFields.revision.name())))
 				.cursor()
 			) {
-				BsonDocument doc = cursor.next();
-				BsonInt64 result = doc.getInt64(DocumentFields.revision.name(), null);
+				Document doc = cursor.next();
+				Long result = doc.get(DocumentFields.revision.name(), Long.class);
 				if (result == null) {
 					// Document exists but has no revision field.
 					// In that case, newer servers (including this one) will create the
@@ -310,7 +317,7 @@ final class SequoiaFormatDriver<R extends StateTreeNode> implements FormatDriver
 					return REVISION_ZERO;
 				} else {
 					LOGGER.debug("Read revision {}", result);
-					return result;
+					return new BsonInt64(result);
 				}
 			}
 		} catch (NoSuchElementException e) {

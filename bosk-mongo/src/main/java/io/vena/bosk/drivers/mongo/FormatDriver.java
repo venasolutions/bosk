@@ -7,8 +7,8 @@ import io.vena.bosk.StateTreeNode;
 import io.vena.bosk.exceptions.InitializationFailureException;
 import java.io.IOException;
 import java.lang.reflect.Type;
-import org.bson.BsonDocument;
 import org.bson.BsonInt64;
+import org.bson.Document;
 
 /**
  * Additional {@link MongoDriver} functionality that the format-specific drivers must implement.
@@ -32,7 +32,7 @@ import org.bson.BsonInt64;
  * </li></ol>
  */
 interface FormatDriver<R extends StateTreeNode> extends MongoDriver<R> {
-	void onEvent(ChangeStreamDocument<BsonDocument> event) throws UnprocessableEventException;
+	void onEvent(ChangeStreamDocument<Document> event) throws UnprocessableEventException;
 
 	/**
 	 * Implementations should ignore subsequent calls to {@link #onEvent}

@@ -125,7 +125,8 @@ final class Formatter {
 	}
 
 	@SuppressWarnings("unchecked")
-	<T> T document2object(BsonDocument doc, Reference<T> target) {
+	<T> T document2object(Document document, Reference<T> target) {
+		BsonDocument doc = document.toBsonDocument(BsonDocument.class, simpleCodecs);
 		Type type = target.targetType();
 		Class<T> objectClass = (Class<T>) rawClass(type);
 		Codec<T> objectCodec = (Codec<T>) codecFor(type);
