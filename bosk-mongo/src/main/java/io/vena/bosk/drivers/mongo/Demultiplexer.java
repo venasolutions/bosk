@@ -13,16 +13,16 @@ import org.bson.Document;
 import static java.util.Objects.requireNonNull;
 
 class Demultiplexer {
-	private final Map<TransactionID, List<ChangeStreamDocument<Document>>> transactionsInProgress = new ConcurrentHashMap<>();
+	private final Map<TransactionID, List<ChangeStreamDocument<BsonDocument>>> transactionsInProgress = new ConcurrentHashMap<>();
 
-	public void add(ChangeStreamDocument<Document> event) {
+	public void add(ChangeStreamDocument<BsonDocument> event) {
 		TransactionID key = TransactionID.from(requireNonNull(event));
 		transactionsInProgress
 			.computeIfAbsent(key, __ -> new ArrayList<>())
 			.add(event);
 	}
 
-	public List<ChangeStreamDocument<Document>> pop(ChangeStreamDocument<Document> finalEvent) {
+	public List<ChangeStreamDocument<BsonDocument>> pop(ChangeStreamDocument<BsonDocument> finalEvent) {
 		return transactionsInProgress.remove(TransactionID.from(finalEvent));
 	}
 
