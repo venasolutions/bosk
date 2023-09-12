@@ -22,7 +22,6 @@ import org.bson.BsonDocumentWriter;
 import org.bson.BsonInt64;
 import org.bson.BsonReader;
 import org.bson.BsonValue;
-import org.bson.Document;
 import org.bson.codecs.Codec;
 import org.bson.codecs.DecoderContext;
 import org.bson.codecs.DocumentCodecProvider;
@@ -106,8 +105,7 @@ final class Formatter {
 	}
 
 	@SuppressWarnings("unchecked")
-	<T> T document2object(Document document, Reference<T> target) {
-		BsonDocument doc = document.toBsonDocument(BsonDocument.class, simpleCodecs);
+	<T> T document2object(BsonDocument doc, Reference<T> target) {
 		Type type = target.targetType();
 		Class<T> objectClass = (Class<T>) rawClass(type);
 		Codec<T> objectCodec = (Codec<T>) codecFor(type);
