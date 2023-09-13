@@ -118,7 +118,7 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 		try {
 			return rootRef.then(enumerableByIdentifier(Entity.class), parseParameterized(pathString));
 		} catch (InvalidTypeException e) {
-			throw new IllegalArgumentException("Invalid configuration -- path does not point to a Catalog or SideTable: " + pathString, e);
+			throw new FormatMisconfigurationException("Path does not point to a Catalog or SideTable: " + pathString, e);
 		}
 	}
 
