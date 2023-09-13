@@ -206,6 +206,9 @@ final class SequoiaFormatDriver<R extends StateTreeNode> implements FormatDriver
 					throw new UnprocessableEventException("Missing state field", event.getOperationType());
 				}
 				R newRoot = formatter.document2object(state, rootRef);
+				// Note that we do not check revisionToSkip here. We probably should... but this actually
+				// saves us in MongoDriverResiliencyTest.documentReappears_recovers because when the doc
+				// disappears, we don't null out revisionToSkip. TODO: Rethink what's the right way to handle this.
 				LOGGER.debug("| Replace {}", rootRef);
 				downstream.submitReplacement(rootRef, newRoot);
 				flushLock.finishedRevision(revision);
@@ -255,6 +258,7 @@ final class SequoiaFormatDriver<R extends StateTreeNode> implements FormatDriver
 
 	@Override
 	public void onRevisionToSkip(BsonInt64 revision) {
+		LOGGER.debug("+ onRevisionToSkip({})", revision.longValue());
 		revisionToSkip = revision;
 		flushLock.finishedRevision(revision);
 	}

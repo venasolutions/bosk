@@ -46,7 +46,7 @@ public class MongoDriverResiliencyTest extends AbstractMongoDriverTest {
 	}
 
 	@ParametersByName
-	MongoDriverResiliencyTest(MongoDriverSettings.MongoDriverSettingsBuilder driverSettings, FlushOrWait flushOrWait) {
+	MongoDriverResiliencyTest(FlushOrWait flushOrWait, MongoDriverSettings.MongoDriverSettingsBuilder driverSettings) {
 		super(driverSettings);
 		this.flushOrWait = flushOrWait;
 	}
@@ -60,9 +60,14 @@ public class MongoDriverResiliencyTest extends AbstractMongoDriverTest {
 					.recoveryPollingMS(3000) // Note that some tests can take as long as 10x this
 					.flushTimeoutMS(4000) // A little more than recoveryPollingMS
 					.testing(Testing.builder().eventDelayMS(e.eventDelayMS).build())
-					.database(MongoDriverResiliencyTest.class.getSimpleName() + "_" + f.getClass().getSimpleName() + "_" + e.suffix)
+					.database(MongoDriverResiliencyTest.class.getSimpleName()
+						+ "_" + DB_COUNTER.incrementAndGet()
+						+ "_" + f.getClass().getSimpleName()
+						+ e.suffix)
 				));
 	}
+
+	private static final AtomicInteger DB_COUNTER = new AtomicInteger(0);
 
 	enum EarlyOrLate {
 		NORMAL(0, ""),

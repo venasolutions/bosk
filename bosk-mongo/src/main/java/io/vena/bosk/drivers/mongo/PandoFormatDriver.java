@@ -322,6 +322,7 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 				// No other events in the transaction matter if the root document is gone
 				LOGGER.debug("Document containing revision field has been deleted; assuming revision=0");
 				flushLock.finishedRevision(REVISION_ZERO);
+				revisionToSkip = null;
 			} break;
 		}
 	}
@@ -434,6 +435,7 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 
 	@Override
 	public void onRevisionToSkip(BsonInt64 revision) {
+		LOGGER.debug("+ onRevisionToSkip({})", revision.longValue());
 		revisionToSkip = revision;
 		flushLock.finishedRevision(revision);
 	}
