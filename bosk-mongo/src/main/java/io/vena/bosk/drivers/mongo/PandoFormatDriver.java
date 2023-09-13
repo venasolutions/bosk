@@ -722,18 +722,26 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 					} else {
 						alreadyUsedSubparts = true;
 					}
-					String mainID = "|" + String.join("|", BsonSurgeon.docSegments(mainRef, ref));
-					BsonDocument mainDocument = new BsonDocument()
-						.append("_id", new BsonString(mainID))
-						.append("state", entry.getValue());
-					ArrayList<BsonDocument> parts = new ArrayList<>(subParts.size() + 1);
-					parts.addAll(subParts);
-					parts.add(mainDocument);
 
-					BsonValue value = bsonSurgeon.gather(parts);
+					BsonValue replacementValue = entry.getValue();
+					if (replacementValue instanceof BsonDocument) {
+						LOGGER.debug("Replacement value is a document; gather along with {} subparts", subParts.size());
+						String mainID = "|" + String.join("|", BsonSurgeon.docSegments(mainRef, ref));
+						BsonDocument mainDocument = new BsonDocument()
+							.append("_id", new BsonString(mainID))
+							.append("state", replacementValue);
+						ArrayList<BsonDocument> parts = new ArrayList<>(subParts.size() + 1);
+						parts.addAll(subParts);
+						parts.add(mainDocument);
+
+						replacementValue = bsonSurgeon.gather(parts);
+					} else {
+						LOGGER.debug("Replacement value is scalar: {}", replacementValue);
+					}
+
 					LOGGER.debug("| Replace {}", ref);
-					LOGGER.trace("| New value: {}", value);
-					Object replacement = formatter.bsonValue2object(value, ref);
+					LOGGER.trace("| New value: {}", replacementValue);
+					Object replacement = formatter.bsonValue2object(replacementValue, ref);
 					downstream.submitReplacement(ref, replacement);
 					LOGGER.trace("| Done replacing {}", ref);
 				}
