@@ -33,7 +33,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
- * A set of tests that only work with resilient drivers.
+ * Tests the kinds of recovery actions a human operator might take to try to get a busted service running again.
  */
 public class MongoDriverResiliencyTest extends AbstractMongoDriverTest {
 	FlushOrWait flushOrWait;
