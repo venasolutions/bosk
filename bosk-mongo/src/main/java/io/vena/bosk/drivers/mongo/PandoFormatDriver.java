@@ -310,7 +310,7 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 					LOGGER.debug("Main event is final event");
 					propagateDownstream(finalEvent, events.subList(0, events.size() - 1));
 				} else if (events.size() < 2) {
-					throw new UnprocessableEventException("Event does not update bosk state", finalEvent.getOperationType());
+					LOGGER.debug("Main event is a no-op");
 				} else {
 					ChangeStreamDocument<BsonDocument> mainEvent = events.get(events.size() - 2);
 					LOGGER.debug("Main event is {} on {}", mainEvent.getOperationType(), mainEvent.getDocumentKey());
@@ -556,6 +556,9 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 			}
 		}
 		if (doUpdate(deletionDoc(target, mainRef), standardPreconditions(target, mainRef, documentFilter(mainRef)))) {
+			if (!rootRef.equals(mainRef)) {
+				doUpdate(blankUpdateDoc(), rootDocumentFilter());
+			}
 			txn.commit();
 		} else {
 			LOGGER.debug("Deletion had no effect; aborting transaction");
@@ -565,10 +568,14 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 
 	private boolean preconditionFailed(Reference<Identifier> precondition, Identifier requiredValue) {
 		Reference<?> mainRef = mainRef(precondition);
-		BsonDocument filter = new BsonDocument()
-			.append("_id", documentFilter(mainRef))
+		BsonDocument filter = documentFilter(mainRef)
 			.append(dottedFieldNameOf(precondition, mainRef), new BsonString(requiredValue.toString()));
-		return !documentExists(filter);
+		LOGGER.debug("Precondition filter: {}", filter);
+		boolean result = !documentExists(filter);
+		if (result) {
+			LOGGER.debug("Precondition failed: {} != {}", precondition, requiredValue);
+		}
+		return result;
 	}
 
 	private boolean documentExists(BsonDocument filter) {
