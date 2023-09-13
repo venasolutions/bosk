@@ -4,7 +4,6 @@ import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoCursor;
 import com.mongodb.client.model.CountOptions;
-import com.mongodb.client.model.ReplaceOptions;
 import com.mongodb.client.model.UpdateOptions;
 import com.mongodb.client.model.changestream.ChangeStreamDocument;
 import com.mongodb.client.model.changestream.OperationType;
@@ -329,6 +328,9 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 				flushLock.finishedRevision(REVISION_ZERO);
 				revisionToSkip = null;
 			} break;
+			default: {
+				throw new UnprocessableEventException("Cannot process event", finalEvent.getOperationType());
+			}
 		}
 	}
 
@@ -857,7 +859,6 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 
 		List<BsonDocument> subParts = allParts.subList(0, allParts.size() - 1);
 
-		ReplaceOptions replaceOptions = new ReplaceOptions().upsert(true);
 		LOGGER.debug("Document has {} sub-parts", subParts.size());
 		for (BsonDocument part: subParts) {
 			BsonDocument filter = new BsonDocument("_id", part.get("_id"));
