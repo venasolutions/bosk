@@ -472,12 +472,21 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 		if (updateDescription == null) {
 			return false;
 		}
+
 		BsonDocument updatedFields = updateDescription.getUpdatedFields();
-		if (updatedFields == null) {
-			return false;
+		if (updatedFields != null) {
+			if (updatedFields.keySet().stream().anyMatch(k -> k.startsWith(field.name()))) {
+				return true;
+			}
+		}
+		List<String> removedFields = updateDescription.getRemovedFields();
+		if (updatedFields != null) {
+			if (removedFields.stream().anyMatch(k -> k.startsWith(field.name()))) {
+				return true;
+			}
 		}
 
-		return updatedFields.keySet().stream().anyMatch(k -> k.startsWith(field.name()));
+		return false;
 	}
 
 	//
@@ -527,7 +536,8 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 
 	private <T> void doDelete(Reference<T> target, TransactionalCollection<BsonDocument>.Transaction txn) {
 		deletePartsUnder(target);
-		if (doUpdate(deletionDoc(target, rootRef), standardRootPreconditions(target))) {
+		Reference<?> mainRef = mainRef(target);
+		if (doUpdate(deletionDoc(target, mainRef), standardPreconditions(target, mainRef, documentFilter(mainRef)))) {
 			txn.commit();
 		} else {
 			txn.abort();
