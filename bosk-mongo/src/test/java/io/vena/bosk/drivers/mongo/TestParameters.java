@@ -21,17 +21,17 @@ public interface TestParameters {
 			MongoDriverSettings.builder()
 				.database(prefix + "_pando2")
 				.preferredDatabaseFormat(PandoFormat.withSeparateCollections(asList(
-					"/catalog", "/sideTable")))
-//			MongoDriverSettings.builder()
-//				.database(prefix + "_slow")
-//				.testing(MongoDriverSettings.Testing.builder()
-//					.eventDelayMS(200)
-//					.build()),
-//			MongoDriverSettings.builder()
-//				.database(prefix + "_fast")
-//				.testing(MongoDriverSettings.Testing.builder()
-//					.eventDelayMS(-200)
-//					.build())
+					"/catalog", "/sideTable"))),
+			MongoDriverSettings.builder()
+				.database(prefix + "_slow")
+				.testing(MongoDriverSettings.Testing.builder()
+					.eventDelayMS(200)
+					.build()),
+			MongoDriverSettings.builder()
+				.database(prefix + "_fast")
+				.testing(MongoDriverSettings.Testing.builder()
+					.eventDelayMS(-200)
+					.build())
 		);
 	}
 
