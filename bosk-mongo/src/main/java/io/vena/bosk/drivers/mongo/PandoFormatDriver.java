@@ -39,6 +39,7 @@ import java.util.regex.Pattern;
 import lombok.NonNull;
 import lombok.var;
 import org.bson.BsonDocument;
+import org.bson.BsonInt32;
 import org.bson.BsonInt64;
 import org.bson.BsonNull;
 import org.bson.BsonString;
@@ -185,6 +186,7 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 		try (MongoCursor<BsonDocument> cursor = collection
 			.withReadConcern(LOCAL) // The revision field needs to be the latest
 			.find(regex("_id", "^" + Pattern.quote("|")))
+			.sort(new BsonDocument("_id", new BsonInt32(-1))) // Root doc last
 			.cursor()
 		) {
 			while (cursor.hasNext()) {
@@ -194,6 +196,9 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 			throw new UninitializedCollectionException("No existing document", e);
 		}
 		BsonDocument mainPart = allParts.get(allParts.size()-1);
+		if (!ROOT_DOCUMENT_ID.equals(mainPart.get("_id"))) {
+			throw new IllegalStateException("Cannot locate root document");
+		}
 		BsonValue revision = mainPart.get(DocumentFields.revision.name(), REVISION_ZERO);
 		List<BsonDocument> partsList = allParts
 			.stream()
