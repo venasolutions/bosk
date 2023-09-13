@@ -26,6 +26,7 @@ import io.vena.bosk.drivers.mongo.BsonSurgeon.GraftPoint;
 import io.vena.bosk.drivers.mongo.Formatter.DocumentFields;
 import io.vena.bosk.exceptions.FlushFailureException;
 import io.vena.bosk.exceptions.InvalidTypeException;
+import io.vena.bosk.exceptions.NotYetImplementedException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.EnumSet;
@@ -537,9 +538,27 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 	private <T> void doDelete(Reference<T> target, TransactionalCollection<BsonDocument>.Transaction txn) {
 		deletePartsUnder(target);
 		Reference<?> mainRef = mainRef(target);
+		if (mainRef.equals(target)) {
+			// Delete the whole document
+			if (settings.experimental().orphanDocumentMode() == HASTY) {
+				LOGGER.debug("Skipping deleting document({}) in {} mode", target, HASTY);
+			} else {
+				throw new NotYetImplementedException("Earnest mode not yet implemented");
+			}
+
+			assert !mainRef.path().isEmpty(): "Can't delete the root reference";
+			try {
+				// Move up to the parent document to delete the "true" stub
+				mainRef = mainRef(mainRef.enclosingReference(Object.class));
+				LOGGER.debug("Move up to enclosing main reference {}", mainRef);
+			} catch (InvalidTypeException e) {
+				throw new AssertionError("Every non-root reference has an enclosing reference");
+			}
+		}
 		if (doUpdate(deletionDoc(target, mainRef), standardPreconditions(target, mainRef, documentFilter(mainRef)))) {
 			txn.commit();
 		} else {
+			LOGGER.debug("Deletion had no effect; aborting transaction");
 			txn.abort();
 		}
 	}

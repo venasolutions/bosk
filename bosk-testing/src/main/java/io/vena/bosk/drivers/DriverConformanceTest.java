@@ -163,8 +163,11 @@ public abstract class DriverConformanceTest extends AbstractDriverTest {
 	@ParametersByName
 	void testDeleteBackward(Path enclosingCatalogPath) {
 		CatalogReference<TestEntity> ref = initializeBoskWithCatalog(enclosingCatalogPath);
+		assertCorrectBoskContents();
+		LOGGER.debug("Delete second child");
 		driver.submitDeletion(ref.then(child2ID));
 		assertCorrectBoskContents();
+		LOGGER.debug("Delete first child");
 		driver.submitDeletion(ref.then(child1ID));
 		assertCorrectBoskContents();
 	}
