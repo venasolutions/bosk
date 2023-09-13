@@ -13,10 +13,10 @@ import io.vena.bosk.ListingEntry;
 import io.vena.bosk.ListingReference;
 import io.vena.bosk.Reference;
 import io.vena.bosk.SideTable;
-import io.vena.bosk.TypeValidation;
 import io.vena.bosk.drivers.BufferingDriver;
 import io.vena.bosk.drivers.mongo.Formatter.DocumentFields;
 import io.vena.bosk.drivers.mongo.MongoDriverSettings.MongoDriverSettingsBuilder;
+import io.vena.bosk.drivers.mongo.TestParameters.EarlyOrLate;
 import io.vena.bosk.drivers.state.TestEntity;
 import io.vena.bosk.drivers.state.TestValues;
 import io.vena.bosk.exceptions.FlushFailureException;
@@ -26,6 +26,7 @@ import java.io.IOException;
 import java.util.Optional;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingDeque;
+import java.util.stream.Stream;
 import lombok.Value;
 import lombok.var;
 import org.bson.BsonDocument;
@@ -54,10 +55,22 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 /**
  * Tests for MongoDB-specific functionality
  */
-class MongoDriverSpecialTest extends AbstractMongoDriverTest implements TestParameters {
+class MongoDriverSpecialTest extends AbstractMongoDriverTest {
 	@ParametersByName
 	public MongoDriverSpecialTest(MongoDriverSettingsBuilder driverSettings) {
 		super(driverSettings);
+	}
+
+	@SuppressWarnings("unused")
+	static Stream<MongoDriverSettingsBuilder> driverSettings() {
+		return TestParameters.driverSettings(
+			Stream.of(
+				SEQUOIA,
+				PandoFormat.oneBigDocument(),
+				PandoFormat.withSeparateCollections("/catalog", "/listing")
+			),
+			Stream.of(EarlyOrLate.NORMAL)
+		);
 	}
 
 	@ParametersByName

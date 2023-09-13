@@ -5,8 +5,7 @@ import io.vena.bosk.Bosk;
 import io.vena.bosk.BoskDriver;
 import io.vena.bosk.Listing;
 import io.vena.bosk.drivers.mongo.Formatter.DocumentFields;
-import io.vena.bosk.drivers.mongo.MongoDriverSettings.DatabaseFormat;
-import io.vena.bosk.drivers.mongo.MongoDriverSettings.Testing;
+import io.vena.bosk.drivers.mongo.TestParameters.EarlyOrLate;
 import io.vena.bosk.drivers.state.TestEntity;
 import io.vena.bosk.exceptions.FlushFailureException;
 import io.vena.bosk.exceptions.InvalidTypeException;
@@ -53,34 +52,16 @@ public class MongoDriverResiliencyTest extends AbstractMongoDriverTest {
 
 	@SuppressWarnings("unused")
 	static Stream<MongoDriverSettings.MongoDriverSettingsBuilder> driverSettings() {
-		return Stream.of(DatabaseFormat.SEQUOIA, PandoFormat.oneBigDocument())
-			.flatMap(f -> Stream.of(EarlyOrLate.NORMAL)
-				.map(e -> MongoDriverSettings.builder()
-					.preferredDatabaseFormat(f)
-					.recoveryPollingMS(3000) // Note that some tests can take as long as 10x this
-					.flushTimeoutMS(4000) // A little more than recoveryPollingMS
-					.testing(Testing.builder().eventDelayMS(e.eventDelayMS).build())
-					.database(MongoDriverResiliencyTest.class.getSimpleName()
-						+ "_" + DB_COUNTER.incrementAndGet()
-						+ "_" + f.getClass().getSimpleName()
-						+ e.suffix)
-				));
-	}
-
-	private static final AtomicInteger DB_COUNTER = new AtomicInteger(0);
-
-	enum EarlyOrLate {
-		NORMAL(0, ""),
-		EARLY(-200, "_early"),
-		LATE(200, "_late");
-
-		final int eventDelayMS;
-		final String suffix;
-
-		EarlyOrLate(int eventDelayMS, String suffix) {
-			this.eventDelayMS = eventDelayMS;
-			this.suffix = suffix;
-		}
+		return TestParameters.driverSettings(
+			Stream.of(
+				SEQUOIA,
+				PandoFormat.withSeparateCollections("/catalog", "/sideTable")
+			),
+			Stream.of(EarlyOrLate.NORMAL)
+		).map(b -> b
+			.recoveryPollingMS(3000) // Note that some tests can take as long as 10x this
+			.flushTimeoutMS(4000) // A little more than recoveryPollingMS
+		);
 	}
 
 	enum FlushOrWait { FLUSH, WAIT };

@@ -5,6 +5,8 @@ import io.vena.bosk.StateTreeNode;
 import java.util.Collection;
 import lombok.Value;
 
+import static java.util.Arrays.asList;
+
 @Value
 public class PandoFormat implements StateTreeNode, MongoDriverSettings.DatabaseFormat {
 	ListValue<String> separateCollections;
@@ -19,5 +21,9 @@ public class PandoFormat implements StateTreeNode, MongoDriverSettings.DatabaseF
 
 	public static PandoFormat withSeparateCollections(Collection<String> separateCollections) {
 		return new PandoFormat(ListValue.from(separateCollections));
+	}
+
+	public static PandoFormat withSeparateCollections(String... pathStrings) {
+		return withSeparateCollections(asList(pathStrings));
 	}
 }
