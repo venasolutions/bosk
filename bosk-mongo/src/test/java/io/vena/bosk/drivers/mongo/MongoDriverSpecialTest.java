@@ -22,6 +22,7 @@ import io.vena.bosk.drivers.state.TestValues;
 import io.vena.bosk.exceptions.FlushFailureException;
 import io.vena.bosk.exceptions.InvalidTypeException;
 import io.vena.bosk.junit.ParametersByName;
+import io.vena.bosk.util.Classes;
 import java.io.IOException;
 import java.util.Optional;
 import java.util.concurrent.BlockingQueue;
@@ -236,9 +237,9 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest {
 
 	@ParametersByName
 	@UsesMongoService
-	void initialStateHasNonexistentFields_ignored() {
+	void initialStateHasNonexistentFields_ignored() throws InvalidTypeException {
 		// Upon creating bosk, the initial value will be saved to MongoDB
-		Bosk<TestEntity> bosk = new Bosk<TestEntity>("Newer", TestEntity.class, this::initialRoot, driverFactory);
+		new Bosk<TestEntity>("Newer", TestEntity.class, this::initialRoot, driverFactory);
 
 		// Upon creating prevBosk, the state in the database will be loaded into the local.
 		Bosk<OldEntity> prevBosk = new Bosk<OldEntity>(
@@ -247,7 +248,7 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest {
 			(b) -> { throw new AssertionError("prevBosk should use the state from MongoDB"); },
 			createDriverFactory());
 
-		OldEntity expected = new OldEntity(rootID, rootID.toString());
+		OldEntity expected = OldEntity.withString(rootID.toString(), prevBosk);
 
 		OldEntity actual;
 		try (@SuppressWarnings("unused") Bosk<?>.ReadContext readContext = prevBosk.readContext()) {
@@ -274,7 +275,7 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest {
 
 		prevBosk.driver().flush();
 
-		OldEntity expected = new OldEntity(rootID, "replacementString");
+		OldEntity expected = OldEntity.withString("replacementString", prevBosk);
 
 		OldEntity actual;
 		try (@SuppressWarnings("unused") Bosk<?>.ReadContext readContext = prevBosk.readContext()) {
@@ -302,7 +303,7 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest {
 
 		prevBosk.driver().flush();
 
-		OldEntity expected = new OldEntity(rootID, rootID.toString()); // unchanged
+		OldEntity expected = OldEntity.withString(rootID.toString(), prevBosk); // unchanged
 
 		OldEntity actual;
 		try (@SuppressWarnings("unused") Bosk<?>.ReadContext readContext = prevBosk.readContext()) {
@@ -328,7 +329,7 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest {
 
 		prevBosk.driver().flush();
 
-		OldEntity expected = new OldEntity(rootID, rootID.toString()); // unchanged
+		OldEntity expected = OldEntity.withString(rootID.toString(), prevBosk); // unchanged
 
 		OldEntity actual;
 		try (@SuppressWarnings("unused") Bosk<?>.ReadContext readContext = prevBosk.readContext()) {
@@ -538,10 +539,25 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest {
 			: PandoFormatDriver.ROOT_DOCUMENT_ID;
 	}
 
+	/**
+	 * Represents an earlier version of the entity before some fields were added.
+	 */
 	@Value
 	public static class OldEntity implements Entity {
 		Identifier id;
 		String string;
+		// We need catalog and sideTable because we use them in our PandoConfiguration
+		Catalog<OldEntity> catalog;
+		SideTable<OldEntity, OldEntity> sideTable;
+
+		public static OldEntity withString(String value, Bosk<OldEntity> bosk) throws InvalidTypeException {
+			return new OldEntity(
+				rootID,
+				value,
+				Catalog.empty(),
+				SideTable.empty(bosk.rootReference().then(Classes.catalog(OldEntity.class), "/catalog"))
+			);
+		}
 	}
 
 	/**

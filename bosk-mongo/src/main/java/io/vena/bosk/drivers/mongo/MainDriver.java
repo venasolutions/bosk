@@ -35,8 +35,6 @@ import java.util.concurrent.locks.ReentrantLock;
 import org.bson.BsonDocument;
 import org.bson.BsonInt64;
 import org.bson.BsonString;
-import org.bson.BsonValue;
-import org.bson.Document;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -171,7 +169,7 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 				preferredDriver.onRevisionToSkip(REVISION_ONE); // initialRoot handles REVISION_ONE; downstream only needs to know about changes after that
 				publishFormatDriver(preferredDriver);
 			} catch (RuntimeException | IOException e2) {
-				LOGGER.debug("Failed to initialize database; disconnecting", e2);
+				LOGGER.warn("Failed to initialize database; disconnecting", e2);
 				quietlySetFormatDriver(new DisconnectedDriver<>(e2));
 			}
 		} catch (RuntimeException | UnrecognizedFormatException | IOException e) {
@@ -180,7 +178,7 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 					LOGGER.debug("Unable to load initial root from database; aborting initialization", e);
 					throw new InitialRootFailureException("Unable to load initial state from MongoDB", e);
 				case DISCONNECT:
-					LOGGER.debug("Unable to load initial root from database; will proceed with downstream.initialRoot", e);
+					LOGGER.info("Unable to load initial root from database; will proceed with downstream.initialRoot", e);
 					quietlySetFormatDriver(new DisconnectedDriver<>(e));
 					root = callDownstreamInitialRoot(rootType);
 					break;

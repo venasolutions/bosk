@@ -759,7 +759,7 @@ try (ReadContext originalThReadContext = bosk.readContext()) {
 			try {
 				targetType = pathCompiler.targetTypeOf(path);
 			} catch (InvalidTypeException e) {
-				throw new InvalidTypeException("Invalid path: " + path, e);
+				throw new InvalidTypeException("Invalid path from " + targetClass().getSimpleName() + ": " + path, e);
 			}
 			Class<?> targetClass = rawClass(targetType);
 			if (Optional.class.isAssignableFrom(requestedClass)) {
