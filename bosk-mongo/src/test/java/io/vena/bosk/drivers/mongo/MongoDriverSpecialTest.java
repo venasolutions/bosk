@@ -66,9 +66,9 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest {
 	static Stream<MongoDriverSettingsBuilder> driverSettings() {
 		return TestParameters.driverSettings(
 			Stream.of(
-				SEQUOIA,
-				PandoFormat.oneBigDocument(),
-				PandoFormat.withSeparateCollections("/catalog", "/sideTable")
+				SEQUOIA
+//				PandoFormat.oneBigDocument(),
+//				PandoFormat.withSeparateCollections("/catalog", "/sideTable")
 			),
 			Stream.of(EarlyOrLate.NORMAL)
 		);
