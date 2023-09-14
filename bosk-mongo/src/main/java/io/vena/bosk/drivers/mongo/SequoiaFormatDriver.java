@@ -381,14 +381,6 @@ final class SequoiaFormatDriver<R extends StateTreeNode> implements FormatDriver
 	 */
 	private boolean doUpdate(BsonDocument updateDoc, BsonDocument filter) {
 		LOGGER.debug("| Update: {}", updateDoc);
-		if (settings.testing().eventDelayMS() < 0) {
-			LOGGER.debug("| Sleeping");
-			try {
-				Thread.sleep(-settings.testing().eventDelayMS());
-			} catch (InterruptedException e) {
-				LOGGER.debug("| Interrupted");
-			}
-		}
 		LOGGER.debug("| Filter: {}", filter);
 		UpdateResult result = collection.updateOne(filter, updateDoc);
 		LOGGER.debug("| Update result: {}", result);

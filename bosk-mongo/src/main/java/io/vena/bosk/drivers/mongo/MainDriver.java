@@ -471,7 +471,7 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 		MDCScope ex = setupMDC(bosk.name());
 		LOGGER.debug(description, args);
 		if (driverSettings.testing().eventDelayMS() < 0) {
-			LOGGER.debug("Sleeping");
+			LOGGER.debug("| eventDelayMS {}ms ", driverSettings.testing().eventDelayMS());
 			try {
 				Thread.sleep(-driverSettings.testing().eventDelayMS());
 			} catch (InterruptedException e) {

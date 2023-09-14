@@ -203,6 +203,14 @@ class ChangeReceiver implements Closeable {
 	}
 
 	private void processEvent(ChangeStreamDocument<BsonDocument> event) throws UnprocessableEventException {
+		if (settings.testing().eventDelayMS() > 0) {
+			LOGGER.debug("| eventDelayMS {}ms ", settings.testing().eventDelayMS());
+			try {
+				Thread.sleep(settings.testing().eventDelayMS());
+			} catch (InterruptedException e) {
+				LOGGER.debug("| Interrupted");
+			}
+		}
 		try {
 			MDC.put(MDC_KEY, "e" + EVENT_COUNTER.incrementAndGet());
 			switch (event.getOperationType()) {

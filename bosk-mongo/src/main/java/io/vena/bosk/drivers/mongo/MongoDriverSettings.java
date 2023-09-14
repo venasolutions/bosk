@@ -41,7 +41,8 @@ public class MongoDriverSettings {
 	public static class Testing {
 		/**
 		 * How long to sleep before processing each event.
-		 * If negative, sleeps before performing each database update.
+		 * If negative, sleeps before performing each driver operation
+		 * so that events have a chance to arrive first.
 		 */
 		@Default long eventDelayMS = 0;
 	}
