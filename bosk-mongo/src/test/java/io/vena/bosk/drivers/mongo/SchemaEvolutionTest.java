@@ -54,7 +54,7 @@ public class SchemaEvolutionTest {
 		return Stream.of(
 			new Helper(SEQUOIA, ManifestMode.USE_IF_EXISTS),
 			new Helper(SEQUOIA, ManifestMode.CREATE_IF_ABSENT),
-			new Helper(PandoFormat.oneBigDocument(), ManifestMode.CREATE_IF_ABSENT)
+			new Helper(PandoFormat.withSeparateCollections("/catalog", "/sideTable"), ManifestMode.CREATE_IF_ABSENT)
 		);
 	}
 

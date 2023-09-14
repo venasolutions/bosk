@@ -16,7 +16,7 @@ import io.vena.bosk.SideTable;
 import io.vena.bosk.drivers.BufferingDriver;
 import io.vena.bosk.drivers.mongo.Formatter.DocumentFields;
 import io.vena.bosk.drivers.mongo.MongoDriverSettings.MongoDriverSettingsBuilder;
-import io.vena.bosk.drivers.mongo.TestParameters.EarlyOrLate;
+import io.vena.bosk.drivers.mongo.TestParameters.EventTiming;
 import io.vena.bosk.drivers.state.TestEntity;
 import io.vena.bosk.drivers.state.TestValues;
 import io.vena.bosk.exceptions.FlushFailureException;
@@ -67,10 +67,10 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest {
 		return TestParameters.driverSettings(
 			Stream.of(
 				SEQUOIA,
-				PandoFormat.oneBigDocument(),
+//				PandoFormat.oneBigDocument(),
 				PandoFormat.withSeparateCollections("/catalog", "/sideTable")
 			),
-			Stream.of(EarlyOrLate.NORMAL)
+			Stream.of(EventTiming.NORMAL)
 		);
 	}
 

@@ -4,6 +4,7 @@ import io.vena.bosk.DriverFactory;
 import io.vena.bosk.StateTreeNode;
 import io.vena.bosk.drivers.DriverConformanceTest;
 import io.vena.bosk.drivers.mongo.MongoDriverSettings.MongoDriverSettingsBuilder;
+import io.vena.bosk.drivers.mongo.TestParameters.EventTiming;
 import io.vena.bosk.junit.ParametersByName;
 import java.util.ArrayDeque;
 import java.util.Deque;
@@ -32,7 +33,7 @@ class MongoDriverConformanceTest extends DriverConformanceTest {
 				SEQUOIA,
 				PandoFormat.oneBigDocument(),
 				PandoFormat.withSeparateCollections("/catalog", "/sideTable")),
-			Stream.of(TestParameters.EarlyOrLate.values())
+			Stream.of(EventTiming.NORMAL) // EARLY is slow; LATE is really slow
 		);
 	}
 

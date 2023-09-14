@@ -5,7 +5,7 @@ import io.vena.bosk.Bosk;
 import io.vena.bosk.BoskDriver;
 import io.vena.bosk.Listing;
 import io.vena.bosk.drivers.mongo.Formatter.DocumentFields;
-import io.vena.bosk.drivers.mongo.TestParameters.EarlyOrLate;
+import io.vena.bosk.drivers.mongo.TestParameters.EventTiming;
 import io.vena.bosk.drivers.state.TestEntity;
 import io.vena.bosk.exceptions.FlushFailureException;
 import io.vena.bosk.exceptions.InvalidTypeException;
@@ -57,10 +57,10 @@ public class MongoDriverResiliencyTest extends AbstractMongoDriverTest {
 				SEQUOIA,
 				PandoFormat.withSeparateCollections("/catalog", "/sideTable")
 			),
-			Stream.of(EarlyOrLate.NORMAL)
+			Stream.of(EventTiming.NORMAL)
 		).map(b -> b
-			.recoveryPollingMS(3000) // Note that some tests can take as long as 10x this
-			.flushTimeoutMS(4000) // A little more than recoveryPollingMS
+			.recoveryPollingMS(1500) // Note that some tests can take as long as 10x this
+			.flushTimeoutMS(2000) // A little more than recoveryPollingMS
 		);
 	}
 
