@@ -288,7 +288,7 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest {
 	@ParametersByName
 	@UsesMongoService
 	void updateNonexistentField_ignored() throws InvalidTypeException, IOException, InterruptedException {
-		Bosk<TestEntity> bosk = new Bosk<TestEntity>("Newer", TestEntity.class, this::initialRoot, driverFactory);
+		Bosk<TestEntity> bosk = new Bosk<TestEntity>("Newer", TestEntity.class, b -> initialRoot(b).withCatalog(Catalog.empty()), driverFactory);
 		Bosk<OldEntity> prevBosk = new Bosk<OldEntity>(
 			"Prev",
 			OldEntity.class,
@@ -555,7 +555,7 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest {
 				rootID,
 				value,
 				Catalog.empty(),
-				SideTable.empty(bosk.rootReference().then(Classes.catalog(OldEntity.class), "/catalog"))
+				SideTable.empty(bosk.rootReference().then(Classes.catalog(OldEntity.class), "catalog"))
 			);
 		}
 	}
