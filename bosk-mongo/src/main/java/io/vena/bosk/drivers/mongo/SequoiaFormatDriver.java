@@ -186,14 +186,12 @@ final class SequoiaFormatDriver<R extends StateTreeNode> implements FormatDriver
 	 */
 	@Override
 	public void onEvent(ChangeStreamDocument<BsonDocument> event) throws UnprocessableEventException {
-		if (settings.experimental().manifestMode() == ManifestMode.ENABLED) {
-			if (event.getDocumentKey() == null) {
-				throw new UnprocessableEventException("Null document key", event.getOperationType());
-			}
-			if (MANIFEST_ID.equals(event.getDocumentKey().get("_id"))) {
-				onManifestEvent(event);
-				return;
-			}
+		if (event.getDocumentKey() == null) {
+			throw new UnprocessableEventException("Null document key", event.getOperationType());
+		}
+		if (MANIFEST_ID.equals(event.getDocumentKey().get("_id"))) {
+			onManifestEvent(event);
+			return;
 		}
 		if (!DOCUMENT_FILTER.equals(event.getDocumentKey())) {
 			LOGGER.debug("Ignoring event for unrecognized document key: {}", event.getDocumentKey());
