@@ -398,7 +398,7 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 		}
 
 		@Override
-		public void onDisconnect(Exception e) {
+		public void onDisconnect(Throwable e) {
 			LOGGER.debug("onDisconnect({})", e.toString());
 			formatDriver.close();
 			quietlySetFormatDriver(new DisconnectedDriver<>(e));

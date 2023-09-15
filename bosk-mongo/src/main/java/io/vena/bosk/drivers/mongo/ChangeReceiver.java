@@ -134,7 +134,7 @@ class ChangeReceiver implements Closeable {
 							LOGGER.warn("Timed out waiting for bosk state to initialize; will wait and retry", e);
 							listener.onDisconnect(e);
 							return;
-						} catch (RuntimeException e) {
+						} catch (RuntimeException | Error e) {
 							LOGGER.warn("Unexpected exception after connecting to MongoDB; will wait and retry", e);
 							listener.onDisconnect(e);
 							return;

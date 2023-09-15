@@ -17,5 +17,5 @@ interface ChangeListener {
 	void onEvent(ChangeStreamDocument<BsonDocument> event) throws UnprocessableEventException;
 
 	void onConnectionFailed(Exception e) throws InterruptedException, InitialRootActionException, TimeoutException;
-	void onDisconnect(Exception e);
+	void onDisconnect(Throwable e);
 }
