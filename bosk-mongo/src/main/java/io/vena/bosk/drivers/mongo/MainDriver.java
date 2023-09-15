@@ -70,7 +70,7 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 	private final ReentrantLock formatDriverLock = new ReentrantLock();
 	private final Condition formatDriverChanged = formatDriverLock.newCondition();
 
-	private volatile FormatDriver<R> formatDriver = new DisconnectedDriver<>("Driver not yet initialized");
+	private volatile FormatDriver<R> formatDriver = new DisconnectedDriver<>(new Exception("Driver not yet initialized"));
 	private volatile boolean isClosed = false;
 
 	public MainDriver(
@@ -155,7 +155,7 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 	 */
 	private R doInitialRoot(Type rootType) {
 		R root;
-		quietlySetFormatDriver(new DisconnectedDriver<>("Failure to compute initial root")); // Pessimistic fallback
+		quietlySetFormatDriver(new DisconnectedDriver<>(FAILURE_TO_COMPUTE_INITIAL_ROOT)); // Pessimistic fallback
 		try {
 			FormatDriver<R> detectedDriver = detectFormat();
 			StateAndMetadata<R> loadedState = detectedDriver.loadAllState();
@@ -171,8 +171,8 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 				preferredDriver.onRevisionToSkip(REVISION_ONE); // initialRoot handles REVISION_ONE; downstream only needs to know about changes after that
 				publishFormatDriver(preferredDriver);
 			} catch (RuntimeException | IOException e2) {
-				LOGGER.debug("Failed to initialize database; disconnecting", e2);
-				quietlySetFormatDriver(new DisconnectedDriver<>(e2.toString()));
+				LOGGER.warn("Failed to initialize database; disconnecting", e2);
+				quietlySetFormatDriver(new DisconnectedDriver<>(e2));
 			}
 		} catch (RuntimeException | UnrecognizedFormatException | IOException e) {
 			switch (driverSettings.initialDatabaseUnavailableMode()) {
@@ -180,8 +180,8 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 					LOGGER.debug("Unable to load initial root from database; aborting initialization", e);
 					throw new InitialRootFailureException("Unable to load initial state from MongoDB", e);
 				case DISCONNECT:
-					LOGGER.debug("Unable to load initial root from database; will proceed with downstream.initialRoot", e);
-					quietlySetFormatDriver(new DisconnectedDriver<>(e.toString()));
+					LOGGER.info("Unable to load initial root from database; will proceed with downstream.initialRoot", e);
+					quietlySetFormatDriver(new DisconnectedDriver<>(e));
 					root = callDownstreamInitialRoot(rootType);
 					break;
 				default:
@@ -401,7 +401,7 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 		public void onDisconnect(Exception e) {
 			LOGGER.debug("onDisconnect({})", e.toString());
 			formatDriver.close();
-			quietlySetFormatDriver(new DisconnectedDriver<>(e.toString()));
+			quietlySetFormatDriver(new DisconnectedDriver<>(e));
 		}
 	}
 
@@ -567,6 +567,7 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 
 	public static final String COLLECTION_NAME = "boskCollection";
 	public static final BsonString MANIFEST_ID = new BsonString("manifest");
-	public static final BsonInt32 SUPPORTED_MANIFEST_VERSION = new BsonInt32(1);
+	private static final BsonInt32 SUPPORTED_MANIFEST_VERSION = new BsonInt32(1);
+	private static final Exception FAILURE_TO_COMPUTE_INITIAL_ROOT = new Exception("Failure to compute initial root");
 	private static final Logger LOGGER = LoggerFactory.getLogger(MainDriver.class);
 }
