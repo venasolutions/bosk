@@ -198,7 +198,7 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 		R root;
 		try {
 			root = downstream.initialRoot(rootType);
-		} catch (RuntimeException | InvalidTypeException | IOException | InterruptedException e) {
+		} catch (RuntimeException | Error | InvalidTypeException | IOException | InterruptedException e) {
 			LOGGER.error("Downstream driver failed to compute initial root", e);
 			throw new DownstreamInitialRootException("Fatal error: downstream driver failed to compute initial root", e);
 		}
