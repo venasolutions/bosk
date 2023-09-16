@@ -1,5 +1,7 @@
 package io.vena.bosk.drivers;
 
+import io.vena.bosk.Bosk;
+import io.vena.bosk.BoskDriver;
 import io.vena.bosk.Catalog;
 import io.vena.bosk.CatalogReference;
 import io.vena.bosk.DriverFactory;
@@ -29,6 +31,16 @@ import static java.util.Arrays.asList;
 import static java.util.stream.Collectors.toList;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+/**
+ * Tests the basic functionality of {@link io.vena.bosk.BoskDriver}
+ * across a variety of state tree situations by performing some series
+ * of operations and then asserting that the resulting state matches
+ * that computed by {@link Bosk#simpleDriver} performing the same operations.
+ * <p>
+ *
+ * Use this by extending it and supplying a value for
+ * the {@link #driverFactory} to test.
+ */
 public abstract class DriverConformanceTest extends AbstractDriverTest {
 	// Subclass can initialize this as desired
 	protected DriverFactory<TestEntity> driverFactory;
@@ -380,7 +392,8 @@ public abstract class DriverConformanceTest extends AbstractDriverTest {
 			Path.just(TestEntity.Fields.catalog),
 			Path.of(TestEntity.Fields.catalog, AWKWARD_ID, TestEntity.Fields.catalog),
 			Path.of(TestEntity.Fields.sideTable, AWKWARD_ID, TestEntity.Fields.catalog),
-			Path.of(TestEntity.Fields.sideTable, AWKWARD_ID, TestEntity.Fields.catalog, "parent", TestEntity.Fields.catalog)
+			Path.of(TestEntity.Fields.sideTable, AWKWARD_ID, TestEntity.Fields.catalog, "parent", TestEntity.Fields.catalog),
+			Path.of(TestEntity.Fields.sideTable, AWKWARD_ID, TestEntity.Fields.sideTable, "parent", TestEntity.Fields.catalog)
 		);
 	}
 
