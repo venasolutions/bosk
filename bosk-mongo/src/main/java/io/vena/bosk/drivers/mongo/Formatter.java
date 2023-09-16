@@ -182,8 +182,8 @@ final class Formatter {
 	private static <T> void buildDottedFieldNameOf(Reference<T> ref, int startLength, int refLength, ArrayList<String> segments) {
 		if (ref.path().length() > startLength) {
 			Reference<?> enclosingReference = enclosingReference(ref);
-			buildDottedFieldNameOf(enclosingReference, startLength, refLength-1, segments);
-			if (ref.path().length() >= refLength) {
+			buildDottedFieldNameOf(enclosingReference, startLength, refLength, segments);
+			if (ref.path().length() <= refLength) {
 				if (Listing.class.isAssignableFrom(enclosingReference.targetClass())) {
 					segments.add("ids");
 				} else if (SideTable.class.isAssignableFrom(enclosingReference.targetClass())) {
