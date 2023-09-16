@@ -155,7 +155,16 @@ final class Formatter {
 	 * @see #referenceTo(String, Reference)
 	 */
 	static <T> String dottedFieldNameOf(Reference<T> ref, Reference<?> startingRef) {
-		ArrayList<String> segments = dottedFieldNameSegments(ref, ref.path().length(), startingRef);
+		return dottedFieldNameOf(ref, ref.path().length(), startingRef);
+	}
+
+	/**
+	 * @param refLength behave as though <code>ref</code> were truncated to this length, without actually having to do it
+	 * @return MongoDB field name corresponding to the given Reference
+	 * @see #referenceTo(String, Reference)
+	 */
+	static <T> String dottedFieldNameOf(Reference<T> ref, int refLength, Reference<?> startingRef) {
+		ArrayList<String> segments = dottedFieldNameSegments(ref, refLength, startingRef);
 		return String.join(".", segments.toArray(new String[0]));
 	}
 
