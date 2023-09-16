@@ -70,7 +70,7 @@ class FormatterTest extends AbstractBoskTest {
 			)
 			;
 
-		ArrayList<String> dottedName = Formatter.dottedFieldNameSegments(weirdRef, bosk.rootReference());
+		ArrayList<String> dottedName = Formatter.dottedFieldNameSegments(weirdRef, weirdRef.path().length(), bosk.rootReference());
 		BsonDocument expected = new BsonDocument()
 			.append(dottedName.get(dottedName.size()-1), weirdDoc);
 		assertEquals(expected, actual);

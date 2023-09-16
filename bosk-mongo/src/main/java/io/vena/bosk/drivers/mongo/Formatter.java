@@ -155,28 +155,33 @@ final class Formatter {
 	 * @see #referenceTo(String, Reference)
 	 */
 	static <T> String dottedFieldNameOf(Reference<T> ref, Reference<?> startingRef) {
-		ArrayList<String> segments = dottedFieldNameSegments(ref, startingRef);
+		ArrayList<String> segments = dottedFieldNameSegments(ref, ref.path().length(), startingRef);
 		return String.join(".", segments.toArray(new String[0]));
 	}
 
-	static <T> ArrayList<String> dottedFieldNameSegments(Reference<T> ref, Reference<?> startingRef) {
+	static <T> ArrayList<String> dottedFieldNameSegments(Reference<T> ref, int refLength, Reference<?> startingRef) {
 		assert startingRef.path().isPrefixOf(ref.path()): "'" + ref + "' must be under '" + startingRef + "'";
 		ArrayList<String> segments = new ArrayList<>();
 		segments.add(DocumentFields.state.name());
-		buildDottedFieldNameOf(ref, startingRef.path().length(), segments);
+		buildDottedFieldNameOf(ref, startingRef.path().length(), refLength, segments);
 		return segments;
 	}
 
-	private static <T> void buildDottedFieldNameOf(Reference<T> ref, int startingRefLength, ArrayList<String> segments) {
-		if (ref.path().length() > startingRefLength) {
+	/**
+	 * @param refLength behave as though <code>ref</code> were truncated to this length without actually having to do it
+	 */
+	private static <T> void buildDottedFieldNameOf(Reference<T> ref, int startLength, int refLength, ArrayList<String> segments) {
+		if (ref.path().length() > startLength) {
 			Reference<?> enclosingReference = enclosingReference(ref);
-			buildDottedFieldNameOf(enclosingReference, startingRefLength, segments);
-			if (Listing.class.isAssignableFrom(enclosingReference.targetClass())) {
-				segments.add("ids");
-			} else if (SideTable.class.isAssignableFrom(enclosingReference.targetClass())) {
-				segments.add("valuesById");
+			buildDottedFieldNameOf(enclosingReference, startLength, refLength-1, segments);
+			if (ref.path().length() >= refLength) {
+				if (Listing.class.isAssignableFrom(enclosingReference.targetClass())) {
+					segments.add("ids");
+				} else if (SideTable.class.isAssignableFrom(enclosingReference.targetClass())) {
+					segments.add("valuesById");
+				}
+				segments.add(dottedFieldNameSegment(ref.path().lastSegment()));
 			}
-			segments.add(dottedFieldNameSegment(ref.path().lastSegment()));
 		}
 	}
 
@@ -190,7 +195,7 @@ final class Formatter {
 
 	/**
 	 * @return Reference corresponding to the given field name
-	 * @see #dottedFieldNameOf(Reference, Reference)
+	 * @see #dottedFieldNameOf
 	 */
 	@SuppressWarnings("unchecked")
 	static <T> Reference<T> referenceTo(String dottedName, Reference<?> startingReference) throws InvalidTypeException {
