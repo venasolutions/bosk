@@ -25,7 +25,7 @@ public class MongoDriverSettings {
 	@Builder
 	public static class Experimental {
 		@Default long changeStreamInitialWaitMS = 20;
-		@Default ManifestMode manifestMode = ManifestMode.ENABLED;
+		@Default ManifestMode manifestMode = ManifestMode.CREATE_IF_ABSENT;
 	}
 
 	/**
@@ -72,7 +72,14 @@ public class MongoDriverSettings {
 	}
 
 	public enum ManifestMode {
-		DISABLED,
-		ENABLED,
+		/**
+		 * If a manifest document doesn't exist, we'll assume certain defaults.
+		 */
+		USE_IF_EXISTS,
+
+		/**
+		 * If a manifest document doesn't exist, we'll create one.
+		 */
+		CREATE_IF_ABSENT,
 	}
 }

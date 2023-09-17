@@ -223,6 +223,11 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 		}
 	}
 
+	/**
+	 * Refurbish is the one operation that always <em>must</em> happen in a transaction,
+	 * or else we could fail after deleting the existing contents but before rewriting them,
+	 * which would be catastrophic.
+	 */
 	private void refurbishTransaction() throws IOException {
 		ClientSessionOptions sessionOptions = ClientSessionOptions.builder()
 			.causallyConsistent(true)
@@ -408,7 +413,7 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 	}
 
 	private FormatDriver<R> detectFormat() throws UninitializedCollectionException, UnrecognizedFormatException {
-		if (driverSettings.experimental().manifestMode() == ManifestMode.ENABLED) {
+		if (driverSettings.experimental().manifestMode() == ManifestMode.CREATE_IF_ABSENT) {
 			try (MongoCursor<Document> cursor = collection.find(new BsonDocument("_id", MANIFEST_ID)).cursor()) {
 				if (cursor.hasNext()) {
 					LOGGER.debug("Found manifest");
