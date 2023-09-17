@@ -210,6 +210,18 @@ public abstract class Path implements Iterable<String> {
 		}
 	}
 
+	/**
+	 * @return true iff some truncated version of <code>other</code> {@link #matches} <code>this</code>.
+	 */
+	public final boolean matchesPrefixOf(Path other) {
+		int excessSegments = other.length() - this.length();
+		if (excessSegments >= 0) {
+			return this.matches(other.truncatedBy(excessSegments));
+		} else {
+			return false;
+		}
+	}
+
 	public final Path truncatedBy(int droppedSegments) {
 		if (droppedSegments < 0) {
 			throw new IllegalArgumentException("Negative number of segments to drop: " + droppedSegments);
