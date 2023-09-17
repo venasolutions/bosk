@@ -48,6 +48,7 @@ public interface MongoDriver<R extends StateTreeNode> extends BoskDriver<R> {
 		MongoDriverSettings driverSettings,
 		BsonPlugin bsonPlugin
 	) {
+		driverSettings.validate();
 		return (b, d) -> new MainDriver<>(b, clientSettings, driverSettings, bsonPlugin, d);
 	}
 

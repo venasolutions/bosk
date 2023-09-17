@@ -21,6 +21,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import static io.vena.bosk.TypeValidation.validateType;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class FormatterTest extends AbstractBoskTest {
@@ -108,4 +109,8 @@ class FormatterTest extends AbstractBoskTest {
 		return Arguments.of(plain, dotted);
 	}
 
+	@Test
+	void manifest_passesTypeValidation() throws InvalidTypeException {
+		validateType(Manifest.class);
+	}
 }

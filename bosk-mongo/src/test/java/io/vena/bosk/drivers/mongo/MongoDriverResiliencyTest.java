@@ -54,7 +54,8 @@ public class MongoDriverResiliencyTest extends AbstractMongoDriverTest {
 	static Stream<MongoDriverSettings.MongoDriverSettingsBuilder> driverSettings() {
 		return TestParameters.driverSettings(
 			Stream.of(
-				SEQUOIA
+				SEQUOIA,
+				PandoFormat.withSeparateCollections("/catalog", "/sideTable")
 			),
 			Stream.of(EventTiming.NORMAL)
 		).map(b -> b
@@ -173,7 +174,9 @@ public class MongoDriverResiliencyTest extends AbstractMongoDriverTest {
 			.getDatabase(driverSettings.database())
 			.getCollection(COLLECTION_NAME);
 		AtomicReference<Document> originalDocument = new AtomicReference<>();
-		BsonString rootDocumentID = SequoiaFormatDriver.DOCUMENT_ID;
+		BsonString rootDocumentID = (driverSettings.preferredDatabaseFormat() == SEQUOIA)?
+			SequoiaFormatDriver.DOCUMENT_ID :
+			PandoFormatDriver.ROOT_DOCUMENT_ID;
 		BsonDocument rootDocumentFilter = new BsonDocument("_id", rootDocumentID);
 		testRecovery(() -> {
 			LOGGER.debug("Save original document");

@@ -5,14 +5,22 @@ import lombok.Builder;
 import lombok.Builder.Default;
 import lombok.Value;
 
+import static io.vena.bosk.drivers.mongo.MongoDriverSettings.DatabaseFormat.SEQUOIA;
+import static io.vena.bosk.drivers.mongo.MongoDriverSettings.ManifestMode.USE_IF_EXISTS;
+import static io.vena.bosk.drivers.mongo.MongoDriverSettings.OrphanDocumentMode.EARNEST;
+
 @Value
-@Builder
+@Builder(toBuilder = true)
 public class MongoDriverSettings {
 	String database;
 
 	@Default long flushTimeoutMS = 30_000;
 	@Default long recoveryPollingMS = 30_000;
-	@Default DatabaseFormat preferredDatabaseFormat = DatabaseFormat.SEQUOIA;
+	/**
+	 * @see DatabaseFormat#SEQUOIA
+	 * @see PandoFormat
+	 */
+	@Default DatabaseFormat preferredDatabaseFormat = SEQUOIA;
 	@Default InitialDatabaseUnavailableMode initialDatabaseUnavailableMode = InitialDatabaseUnavailableMode.DISCONNECT;
 
 	@Default Experimental experimental = Experimental.builder().build();
@@ -26,6 +34,7 @@ public class MongoDriverSettings {
 	public static class Experimental {
 		@Default long changeStreamInitialWaitMS = 20;
 		@Default ManifestMode manifestMode = ManifestMode.CREATE_IF_ABSENT;
+		@Default OrphanDocumentMode orphanDocumentMode = OrphanDocumentMode.HASTY;
 	}
 
 	/**
@@ -42,11 +51,19 @@ public class MongoDriverSettings {
 		@Default long eventDelayMS = 0;
 	}
 
-	public enum DatabaseFormat {
+	public interface DatabaseFormat {
 		/**
-		 * Entire bosk state in a single MongoDB document.
+		 * Simple format that stores the entire bosk state in a single document,
+		 * and (except for {@link MongoDriver#refurbish() refirbish})
+		 * doesn't require any multi-document transactions.
+		 * <p>
+		 * This limits the entire bosk state to 16MB when converted to BSON.
 		 */
-		SEQUOIA
+		DatabaseFormat SEQUOIA = new SequoiaFormat();
+	}
+
+	private static final class SequoiaFormat implements DatabaseFormat {
+		@Override public String toString() { return "SequoiaFormat"; }
 	}
 
 	public enum InitialDatabaseUnavailableMode {
@@ -82,4 +99,28 @@ public class MongoDriverSettings {
 		 */
 		CREATE_IF_ABSENT,
 	}
+
+	public enum OrphanDocumentMode {
+		/**
+		 * Unused documents are always deleted before the end of the transaction.
+		 */
+		EARNEST,
+
+		/**
+		 * Unused documents may be left behind, to be cleaned up later.
+		 */
+		HASTY,
+	}
+
+	public void validate() {
+		if (preferredDatabaseFormat() instanceof PandoFormat) {
+			if (experimental.manifestMode() == USE_IF_EXISTS) {
+				throw new IllegalArgumentException("Pando format requires a manifest. Databases with no manifest are interpreted as Sequoia.");
+			}
+			if (experimental.orphanDocumentMode() == EARNEST) {
+				throw new IllegalArgumentException("Pando format does not support earnest orphan document cleanup");
+			}
+		}
+	}
+
 }

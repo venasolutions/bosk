@@ -45,9 +45,7 @@ import static java.util.Objects.requireNonNull;
 import static org.bson.BsonBoolean.FALSE;
 
 /**
- * A {@link FormatDriver} that stores the entire bosk state in a single document,
- * and (except for {@link MongoDriver#refurbish() refirbish})
- * doesn't require multi-document transactions.
+ * Implements the {@link io.vena.bosk.drivers.mongo.MongoDriverSettings.DatabaseFormat#SEQUOIA Sequoia} format.
  */
 final class SequoiaFormatDriver<R extends StateTreeNode> implements FormatDriver<R> {
 	private final String description;
@@ -245,11 +243,11 @@ final class SequoiaFormatDriver<R extends StateTreeNode> implements FormatDriver
 	 * but outside that, we want to be as strict as we can
 	 * so incompatible database changes don't go unnoticed.
 	 */
-	private static void onManifestEvent(ChangeStreamDocument<BsonDocument> event) throws UnprocessableEventException {
+	private void onManifestEvent(ChangeStreamDocument<BsonDocument> event) throws UnprocessableEventException {
 		if (event.getOperationType() == INSERT) {
 			BsonDocument manifest = requireNonNull(event.getFullDocument());
 			try {
-				MainDriver.validateManifest(manifest);
+				formatter.validateManifest(manifest);
 			} catch (UnrecognizedFormatException e) {
 				throw new UnprocessableEventException("Invalid manifest", e, event.getOperationType());
 			}
