@@ -45,7 +45,9 @@ import static java.util.Objects.requireNonNull;
 import static org.bson.BsonBoolean.FALSE;
 
 /**
- * A {@link FormatDriver} that stores the entire bosk state in a single document.
+ * A {@link FormatDriver} that stores the entire bosk state in a single document,
+ * and (except for {@link MongoDriver#refurbish() refirbish})
+ * doesn't require multi-document transactions.
  */
 final class SequoiaFormatDriver<R extends StateTreeNode> implements FormatDriver<R> {
 	private final String description;
@@ -171,6 +173,7 @@ final class SequoiaFormatDriver<R extends StateTreeNode> implements FormatDriver
 	}
 
 	private void writeManifest() {
+		assert settings.experimental().manifestMode() == CREATE_IF_ABSENT;
 		BsonDocument doc = new BsonDocument("_id", MANIFEST_ID);
 		doc.putAll((BsonDocument) formatter.object2bsonValue(Manifest.forSequoia(), Manifest.class));
 		BsonDocument update = new BsonDocument("$set", doc);
