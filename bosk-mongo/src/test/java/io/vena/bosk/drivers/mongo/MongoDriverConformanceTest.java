@@ -4,17 +4,19 @@ import io.vena.bosk.DriverFactory;
 import io.vena.bosk.StateTreeNode;
 import io.vena.bosk.drivers.DriverConformanceTest;
 import io.vena.bosk.drivers.mongo.MongoDriverSettings.MongoDriverSettingsBuilder;
+import io.vena.bosk.drivers.mongo.TestParameters.EventTiming;
 import io.vena.bosk.junit.ParametersByName;
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 
-import static io.vena.bosk.drivers.mongo.MainDriver.COLLECTION_NAME;
+import static io.vena.bosk.drivers.mongo.MongoDriverSettings.DatabaseFormat.SEQUOIA;
 
 @UsesMongoService
-class MongoDriverConformanceTest extends DriverConformanceTest implements TestParameters {
+class MongoDriverConformanceTest extends DriverConformanceTest {
 	private final Deque<Runnable> tearDownActions = new ArrayDeque<>();
 	private static MongoService mongoService;
 	private final MongoDriverSettings driverSettings;
@@ -22,6 +24,20 @@ class MongoDriverConformanceTest extends DriverConformanceTest implements TestPa
 	@ParametersByName
 	public MongoDriverConformanceTest(MongoDriverSettingsBuilder driverSettings) {
 		this.driverSettings = driverSettings.build();
+	}
+
+	@SuppressWarnings("unused")
+	static Stream<MongoDriverSettingsBuilder> driverSettings() {
+		return TestParameters.driverSettings(
+			Stream.of(
+				SEQUOIA,
+				PandoFormat.oneBigDocument(),
+				PandoFormat.withSeparateCollections("/catalog", "/sideTable"), // Basic
+				PandoFormat.withSeparateCollections("/catalog/-x-/sideTable", "/sideTable/-x-/catalog", "/sideTable/-x-/sideTable/-y-/catalog"), // Nesting, parameters
+				PandoFormat.withSeparateCollections("/sideTable/-x-/sideTable/-y-/catalog") // Multiple parameters in the not-separated part
+			),
+			Stream.of(EventTiming.NORMAL) // EARLY is slow; LATE is really slow
+		);
 	}
 
 	@BeforeAll
@@ -48,7 +64,6 @@ class MongoDriverConformanceTest extends DriverConformanceTest implements TestPa
 				driver.close();
 				mongoService.client()
 					.getDatabase(driverSettings.database())
-					.getCollection(COLLECTION_NAME)
 					.drop();
 			});
 			return driver;

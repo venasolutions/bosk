@@ -2,6 +2,7 @@
 plugins {
 	id 'bosk.development'
 	id 'bosk.maven-publish'
+	id 'info.solidsoft.pitest' version '1.7.4'
 	id 'com.github.spotbugs' version '5.1.3'
 }
 
@@ -19,4 +20,15 @@ dependencies {
 	api 'org.mongodb:mongodb-driver-sync:4.1.2'
 	testImplementation project(":bosk-testing")
 	testImplementation project(":lib-testing")
+}
+
+pitest {
+	junit5PluginVersion = '0.15'
+	jvmArgs = ['-ea'] // Our unit tests check for assert statements
+	targetClasses = ['io.vena.bosk.drivers.mongo.BsonSurgeon']
+	targetTests   = ['io.vena.bosk.drivers.mongo.BsonSurgeonTest']
+	threads = 4
+	outputFormats = ['XML', 'HTML']
+	timestampedReports = false
+	//verbose = true
 }

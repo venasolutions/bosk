@@ -7,14 +7,14 @@ import io.vena.bosk.StateTreeNode;
 import io.vena.bosk.exceptions.InitializationFailureException;
 import java.io.IOException;
 import lombok.RequiredArgsConstructor;
+import org.bson.BsonDocument;
 import org.bson.BsonInt64;
-import org.bson.Document;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 @RequiredArgsConstructor
 class DisconnectedDriver<R extends StateTreeNode> implements FormatDriver<R> {
-	private final String reason;
+	private final Throwable reason;
 	@Override
 	public <T> void submitReplacement(Reference<T> target, T newValue) {
 		throw disconnected();
@@ -51,7 +51,7 @@ class DisconnectedDriver<R extends StateTreeNode> implements FormatDriver<R> {
 	}
 
 	@Override
-	public void onEvent(ChangeStreamDocument<Document> event) {
+	public void onEvent(ChangeStreamDocument<BsonDocument> event) {
 		LOGGER.debug("Already disconnected; ignoring event ({})", event.getOperationType().getValue());
 	}
 

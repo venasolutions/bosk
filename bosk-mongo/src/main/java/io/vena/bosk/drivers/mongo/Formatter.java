@@ -12,17 +12,21 @@ import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.Iterator;
+import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.function.UnaryOperator;
 import java.util.regex.Pattern;
 import org.bson.BsonDocument;
+import org.bson.BsonDocumentReader;
 import org.bson.BsonDocumentWriter;
+import org.bson.BsonInt32;
 import org.bson.BsonInt64;
 import org.bson.BsonReader;
 import org.bson.BsonValue;
-import org.bson.Document;
 import org.bson.codecs.Codec;
 import org.bson.codecs.DecoderContext;
 import org.bson.codecs.DocumentCodecProvider;
@@ -33,6 +37,8 @@ import org.bson.codecs.configuration.CodecRegistry;
 
 import static io.vena.bosk.ReferenceUtils.rawClass;
 import static java.lang.String.format;
+import static java.util.Arrays.asList;
+import static java.util.Collections.singletonList;
 
 /**
  * Facilities to translate between in-DB and in-memory representations.
@@ -88,6 +94,8 @@ final class Formatter {
 		revision,
 	}
 
+	private final BsonInt32 SUPPORTED_MANIFEST_VERSION = new BsonInt32(1);
+
 	//
 	// Helpers to translate Bosk <-> MongoDB
 	//
@@ -106,14 +114,58 @@ final class Formatter {
 	}
 
 	@SuppressWarnings("unchecked")
-	<T> T document2object(Document document, Reference<T> target) {
-		BsonDocument doc = document.toBsonDocument(BsonDocument.class, simpleCodecs);
+	<T> T document2object(BsonDocument doc, Reference<T> target) {
 		Type type = target.targetType();
 		Class<T> objectClass = (Class<T>) rawClass(type);
 		Codec<T> objectCodec = (Codec<T>) codecFor(type);
 		try (@SuppressWarnings("unused") BsonPlugin.DeserializationScope scope = deserializationScopeFunction.apply(target)) {
 			return objectClass.cast(objectCodec.decode(doc.asBsonReader(), DecoderContext.builder().build()));
 		}
+	}
+
+	void validateManifest(BsonDocument manifest) throws UnrecognizedFormatException {
+		try {
+			Set<String> keys = new HashSet<>(manifest.keySet());
+			List<String> supportedFormats = asList("sequoia", "pando");
+			String detectedFormat = null;
+			for (String format: supportedFormats) {
+				if (keys.remove(format)) {
+					if (detectedFormat == null) {
+						detectedFormat = format;
+					} else {
+						throw new UnrecognizedFormatException("Found two supported formats: " + detectedFormat + " and " + format);
+					}
+				}
+			}
+			if (detectedFormat == null) {
+				throw new UnrecognizedFormatException("Found none of the supported formats: " + supportedFormats);
+			}
+			HashSet<String> requiredKeys = new HashSet<>(singletonList("version"));
+			if (!keys.equals(requiredKeys)) {
+				keys.removeAll(requiredKeys);
+				if (keys.isEmpty()) {
+					requiredKeys.removeAll(manifest.keySet());
+					throw new UnrecognizedFormatException("Missing keys in manifest: " + requiredKeys);
+				} else {
+					throw new UnrecognizedFormatException("Unrecognized keys in manifest: " + keys);
+				}
+			}
+			if (!SUPPORTED_MANIFEST_VERSION.equals(manifest.getInt32("version"))) {
+				throw new UnrecognizedFormatException("Manifest version " + manifest.getInt32("version") + " not suppoted");
+			}
+		} catch (ClassCastException e) {
+			throw new UnrecognizedFormatException("Manifest field has unexpected type", e);
+		}
+	}
+
+	Manifest decodeManifest(BsonDocument manifestDoc) throws UnrecognizedFormatException {
+		BsonDocument manifest = manifestDoc.clone();
+		manifest.remove("_id");
+		validateManifest(manifest);
+		return (Manifest) codecFor(Manifest.class)
+			.decode(
+				new BsonDocumentReader(manifest),
+				DecoderContext.builder().build());
 	}
 
 	/**
@@ -157,28 +209,52 @@ final class Formatter {
 	 * @see #referenceTo(String, Reference)
 	 */
 	static <T> String dottedFieldNameOf(Reference<T> ref, Reference<?> startingRef) {
-		ArrayList<String> segments = dottedFieldNameSegments(ref, startingRef);
+		return dottedFieldNameOf(ref, ref.path().length(), startingRef);
+	}
+
+	/**
+	 * @param refLength behave as though <code>ref</code> were truncated to this length, without actually having to do it
+	 * @return MongoDB field name corresponding to the given Reference
+	 * @see #referenceTo(String, Reference)
+	 */
+	static <T> String dottedFieldNameOf(Reference<T> ref, int refLength, Reference<?> startingRef) {
+		ArrayList<String> segments = dottedFieldNameSegments(ref, refLength, startingRef);
 		return String.join(".", segments.toArray(new String[0]));
 	}
 
-	static <T> ArrayList<String> dottedFieldNameSegments(Reference<T> ref, Reference<?> startingRef) {
-		assert startingRef.path().isPrefixOf(ref.path()): "'" + ref + "' must be under '" + startingRef + "'";
+	static <T> ArrayList<String> dottedFieldNameSegments(Reference<T> ref, int refLength, Reference<?> startingRef) {
+		assert startingRef.path().matchesPrefixOf(ref.path()): "'" + ref + "' must be under '" + startingRef + "'";
 		ArrayList<String> segments = new ArrayList<>();
 		segments.add(DocumentFields.state.name());
-		buildDottedFieldNameOf(ref, startingRef.path().length(), segments);
+		buildDottedFieldNameOf(ref, startingRef.path().length(), refLength, segments);
 		return segments;
 	}
 
-	private static <T> void buildDottedFieldNameOf(Reference<T> ref, int startingRefLength, ArrayList<String> segments) {
-		if (ref.path().length() > startingRefLength) {
+	/**
+	 * @param elementRefLength behave as though <code>elementRef</code> were truncated to this length, without actually having to do it
+	 * @return MongoDB field name corresponding to the container (Catalog or SideTable) that contains the given element
+	 * @see #referenceTo(String, Reference)
+	 */
+	static <T> List<String> containerSegments(Reference<T> elementRef, int elementRefLength, Reference<?> startingRef) {
+		List<String> elementSegments = dottedFieldNameSegments(elementRef, elementRefLength, startingRef);
+		return elementSegments.subList(0, elementSegments.size()-1); // Trim off the element itself
+	}
+
+	/**
+	 * @param refLength behave as though <code>ref</code> were truncated to this length without actually having to do it
+	 */
+	private static <T> void buildDottedFieldNameOf(Reference<T> ref, int startLength, int refLength, ArrayList<String> segments) {
+		if (ref.path().length() > startLength) {
 			Reference<?> enclosingReference = enclosingReference(ref);
-			buildDottedFieldNameOf(enclosingReference, startingRefLength, segments);
-			if (Listing.class.isAssignableFrom(enclosingReference.targetClass())) {
-				segments.add("ids");
-			} else if (SideTable.class.isAssignableFrom(enclosingReference.targetClass())) {
-				segments.add("valuesById");
+			buildDottedFieldNameOf(enclosingReference, startLength, refLength, segments);
+			if (ref.path().length() <= refLength) {
+				if (Listing.class.isAssignableFrom(enclosingReference.targetClass())) {
+					segments.add("ids");
+				} else if (SideTable.class.isAssignableFrom(enclosingReference.targetClass())) {
+					segments.add("valuesById");
+				}
+				segments.add(dottedFieldNameSegment(ref.path().lastSegment()));
 			}
-			segments.add(dottedFieldNameSegment(ref.path().lastSegment()));
 		}
 	}
 
@@ -192,7 +268,7 @@ final class Formatter {
 
 	/**
 	 * @return Reference corresponding to the given field name
-	 * @see #dottedFieldNameOf(Reference, Reference)
+	 * @see #dottedFieldNameOf
 	 */
 	@SuppressWarnings("unchecked")
 	static <T> Reference<T> referenceTo(String dottedName, Reference<?> startingReference) throws InvalidTypeException {

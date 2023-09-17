@@ -5,6 +5,7 @@ import io.vena.bosk.Bosk;
 import io.vena.bosk.BoskDriver;
 import io.vena.bosk.Listing;
 import io.vena.bosk.drivers.mongo.Formatter.DocumentFields;
+import io.vena.bosk.drivers.mongo.TestParameters.EventTiming;
 import io.vena.bosk.drivers.state.TestEntity;
 import io.vena.bosk.exceptions.FlushFailureException;
 import io.vena.bosk.exceptions.InvalidTypeException;
@@ -18,6 +19,7 @@ import lombok.var;
 import org.bson.BsonDocument;
 import org.bson.BsonInt64;
 import org.bson.BsonNull;
+import org.bson.BsonString;
 import org.bson.Document;
 import org.junit.jupiter.api.BeforeEach;
 import org.slf4j.Logger;
@@ -26,11 +28,12 @@ import org.slf4j.LoggerFactory;
 import static ch.qos.logback.classic.Level.ERROR;
 import static io.vena.bosk.ListingEntry.LISTING_ENTRY;
 import static io.vena.bosk.drivers.mongo.MainDriver.COLLECTION_NAME;
+import static io.vena.bosk.drivers.mongo.MongoDriverSettings.DatabaseFormat.SEQUOIA;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
- * A set of tests that only work with resilient drivers.
+ * Tests the kinds of recovery actions a human operator might take to try to get a busted service running again.
  */
 public class MongoDriverResiliencyTest extends AbstractMongoDriverTest {
 	FlushOrWait flushOrWait;
@@ -42,34 +45,28 @@ public class MongoDriverResiliencyTest extends AbstractMongoDriverTest {
 	}
 
 	@ParametersByName
-	public MongoDriverResiliencyTest(MongoDriverSettings.MongoDriverSettingsBuilder driverSettings, FlushOrWait flushOrWait) {
+	MongoDriverResiliencyTest(FlushOrWait flushOrWait, MongoDriverSettings.MongoDriverSettingsBuilder driverSettings) {
 		super(driverSettings);
 		this.flushOrWait = flushOrWait;
 	}
 
 	@SuppressWarnings("unused")
 	static Stream<MongoDriverSettings.MongoDriverSettingsBuilder> driverSettings() {
-		return Stream.of(
-			MongoDriverSettings.builder()
-				.database("boskResiliencyTestDB_" + dbCounter.incrementAndGet())
-				.recoveryPollingMS(500),
-			MongoDriverSettings.builder()
-				.database("boskResiliencyTestDB_" + dbCounter.incrementAndGet() + "_late")
-				.recoveryPollingMS(500)
-				.testing(MongoDriverSettings.Testing.builder()
-					.eventDelayMS(200)
-					.build()),
-			MongoDriverSettings.builder()
-				.database("boskResiliencyTestDB_" + dbCounter.incrementAndGet() + "_early")
-				.recoveryPollingMS(500)
-				.testing(MongoDriverSettings.Testing.builder()
-					.eventDelayMS(-200)
-					.build())
+		return TestParameters.driverSettings(
+			Stream.of(
+				SEQUOIA,
+				PandoFormat.withSeparateCollections("/catalog", "/sideTable")
+			),
+			Stream.of(EventTiming.NORMAL)
+		).map(b -> b
+			.recoveryPollingMS(1500) // Note that some tests can take as long as 10x this
+			.flushTimeoutMS(2000) // A little more than recoveryPollingMS
 		);
 	}
 
 	enum FlushOrWait { FLUSH, WAIT };
 
+	@SuppressWarnings("unused")
 	static Stream<FlushOrWait> flushOrWait() {
 		return Stream.of(FlushOrWait.values());
 	}
@@ -177,13 +174,17 @@ public class MongoDriverResiliencyTest extends AbstractMongoDriverTest {
 			.getDatabase(driverSettings.database())
 			.getCollection(COLLECTION_NAME);
 		AtomicReference<Document> originalDocument = new AtomicReference<>();
+		BsonString rootDocumentID = (driverSettings.preferredDatabaseFormat() == SEQUOIA)?
+			SequoiaFormatDriver.DOCUMENT_ID :
+			PandoFormatDriver.ROOT_DOCUMENT_ID;
+		BsonDocument rootDocumentFilter = new BsonDocument("_id", rootDocumentID);
 		testRecovery(() -> {
 			LOGGER.debug("Save original document");
-			try (var cursor = collection.find().cursor()) {
+			try (var cursor = collection.find(rootDocumentFilter).cursor()) {
 				originalDocument.set(cursor.next());
 			}
 			LOGGER.debug("Delete document");
-			collection.deleteMany(new BsonDocument());
+			collection.deleteMany(rootDocumentFilter);
 		}, (b) -> {
 			LOGGER.debug("Restore original document");
 			collection.insertOne(originalDocument.get());
@@ -291,7 +292,6 @@ public class MongoDriverResiliencyTest extends AbstractMongoDriverTest {
 		}
 	}
 
-	private static final AtomicInteger dbCounter = new AtomicInteger(0);
 	private static final AtomicInteger boskCounter = new AtomicInteger(0);
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(MongoDriverResiliencyTest.class);

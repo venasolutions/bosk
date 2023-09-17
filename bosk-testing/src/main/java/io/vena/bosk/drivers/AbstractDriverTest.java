@@ -62,7 +62,7 @@ public abstract class AbstractDriverTest {
 		return TestEntity.empty(Identifier.from("root"), b.rootReference().thenCatalog(TestEntity.class, Path.just(TestEntity.Fields.catalog)));
 	}
 
-	TestEntity autoInitialize(Reference<TestEntity> ref) {
+	protected TestEntity autoInitialize(Reference<TestEntity> ref) {
 		if (ref.path().isEmpty()) {
 			// Root always exists; nothing to do
 			return null;
@@ -95,6 +95,7 @@ public abstract class AbstractDriverTest {
 	}
 
 	void assertCorrectBoskContents() {
+		LOGGER.debug("assertCorrectBoskContents");
 		try {
 			driver.flush();
 		} catch (InterruptedException e) {

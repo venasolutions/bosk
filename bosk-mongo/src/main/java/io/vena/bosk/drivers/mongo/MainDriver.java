@@ -1,11 +1,8 @@
 package io.vena.bosk.drivers.mongo;
 
-import com.mongodb.ClientSessionOptions;
 import com.mongodb.MongoClientSettings;
 import com.mongodb.ReadConcern;
-import com.mongodb.TransactionOptions;
 import com.mongodb.WriteConcern;
-import com.mongodb.client.ClientSession;
 import com.mongodb.client.FindIterable;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
@@ -19,24 +16,23 @@ import io.vena.bosk.Reference;
 import io.vena.bosk.StateTreeNode;
 import io.vena.bosk.drivers.mongo.Formatter.DocumentFields;
 import io.vena.bosk.drivers.mongo.MappedDiagnosticContext.MDCScope;
+import io.vena.bosk.drivers.mongo.MongoDriverSettings.DatabaseFormat;
 import io.vena.bosk.drivers.mongo.MongoDriverSettings.InitialDatabaseUnavailableMode;
-import io.vena.bosk.drivers.mongo.MongoDriverSettings.ManifestMode;
 import io.vena.bosk.exceptions.FlushFailureException;
-import io.vena.bosk.exceptions.InitializationFailureException;
 import io.vena.bosk.exceptions.InvalidTypeException;
 import java.io.IOException;
 import java.lang.reflect.Type;
-import java.util.HashSet;
-import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
+import lombok.var;
 import org.bson.BsonDocument;
+import org.bson.BsonInt32;
+import org.bson.BsonInt64;
 import org.bson.BsonString;
-import org.bson.Document;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -44,7 +40,6 @@ import static io.vena.bosk.drivers.mongo.Formatter.REVISION_ONE;
 import static io.vena.bosk.drivers.mongo.Formatter.REVISION_ZERO;
 import static io.vena.bosk.drivers.mongo.MappedDiagnosticContext.setupMDC;
 import static io.vena.bosk.drivers.mongo.MongoDriverSettings.DatabaseFormat.SEQUOIA;
-import static java.util.Arrays.asList;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 /**
@@ -62,14 +57,14 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 	private final MongoDriverSettings driverSettings;
 	private final BsonPlugin bsonPlugin;
 	private final BoskDriver<R> downstream;
-	private final MongoClient mongoClient;
-	private final MongoCollection<Document> collection;
+	private final TransactionalCollection<BsonDocument> collection;
 	private final Listener listener;
+	final Formatter formatter;
 
 	private final ReentrantLock formatDriverLock = new ReentrantLock();
 	private final Condition formatDriverChanged = formatDriverLock.newCondition();
 
-	private volatile FormatDriver<R> formatDriver = new DisconnectedDriver<>("Driver not yet initialized");
+	private volatile FormatDriver<R> formatDriver = new DisconnectedDriver<>(new Exception("Driver not yet initialized"));
 	private volatile boolean isClosed = false;
 
 	public MainDriver(
@@ -85,19 +80,21 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 			this.bsonPlugin = bsonPlugin;
 			this.downstream = downstream;
 
-			this.mongoClient = MongoClients.create(
+			MongoClient mongoClient = MongoClients.create(
 				MongoClientSettings.builder(clientSettings)
 					// By default, let's deal only with durable data that won't get rolled back
 					.readConcern(ReadConcern.MAJORITY)
 					.writeConcern(WriteConcern.MAJORITY)
 					.build());
-			this.collection = mongoClient
+			MongoCollection<BsonDocument> rawCollection = mongoClient
 				.getDatabase(driverSettings.database())
-				.getCollection(COLLECTION_NAME);
+				.getCollection(COLLECTION_NAME, BsonDocument.class);
+			this.collection = TransactionalCollection.of(rawCollection, mongoClient);
 
 			Type rootType = bosk.rootReference().targetType();
 			this.listener = new Listener(new FutureTask<>(() -> doInitialRoot(rootType)));
-			this.receiver = new ChangeReceiver(bosk.name(), listener, driverSettings, collection);
+			this.formatter = new Formatter(bosk, bsonPlugin);
+			this.receiver = new ChangeReceiver(bosk.name(), listener, driverSettings, rawCollection);
 		}
 	}
 
@@ -154,8 +151,8 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 	 */
 	private R doInitialRoot(Type rootType) {
 		R root;
-		quietlySetFormatDriver(new DisconnectedDriver<>("Failure to compute initial root")); // Pessimistic fallback
-		try {
+		quietlySetFormatDriver(new DisconnectedDriver<>(FAILURE_TO_COMPUTE_INITIAL_ROOT)); // Pessimistic fallback
+		try (var __ = collection.newReadOnlySession()){
 			FormatDriver<R> detectedDriver = detectFormat();
 			StateAndMetadata<R> loadedState = detectedDriver.loadAllState();
 			root = loadedState.state;
@@ -164,14 +161,16 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 		} catch (UninitializedCollectionException e) {
 			LOGGER.debug("Database collection is uninitialized; will initialize using downstream.initialRoot");
 			root = callDownstreamInitialRoot(rootType);
-			try {
+			try (var session = collection.newSession()) {
 				FormatDriver<R> preferredDriver = newPreferredFormatDriver();
-				initializeCollectionTransaction(root, preferredDriver);
+				preferredDriver.initializeCollection(new StateAndMetadata<>(root, REVISION_ZERO));
 				preferredDriver.onRevisionToSkip(REVISION_ONE); // initialRoot handles REVISION_ONE; downstream only needs to know about changes after that
+				session.commitTransactionIfAny();
+				// We can now publish the driver knowing that the transaction, if there is one, has committed
 				publishFormatDriver(preferredDriver);
 			} catch (RuntimeException | IOException e2) {
-				LOGGER.debug("Failed to initialize database; disconnecting", e2);
-				quietlySetFormatDriver(new DisconnectedDriver<>(e2.toString()));
+				LOGGER.warn("Failed to initialize database; disconnecting", e2);
+				quietlySetFormatDriver(new DisconnectedDriver<>(e2));
 			}
 		} catch (RuntimeException | UnrecognizedFormatException | IOException e) {
 			switch (driverSettings.initialDatabaseUnavailableMode()) {
@@ -179,8 +178,8 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 					LOGGER.debug("Unable to load initial root from database; aborting initialization", e);
 					throw new InitialRootFailureException("Unable to load initial state from MongoDB", e);
 				case DISCONNECT:
-					LOGGER.debug("Unable to load initial root from database; will proceed with downstream.initialRoot", e);
-					quietlySetFormatDriver(new DisconnectedDriver<>(e.toString()));
+					LOGGER.info("Unable to load initial root from database; will proceed with downstream.initialRoot", e);
+					quietlySetFormatDriver(new DisconnectedDriver<>(e));
 					root = callDownstreamInitialRoot(rootType);
 					break;
 				default:
@@ -197,61 +196,35 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 		R root;
 		try {
 			root = downstream.initialRoot(rootType);
-		} catch (RuntimeException | InvalidTypeException | IOException | InterruptedException e) {
+		} catch (RuntimeException | Error | InvalidTypeException | IOException | InterruptedException e) {
 			LOGGER.error("Downstream driver failed to compute initial root", e);
 			throw new DownstreamInitialRootException("Fatal error: downstream driver failed to compute initial root", e);
 		}
 		return root;
 	}
 
-	private void initializeCollectionTransaction(R result, FormatDriver<R> newDriver) throws InitializationFailureException {
-		ClientSessionOptions sessionOptions = ClientSessionOptions.builder()
-			.causallyConsistent(true)
-			.defaultTransactionOptions(TransactionOptions.builder()
-				.writeConcern(WriteConcern.MAJORITY)
-				.readConcern(ReadConcern.MAJORITY)
-				.build())
-			.build();
-		try (ClientSession session = mongoClient.startSession(sessionOptions)) {
-			try {
-				newDriver.initializeCollection(new StateAndMetadata<>(result, REVISION_ZERO));
-			} finally {
-				if (session.hasActiveTransaction()) {
-					session.abortTransaction();
-				}
-			}
+	/**
+	 * Refurbish is the one operation that always <em>must</em> happen in a transaction,
+	 * or else we could fail after deleting the existing contents but before rewriting them,
+	 * which would be catastrophic.
+	 */
+	private void refurbishTransaction() throws IOException {
+		collection.ensureTransactionStarted();
+		try {
+			// Design note: this operation shouldn't do any special coordination with
+			// the receiver/listener system, because other replicas won't.
+			// That system needs to cope with a refurbish operations without any help.
+			StateAndMetadata<R> result = formatDriver.loadAllState();
+			FormatDriver<R> newFormatDriver = newPreferredFormatDriver();
+			collection.deleteMany(new BsonDocument());
+			newFormatDriver.initializeCollection(result);
+			collection.commitTransaction();
+			publishFormatDriver(newFormatDriver);
+		} catch (UninitializedCollectionException e) {
+			throw new IOException("Unable to refurbish uninitialized database collection", e);
 		}
 	}
 
-	private void refurbishTransaction() throws IOException {
-		ClientSessionOptions sessionOptions = ClientSessionOptions.builder()
-			.causallyConsistent(true)
-			.defaultTransactionOptions(TransactionOptions.builder()
-				.writeConcern(WriteConcern.MAJORITY)
-				.readConcern(ReadConcern.MAJORITY)
-				.build())
-			.build();
-		try (ClientSession session = mongoClient.startSession(sessionOptions)) {
-			try {
-				// Design note: this operation shouldn't do any special coordination with
-				// the receiver/listener system, because other replicas won't.
-				// That system needs to cope with a refurbish operations without any help.
-				session.startTransaction();
-				StateAndMetadata<R> result = formatDriver.loadAllState();
-				FormatDriver<R> newFormatDriver = newPreferredFormatDriver();
-				collection.deleteMany(new BsonDocument());
-				newFormatDriver.initializeCollection(result);
-				session.commitTransaction();
-				publishFormatDriver(newFormatDriver);
-			} catch (UninitializedCollectionException e) {
-				throw new IOException("Unable to refurbish uninitialized database collection", e);
-			} finally {
-				if (session.hasActiveTransaction()) {
-					session.abortTransaction();
-				}
-			}
-		}
-	}
 	@Override
 	public <T> void submitReplacement(Reference<T> target, T newValue) {
 		doRetryableDriverOperation(()->{
@@ -290,7 +263,7 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 	@Override
 	public void flush() throws IOException, InterruptedException {
 		try {
-			RetryableOperation<IOException, InterruptedException> flushOperation = () -> formatDriver.flush();
+			RetryableOperation<IOException, InterruptedException> flushOperation = this::doFlush;
 			try (MDCScope __ = beginDriverOperation("flush")) {
 				try {
 					flushOperation.run();
@@ -301,10 +274,19 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 					// TODO: Really, at the moment the damage is noticed, we should probably make the receiver reboot; but we currently have no way to do so!
 					LOGGER.debug("Revision field has been disrupted; wait for receiver to notice something is wrong", e);
 					waitAndRetry(flushOperation, "flush");
+				} catch (CannotOpenSessionException e) {
+					LOGGER.debug("Cannot open MongoDB session; will wait and retry flush", e);
+					waitAndRetry(flushOperation, "flush");
 				}
 			}
-		} catch (DisconnectedException e) {
+		} catch (DisconnectedException | CannotOpenSessionException e) {
 			throw new FlushFailureException(e);
+		}
+	}
+
+	private void doFlush() throws IOException, InterruptedException {
+		try (var ___ = collection.newReadOnlySession()) {
+			formatDriver.flush();
 		}
 	}
 
@@ -347,12 +329,14 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 			LOGGER.debug("onConnectionSucceeded");
 			FutureTask<R> initialRootAction = this.taskRef.get();
 			if (initialRootAction == null) {
-				LOGGER.debug("Loading database state to submit to downstream driver");
-				FormatDriver<R> newDriver = detectFormat();
-				StateAndMetadata<R> loadedState = newDriver.loadAllState();
-				downstream.submitReplacement(bosk.rootReference(), loadedState.state);
-				newDriver.onRevisionToSkip(loadedState.revision);
-				publishFormatDriver(newDriver);
+				try (var __ = collection.newReadOnlySession()) {
+					LOGGER.debug("Loading database state to submit to downstream driver");
+					FormatDriver<R> newDriver = detectFormat();
+					StateAndMetadata<R> loadedState = newDriver.loadAllState();
+					downstream.submitReplacement(bosk.rootReference(), loadedState.state);
+					newDriver.onRevisionToSkip(loadedState.revision);
+					publishFormatDriver(newDriver);
+				}
 			} else {
 				LOGGER.debug("Running initialRoot action");
 				runInitialRootAction(initialRootAction);
@@ -373,8 +357,9 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 		}
 
 		@Override
-		public void onEvent(ChangeStreamDocument<Document> event) throws UnprocessableEventException {
+		public void onEvent(ChangeStreamDocument<BsonDocument> event) throws UnprocessableEventException {
 			LOGGER.debug("onEvent({})", event.getOperationType().getValue());
+			LOGGER.trace("Event details: {}", event);
 			formatDriver.onEvent(event);
 		}
 
@@ -392,75 +377,70 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 		}
 
 		@Override
-		public void onDisconnect(Exception e) {
+		public void onDisconnect(Throwable e) {
 			LOGGER.debug("onDisconnect({})", e.toString());
 			formatDriver.close();
-			quietlySetFormatDriver(new DisconnectedDriver<>(e.toString()));
+			quietlySetFormatDriver(new DisconnectedDriver<>(e));
 		}
 	}
 
 	private FormatDriver<R> newPreferredFormatDriver() {
-		if (driverSettings.preferredDatabaseFormat() == SEQUOIA) {
-			return newSingleDocFormatDriver(REVISION_ZERO.longValue());
-		} else {
-			throw new AssertionError("Unknown database format setting: " + driverSettings.preferredDatabaseFormat());
+		DatabaseFormat preferred = driverSettings.preferredDatabaseFormat();
+		if (preferred.equals(SEQUOIA) || preferred instanceof PandoFormat) {
+			return newSingleDocFormatDriver(REVISION_ZERO.longValue(), preferred);
 		}
+		throw new AssertionError("Unknown database format setting: " + preferred);
 	}
 
 	private FormatDriver<R> detectFormat() throws UninitializedCollectionException, UnrecognizedFormatException {
-		if (driverSettings.experimental().manifestMode() == ManifestMode.ENABLED) {
-			try (MongoCursor<Document> cursor = collection.find(new BsonDocument("_id", MANIFEST_ID)).cursor()) {
-				if (cursor.hasNext()) {
-					LOGGER.debug("Found manifest");
-					validateManifest(cursor.next());
-				} else {
-					LOGGER.debug("Manifest is missing; assuming Sequoia format");
-				}
+		Manifest manifest = Manifest.forSequoia();
+		try (MongoCursor<BsonDocument> cursor = collection.find(new BsonDocument("_id", MANIFEST_ID)).cursor()) {
+			if (cursor.hasNext()) {
+				LOGGER.debug("Found manifest");
+				manifest = formatter.decodeManifest(cursor.next());
+			} else {
+				// For legacy databases with no manifest
+				LOGGER.debug("Manifest is missing; checking for Sequoia format");
 			}
 		}
 
-		FindIterable<Document> result = collection.find(new BsonDocument("_id", SequoiaFormatDriver.DOCUMENT_ID));
-		try (MongoCursor<Document> cursor = result.cursor()) {
+		DatabaseFormat format = manifest.pando().isPresent()? manifest.pando().get() : SEQUOIA;
+		BsonString documentId = (format == SEQUOIA)
+			? SequoiaFormatDriver.DOCUMENT_ID
+			: PandoFormatDriver.ROOT_DOCUMENT_ID;
+		FindIterable<BsonDocument> result = collection.find(new BsonDocument("_id", documentId));
+		try (MongoCursor<BsonDocument> cursor = result.cursor()) {
 			if (cursor.hasNext()) {
-				Long revision = cursor
+				BsonInt64 revision = cursor
 					.next()
-					.get(DocumentFields.revision.name(), 0L);
-				return newSingleDocFormatDriver(revision);
+					.getInt64(DocumentFields.revision.name(), REVISION_ZERO);
+				return newSingleDocFormatDriver(revision.longValue(), format);
 			} else {
 				throw new UninitializedCollectionException("Document doesn't exist");
 			}
 		}
 	}
 
-	static void validateManifest(Document manifest) throws UnrecognizedFormatException {
-		try {
-			Set<String> keys = manifest.keySet();
-			HashSet<String> expectedKeys = new HashSet<>(asList("_id", "version", "sequoia"));
-			if (!keys.equals(expectedKeys)) {
-				keys.removeAll(expectedKeys);
-				if (keys.isEmpty()) {
-					expectedKeys.removeAll(manifest.keySet());
-					throw new UnrecognizedFormatException("Missing keys in manifest: " + expectedKeys);
-				} else {
-					throw new UnrecognizedFormatException("Unrecognized keys in manifest: " + keys);
-				}
-			}
-			if (manifest.getInteger("version") != 1) {
-				throw new UnrecognizedFormatException("Manifest version " + manifest.getInteger("version") + " not suppoted");
-			}
-		} catch (ClassCastException e) {
-			throw new UnrecognizedFormatException("Manifest field has unexpected type", e);
+	private FormatDriver<R> newSingleDocFormatDriver(long revisionAlreadySeen, DatabaseFormat format) {
+		if (format.equals(SEQUOIA)) {
+			return new SequoiaFormatDriver<>(
+				bosk,
+				collection,
+				driverSettings,
+				bsonPlugin,
+				new FlushLock(driverSettings, revisionAlreadySeen),
+				downstream);
+		} else if (format instanceof PandoFormat) {
+			return new PandoFormatDriver<>(
+				bosk,
+				collection,
+				driverSettings,
+				(PandoFormat) format,
+				bsonPlugin,
+				new FlushLock(driverSettings, revisionAlreadySeen),
+				downstream);
 		}
-	}
-
-	private SequoiaFormatDriver<R> newSingleDocFormatDriver(long revisionAlreadySeen) {
-		return new SequoiaFormatDriver<>(
-			bosk,
-			collection,
-			driverSettings,
-			bsonPlugin,
-			new FlushLock(driverSettings, revisionAlreadySeen),
-			downstream);
+		throw new IllegalArgumentException("Unexpected database format: " + format);
 	}
 
 
@@ -471,7 +451,7 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 		MDCScope ex = setupMDC(bosk.name());
 		LOGGER.debug(description, args);
 		if (driverSettings.testing().eventDelayMS() < 0) {
-			LOGGER.debug("Sleeping");
+			LOGGER.debug("| eventDelayMS {}ms ", driverSettings.testing().eventDelayMS());
 			try {
 				Thread.sleep(-driverSettings.testing().eventDelayMS());
 			} catch (InterruptedException e) {
@@ -482,12 +462,21 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 	}
 
 	private <X extends Exception, Y extends Exception> void doRetryableDriverOperation(RetryableOperation<X,Y> operation, String description, Object... args) throws X,Y {
-		try (MDCScope __ = beginDriverOperation(description, args)) {
-			try {
+		RetryableOperation<X,Y> operationInSession = () -> {
+			try (var session = collection.newSession()) {
 				operation.run();
+				session.commitTransactionIfAny();
+			} catch (CannotOpenSessionException e) {
+				quietlySetFormatDriver(new DisconnectedDriver<>(e));
+				throw new DisconnectedException(e);
+			}
+		};
+		try (var __ = beginDriverOperation(description, args)) {
+			try {
+				operationInSession.run();
 			} catch (DisconnectedException e) {
 				LOGGER.debug("Driver is disconnected ({}); will wait and retry operation", e.getMessage());
-				waitAndRetry(operation, description, args);
+				waitAndRetry(operationInSession, description, args);
 			}
 		}
 	}
@@ -561,5 +550,6 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 
 	public static final String COLLECTION_NAME = "boskCollection";
 	public static final BsonString MANIFEST_ID = new BsonString("manifest");
+	private static final Exception FAILURE_TO_COMPUTE_INITIAL_ROOT = new Exception("Failure to compute initial root");
 	private static final Logger LOGGER = LoggerFactory.getLogger(MainDriver.class);
 }

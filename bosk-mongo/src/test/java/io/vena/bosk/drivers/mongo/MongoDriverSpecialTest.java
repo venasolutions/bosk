@@ -16,15 +16,18 @@ import io.vena.bosk.SideTable;
 import io.vena.bosk.drivers.BufferingDriver;
 import io.vena.bosk.drivers.mongo.Formatter.DocumentFields;
 import io.vena.bosk.drivers.mongo.MongoDriverSettings.MongoDriverSettingsBuilder;
+import io.vena.bosk.drivers.mongo.TestParameters.EventTiming;
 import io.vena.bosk.drivers.state.TestEntity;
 import io.vena.bosk.drivers.state.TestValues;
 import io.vena.bosk.exceptions.FlushFailureException;
 import io.vena.bosk.exceptions.InvalidTypeException;
 import io.vena.bosk.junit.ParametersByName;
+import io.vena.bosk.util.Classes;
 import java.io.IOException;
 import java.util.Optional;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingDeque;
+import java.util.stream.Stream;
 import lombok.Value;
 import lombok.var;
 import org.bson.BsonDocument;
@@ -33,6 +36,7 @@ import org.bson.BsonInt64;
 import org.bson.BsonNull;
 import org.bson.BsonString;
 import org.bson.Document;
+import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -41,6 +45,7 @@ import static io.vena.bosk.ListingEntry.LISTING_ENTRY;
 import static io.vena.bosk.drivers.mongo.Formatter.DocumentFields.path;
 import static io.vena.bosk.drivers.mongo.Formatter.DocumentFields.revision;
 import static io.vena.bosk.drivers.mongo.MainDriver.COLLECTION_NAME;
+import static io.vena.bosk.drivers.mongo.MongoDriverSettings.DatabaseFormat.SEQUOIA;
 import static java.lang.Long.max;
 import static java.lang.System.currentTimeMillis;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -51,10 +56,22 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 /**
  * Tests for MongoDB-specific functionality
  */
-class MongoDriverSpecialTest extends AbstractMongoDriverTest implements TestParameters {
+class MongoDriverSpecialTest extends AbstractMongoDriverTest {
 	@ParametersByName
 	public MongoDriverSpecialTest(MongoDriverSettingsBuilder driverSettings) {
 		super(driverSettings);
+	}
+
+	@SuppressWarnings("unused")
+	static Stream<MongoDriverSettingsBuilder> driverSettings() {
+		return TestParameters.driverSettings(
+			Stream.of(
+				SEQUOIA,
+//				PandoFormat.oneBigDocument(),
+				PandoFormat.withSeparateCollections("/catalog", "/sideTable")
+			),
+			Stream.of(EventTiming.NORMAL)
+		);
 	}
 
 	@ParametersByName
@@ -220,9 +237,9 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest implements TestPara
 
 	@ParametersByName
 	@UsesMongoService
-	void initialStateHasNonexistentFields_ignored() {
+	void initialStateHasNonexistentFields_ignored() throws InvalidTypeException {
 		// Upon creating bosk, the initial value will be saved to MongoDB
-		Bosk<TestEntity> bosk = new Bosk<TestEntity>("Newer", TestEntity.class, this::initialRoot, driverFactory);
+		new Bosk<TestEntity>("Newer", TestEntity.class, this::initialRootWithEmptyCatalog, driverFactory);
 
 		// Upon creating prevBosk, the state in the database will be loaded into the local.
 		Bosk<OldEntity> prevBosk = new Bosk<OldEntity>(
@@ -231,7 +248,7 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest implements TestPara
 			(b) -> { throw new AssertionError("prevBosk should use the state from MongoDB"); },
 			createDriverFactory());
 
-		OldEntity expected = new OldEntity(rootID, rootID.toString());
+		OldEntity expected = OldEntity.withString(rootID.toString(), prevBosk);
 
 		OldEntity actual;
 		try (@SuppressWarnings("unused") Bosk<?>.ReadContext readContext = prevBosk.readContext()) {
@@ -243,14 +260,14 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest implements TestPara
 	@ParametersByName
 	@UsesMongoService
 	void updateHasNonexistentFields_ignored() throws InvalidTypeException, IOException, InterruptedException {
-		Bosk<TestEntity> bosk = new Bosk<TestEntity>("Newer", TestEntity.class, this::initialRoot, driverFactory);
+		Bosk<TestEntity> bosk = new Bosk<TestEntity>("Newer", TestEntity.class, this::initialRootWithEmptyCatalog, driverFactory);
 		Bosk<OldEntity> prevBosk = new Bosk<OldEntity>(
 			"Prev",
 			OldEntity.class,
 			(b) -> { throw new AssertionError("prevBosk should use the state from MongoDB"); },
 			createDriverFactory());
 
-		TestEntity initialRoot = initialRoot(bosk);
+		TestEntity initialRoot = initialRootWithEmptyCatalog(bosk);
 		bosk.driver().submitReplacement(bosk.rootReference(),
 			initialRoot
 				.withString("replacementString")
@@ -258,7 +275,7 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest implements TestPara
 
 		prevBosk.driver().flush();
 
-		OldEntity expected = new OldEntity(rootID, "replacementString");
+		OldEntity expected = OldEntity.withString("replacementString", prevBosk);
 
 		OldEntity actual;
 		try (@SuppressWarnings("unused") Bosk<?>.ReadContext readContext = prevBosk.readContext()) {
@@ -271,7 +288,7 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest implements TestPara
 	@ParametersByName
 	@UsesMongoService
 	void updateNonexistentField_ignored() throws InvalidTypeException, IOException, InterruptedException {
-		Bosk<TestEntity> bosk = new Bosk<TestEntity>("Newer", TestEntity.class, this::initialRoot, driverFactory);
+		Bosk<TestEntity> bosk = new Bosk<TestEntity>("Newer", TestEntity.class, this::initialRootWithEmptyCatalog, driverFactory);
 		Bosk<OldEntity> prevBosk = new Bosk<OldEntity>(
 			"Prev",
 			OldEntity.class,
@@ -280,13 +297,13 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest implements TestPara
 
 		ListingReference<TestEntity> listingRef = bosk.rootReference().thenListing(TestEntity.class, TestEntity.Fields.listing);
 
-		TestEntity initialRoot = initialRoot(bosk);
+		TestEntity initialRoot = initialRootWithEmptyCatalog(bosk);
 		bosk.driver().submitReplacement(listingRef,
 			Listing.of(initialRoot.listing().domain(), Identifier.from("newEntry")));
 
 		prevBosk.driver().flush();
 
-		OldEntity expected = new OldEntity(rootID, rootID.toString()); // unchanged
+		OldEntity expected = OldEntity.withString(rootID.toString(), prevBosk); // unchanged
 
 		OldEntity actual;
 		try (@SuppressWarnings("unused") Bosk<?>.ReadContext readContext = prevBosk.readContext()) {
@@ -299,7 +316,7 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest implements TestPara
 	@ParametersByName
 	@UsesMongoService
 	void deleteNonexistentField_ignored() throws InvalidTypeException, IOException, InterruptedException {
-		Bosk<TestEntity> bosk = new Bosk<TestEntity>("Newer", TestEntity.class, this::initialRoot, driverFactory);
+		Bosk<TestEntity> bosk = new Bosk<TestEntity>("Newer", TestEntity.class, this::initialRootWithEmptyCatalog, driverFactory);
 		Bosk<OldEntity> prevBosk = new Bosk<OldEntity>(
 			"Prev",
 			OldEntity.class,
@@ -312,7 +329,7 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest implements TestPara
 
 		prevBosk.driver().flush();
 
-		OldEntity expected = new OldEntity(rootID, rootID.toString()); // unchanged
+		OldEntity expected = OldEntity.withString(rootID.toString(), prevBosk); // unchanged
 
 		OldEntity actual;
 		try (@SuppressWarnings("unused") Bosk<?>.ReadContext readContext = prevBosk.readContext()) {
@@ -326,13 +343,13 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest implements TestPara
 	@UsesMongoService
 	void unrelatedDatabase_ignored() throws InvalidTypeException, IOException, InterruptedException {
 		tearDownActions.addFirst(mongoService.client().getDatabase("unrelated")::drop);
-		doUnrelatedChangeTest("unrelated", COLLECTION_NAME, "boskDocument");
+		doUnrelatedChangeTest("unrelated", COLLECTION_NAME, rootDocumentID().getValue());
 	}
 
 	@ParametersByName
 	@UsesMongoService
 	void unrelatedCollection_ignored() throws InvalidTypeException, IOException, InterruptedException {
-		doUnrelatedChangeTest(driverSettings.database(), "unrelated", "boskDocument");
+		doUnrelatedChangeTest(driverSettings.database(), "unrelated", rootDocumentID().getValue());
 	}
 
 	@ParametersByName
@@ -429,7 +446,7 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest implements TestPara
 			new BsonDocument("$inc", new BsonDocument("version", new BsonInt32(1)))
 		);
 		collection.updateOne(
-			new BsonDocument("_id", new BsonString("boskDocument")),
+			new BsonDocument("_id", rootDocumentID()),
 			new BsonDocument("$inc", new BsonDocument("revision", new BsonInt64(1)))
 		);
 
@@ -477,7 +494,7 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest implements TestPara
 		deleteFields(collection, revision);
 
 		// Verify that the fields are indeed gone
-		BsonDocument filterDoc = new BsonDocument("_id", new BsonString("boskDocument"));
+		BsonDocument filterDoc = new BsonDocument("_id", rootDocumentID());
 		try (MongoCursor<Document> cursor = collection.find(filterDoc).cursor()) {
 			Document doc = cursor.next();
 			assertNull(doc.get(path.name()));
@@ -496,12 +513,12 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest implements TestPara
 
 	}
 
-	private static void deleteFields(MongoCollection<Document> collection, DocumentFields... fields) {
+	private void deleteFields(MongoCollection<Document> collection, DocumentFields... fields) {
 		BsonDocument fieldsToUnset = new BsonDocument();
 		for (DocumentFields field: fields) {
 			fieldsToUnset.append(field.name(), new BsonNull()); // Value is ignored
 		}
-		BsonDocument filterDoc = new BsonDocument("_id", new BsonString("boskDocument"));
+		BsonDocument filterDoc = new BsonDocument("_id", rootDocumentID());
 		collection.updateOne(
 			filterDoc,
 			new BsonDocument("$unset", fieldsToUnset));
@@ -515,10 +532,32 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest implements TestPara
 		}
 	}
 
+	@NotNull
+	private BsonString rootDocumentID() {
+		return (SEQUOIA == driverSettings.preferredDatabaseFormat())
+			? SequoiaFormatDriver.DOCUMENT_ID
+			: PandoFormatDriver.ROOT_DOCUMENT_ID;
+	}
+
+	/**
+	 * Represents an earlier version of the entity before some fields were added.
+	 */
 	@Value
 	public static class OldEntity implements Entity {
 		Identifier id;
 		String string;
+		// We need catalog and sideTable because we use them in our PandoConfiguration
+		Catalog<OldEntity> catalog;
+		SideTable<OldEntity, OldEntity> sideTable;
+
+		public static OldEntity withString(String value, Bosk<OldEntity> bosk) throws InvalidTypeException {
+			return new OldEntity(
+				rootID,
+				value,
+				Catalog.empty(),
+				SideTable.empty(bosk.rootReference().then(Classes.catalog(OldEntity.class), "catalog"))
+			);
+		}
 	}
 
 	/**

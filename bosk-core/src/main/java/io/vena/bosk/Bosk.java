@@ -759,7 +759,7 @@ try (ReadContext originalThReadContext = bosk.readContext()) {
 			try {
 				targetType = pathCompiler.targetTypeOf(path);
 			} catch (InvalidTypeException e) {
-				throw new InvalidTypeException("Invalid path: " + path, e);
+				throw new InvalidTypeException("Invalid path from " + targetClass().getSimpleName() + ": " + path, e);
 			}
 			Class<?> targetClass = rawClass(targetType);
 			if (Optional.class.isAssignableFrom(requestedClass)) {
@@ -870,6 +870,11 @@ try (ReadContext originalThReadContext = bosk.readContext()) {
 			} else {
 				throw new InvalidTypeException("No enclosing " + targetClass.getSimpleName() + " from " + path);
 			}
+		}
+
+		@Override
+		public <TT> Reference<TT> truncatedTo(Class<TT> targetClass, int remainingSegments) throws InvalidTypeException {
+			return rootRef.then(targetClass, path().truncatedTo(remainingSegments));
 		}
 
 		@Override
@@ -990,7 +995,6 @@ try (ReadContext originalThReadContext = bosk.readContext()) {
 					));
 			}
 		}
-
 	}
 
 	private <T> Reference<T> newReference(Path path, Type targetType) {

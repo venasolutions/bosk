@@ -7,8 +7,8 @@ import io.vena.bosk.StateTreeNode;
 import io.vena.bosk.exceptions.InitializationFailureException;
 import java.io.IOException;
 import java.lang.reflect.Type;
+import org.bson.BsonDocument;
 import org.bson.BsonInt64;
-import org.bson.Document;
 
 /**
  * Additional {@link MongoDriver} functionality that the format-specific drivers must implement.
@@ -32,7 +32,7 @@ import org.bson.Document;
  * </li></ol>
  */
 interface FormatDriver<R extends StateTreeNode> extends MongoDriver<R> {
-	void onEvent(ChangeStreamDocument<Document> event) throws UnprocessableEventException;
+	void onEvent(ChangeStreamDocument<BsonDocument> event) throws UnprocessableEventException;
 
 	/**
 	 * Implementations should ignore subsequent calls to {@link #onEvent}
@@ -52,8 +52,6 @@ interface FormatDriver<R extends StateTreeNode> extends MongoDriver<R> {
 	StateAndMetadata<R> loadAllState() throws IOException, UninitializedCollectionException;
 
 	/**
-	 * Can assume there is an active database transaction.
-	 * <p>
 	 * Can assume that the collection is empty or nonexistent,
 	 * in the sense that there is no mess to clean up,
 	 * but should tolerate documents already existing,

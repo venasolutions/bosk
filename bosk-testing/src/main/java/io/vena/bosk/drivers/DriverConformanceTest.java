@@ -1,5 +1,7 @@
 package io.vena.bosk.drivers;
 
+import io.vena.bosk.Bosk;
+import io.vena.bosk.BoskDriver;
 import io.vena.bosk.Catalog;
 import io.vena.bosk.CatalogReference;
 import io.vena.bosk.DriverFactory;
@@ -18,6 +20,8 @@ import io.vena.bosk.junit.ParametersByName;
 import java.io.IOException;
 import java.time.temporal.ChronoUnit;
 import java.util.stream.Stream;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import static io.vena.bosk.ListingEntry.LISTING_ENTRY;
 import static io.vena.bosk.util.Classes.listValue;
@@ -27,6 +31,16 @@ import static java.util.Arrays.asList;
 import static java.util.stream.Collectors.toList;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+/**
+ * Tests the basic functionality of {@link io.vena.bosk.BoskDriver}
+ * across a variety of state tree situations by performing some series
+ * of operations and then asserting that the resulting state matches
+ * that computed by {@link Bosk#simpleDriver} performing the same operations.
+ * <p>
+ *
+ * Use this by extending it and supplying a value for
+ * the {@link #driverFactory} to test.
+ */
 public abstract class DriverConformanceTest extends AbstractDriverTest {
 	// Subclass can initialize this as desired
 	protected DriverFactory<TestEntity> driverFactory;
@@ -119,28 +133,28 @@ public abstract class DriverConformanceTest extends AbstractDriverTest {
 		Reference<Identifier> child1IDRef = ref.then(child1ID).then(Identifier.class, TestEntity.Fields.id);
 		Reference<Identifier> child2IDRef = ref.then(child2ID).then(Identifier.class, TestEntity.Fields.id);
 
-		// Self ID matches
+		LOGGER.debug("Self ID matches");
 		driver.submitConditionalReplacement(
 			ref.then(child1ID), newEntity(child1ID, ref).withString("replacement 1"),
 			child1IDRef, child1ID
 		);
 		assertCorrectBoskContents();
 
-		// Self ID does not match
+		LOGGER.debug("Self ID does not match");
 		driver.submitConditionalReplacement(
 			ref.then(child1ID), newEntity(child1ID, ref).withString("replacement 2"),
 			child1IDRef, child2ID
 		);
 		assertCorrectBoskContents();
 
-		// Other ID matches
+		LOGGER.debug("Other ID matches");
 		driver.submitConditionalReplacement(
 			ref.then(child1ID), newEntity(child1ID, ref).withString("replacement 1"),
 			child2IDRef, child2ID
 		);
 		assertCorrectBoskContents();
 
-		// Other ID does not match
+		LOGGER.debug("Other ID does not match");
 		driver.submitConditionalReplacement(
 			ref.then(child1ID), newEntity(child1ID, ref).withString("replacement 2"),
 			child2IDRef, child1ID
@@ -161,8 +175,11 @@ public abstract class DriverConformanceTest extends AbstractDriverTest {
 	@ParametersByName
 	void testDeleteBackward(Path enclosingCatalogPath) {
 		CatalogReference<TestEntity> ref = initializeBoskWithCatalog(enclosingCatalogPath);
+		assertCorrectBoskContents();
+		LOGGER.debug("Delete second child");
 		driver.submitDeletion(ref.then(child2ID));
 		assertCorrectBoskContents();
+		LOGGER.debug("Delete first child");
 		driver.submitDeletion(ref.then(child1ID));
 		assertCorrectBoskContents();
 	}
@@ -173,28 +190,28 @@ public abstract class DriverConformanceTest extends AbstractDriverTest {
 		Reference<Identifier> child1IDRef = ref.then(child1ID).then(Identifier.class, TestEntity.Fields.id);
 		Reference<Identifier> child2IDRef = ref.then(child2ID).then(Identifier.class, TestEntity.Fields.id);
 
-		// Self ID does not match - should have no effect
+		LOGGER.debug("Self ID does not match - should have no effect");
 		driver.submitConditionalDeletion(
 			ref.then(child1ID),
 			child1IDRef, child2ID
 		);
 		assertCorrectBoskContents();
 
-		// Other ID does not match - should have no effect
+		LOGGER.debug("Other ID does not match - should have no effect");
 		driver.submitConditionalDeletion(
 			ref.then(child1ID),
 			child2IDRef, child1ID
 		);
 		assertCorrectBoskContents();
 
-		// Other ID matches - child2 should disappear
+		LOGGER.debug("Other ID matches - child2 should disappear");
 		driver.submitConditionalDeletion(
 			ref.then(child2ID),
 			child1IDRef, child1ID
 		);
 		assertCorrectBoskContents();
 
-		// Self ID matches - child1 should disappear
+		LOGGER.debug("Self ID matches - child1 should disappear");
 		driver.submitConditionalDeletion(
 			ref.then(child1ID),
 			child1IDRef, child1ID
@@ -245,6 +262,7 @@ public abstract class DriverConformanceTest extends AbstractDriverTest {
 		assertThrows(NullPointerException.class, ()->driver.submitReplacement(ref, null));
 		assertCorrectBoskContents();
 
+		LOGGER.debug("Deleting {}", ref);
 		driver.submitDeletion(ref);
 		assertCorrectBoskContents();
 		driver.submitDeletion(ref);
@@ -255,6 +273,7 @@ public abstract class DriverConformanceTest extends AbstractDriverTest {
 	void testString() throws InvalidTypeException {
 		Reference<TestValues> ref = initializeBoskWithBlankValues(Path.just(TestEntity.Fields.catalog));
 		Reference<String> stringRef = ref.then(String.class, TestValues.Fields.string);
+		LOGGER.debug("Submitting changed string");
 		driver.submitReplacement(stringRef, "changed");
 		assertCorrectBoskContents();
 
@@ -267,6 +286,7 @@ public abstract class DriverConformanceTest extends AbstractDriverTest {
 	@ParametersByName
 	void testEnum() throws InvalidTypeException {
 		Reference<TestValues> ref = initializeBoskWithBlankValues(Path.just(TestEntity.Fields.catalog));
+		assertCorrectBoskContents();
 		Reference<ChronoUnit> enumRef = ref.then(ChronoUnit.class, TestValues.Fields.chronoUnit);
 		driver.submitReplacement(enumRef, MINUTES);
 		assertCorrectBoskContents();
@@ -334,6 +354,7 @@ public abstract class DriverConformanceTest extends AbstractDriverTest {
 	}
 
 	private Reference<TestValues> initializeBoskWithBlankValues(Path enclosingCatalogPath) throws InvalidTypeException {
+		LOGGER.debug("initializeBoskWithBlankValues({})", enclosingCatalogPath);
 		CatalogReference<TestEntity> catalogRef = initializeBoskWithCatalog(enclosingCatalogPath);
 		Reference<TestValues> ref = catalogRef.then(child1ID).then(TestValues.class,
 			TestEntity.Fields.values);
@@ -342,6 +363,7 @@ public abstract class DriverConformanceTest extends AbstractDriverTest {
 	}
 
 	private CatalogReference<TestEntity> initializeBoskWithCatalog(Path enclosingCatalogPath) {
+		LOGGER.debug("initializeBoskWithCatalog({})", enclosingCatalogPath);
 		setupBosksAndReferences(driverFactory);
 		try {
 			CatalogReference<TestEntity> ref = bosk.rootReference().thenCatalog(TestEntity.class, enclosingCatalogPath);
@@ -370,7 +392,8 @@ public abstract class DriverConformanceTest extends AbstractDriverTest {
 			Path.just(TestEntity.Fields.catalog),
 			Path.of(TestEntity.Fields.catalog, AWKWARD_ID, TestEntity.Fields.catalog),
 			Path.of(TestEntity.Fields.sideTable, AWKWARD_ID, TestEntity.Fields.catalog),
-			Path.of(TestEntity.Fields.sideTable, AWKWARD_ID, TestEntity.Fields.catalog, "parent", TestEntity.Fields.catalog)
+			Path.of(TestEntity.Fields.sideTable, AWKWARD_ID, TestEntity.Fields.catalog, "parent", TestEntity.Fields.catalog),
+			Path.of(TestEntity.Fields.sideTable, AWKWARD_ID, TestEntity.Fields.sideTable, "parent", TestEntity.Fields.catalog)
 		);
 	}
 
@@ -404,4 +427,5 @@ public abstract class DriverConformanceTest extends AbstractDriverTest {
 		);
 	}
 
+	private static final Logger LOGGER = LoggerFactory.getLogger(DriverConformanceTest.class);
 }
