@@ -11,9 +11,12 @@ import java.util.NoSuchElementException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicLong;
+import lombok.var;
 import org.bson.BsonDocument;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 
 import static io.vena.bosk.drivers.mongo.MappedDiagnosticContext.setupMDC;
 import static java.lang.Thread.currentThread;
@@ -90,7 +93,7 @@ class ChangeReceiver implements Closeable {
 					// though this must be done cautiously, since even disabled log statements still have nonzero overhead.
 					//
 					LOGGER.debug("Opening cursor");
-					try (MongoChangeStreamCursor<ChangeStreamDocument<BsonDocument>> cursor = openCursor()) {
+					try (var cursor = openCursor()) {
 						try {
 							try {
 								listener.onConnectionSucceeded();
@@ -208,21 +211,28 @@ class ChangeReceiver implements Closeable {
 				LOGGER.debug("| Interrupted");
 			}
 		}
-		switch (event.getOperationType()) {
-			case INSERT:
-			case UPDATE:
-			case REPLACE:
-			case DELETE:
-			case RENAME:
-				listener.onEvent(event);
-				break;
-			case DROP:
-			case DROP_DATABASE:
-			case INVALIDATE:
-			case OTHER:
-				throw new UnprocessableEventException("Disruptive event received", event.getOperationType());
+		try {
+			MDC.put(MDC_KEY, "e" + EVENT_COUNTER.incrementAndGet());
+			switch (event.getOperationType()) {
+				case INSERT:
+				case UPDATE:
+				case REPLACE:
+				case DELETE:
+				case RENAME:
+					listener.onEvent(event);
+					break;
+				case DROP:
+				case DROP_DATABASE:
+				case INVALIDATE:
+				case OTHER:
+					throw new UnprocessableEventException("Disruptive event received", event.getOperationType());
+			}
+		} finally {
+			MDC.remove(MDC_KEY);
 		}
 	}
 
+	private static final AtomicLong EVENT_COUNTER = new AtomicLong(0);
+	public static final String MDC_KEY = "MongoDriver.event";
 	private static final Logger LOGGER = LoggerFactory.getLogger(ChangeReceiver.class);
 }

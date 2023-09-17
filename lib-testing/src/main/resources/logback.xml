@@ -1,7 +1,7 @@
 <configuration>
 	<appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
 		<encoder>
-			<pattern>%d %-5level [%thread]%X{MongoDriver}%X{MongoDriver.transaction} %logger{25}: %msg%n</pattern>
+			<pattern>%d %-5level [%thread]%X{MongoDriver}%X{MongoDriver.transaction}%X{MongoDriver.event} %logger{25}: %msg%n</pattern>
 		</encoder>
 		<immediateFlush>true</immediateFlush>
 	</appender>
