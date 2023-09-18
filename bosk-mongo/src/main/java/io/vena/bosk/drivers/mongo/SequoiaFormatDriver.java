@@ -246,6 +246,7 @@ final class SequoiaFormatDriver<R extends StateTreeNode> implements FormatDriver
 	private void onManifestEvent(ChangeStreamDocument<BsonDocument> event) throws UnprocessableEventException {
 		if (event.getOperationType() == INSERT) {
 			BsonDocument manifest = requireNonNull(event.getFullDocument());
+			manifest.remove("_id");
 			try {
 				formatter.validateManifest(manifest);
 			} catch (UnrecognizedFormatException e) {
