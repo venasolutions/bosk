@@ -2,7 +2,6 @@ package io.vena.bosk.drivers.mongo;
 
 import io.vena.bosk.Bosk;
 import io.vena.bosk.CatalogReference;
-import io.vena.bosk.Identifier;
 import io.vena.bosk.Path;
 import io.vena.bosk.Reference;
 import io.vena.bosk.drivers.AbstractDriverTest;
@@ -24,11 +23,7 @@ class MongoDriverDottedFieldNameTest extends AbstractDriverTest {
 
 	@BeforeEach
 	void setUpStuff() {
-		bosk = new Bosk<TestEntity>("Test bosk", TestEntity.class, this::initialRoot, Bosk::simpleDriver);
-	}
-
-	private TestEntity initialRoot(Bosk<TestEntity> testEntityBosk) throws InvalidTypeException {
-		return TestEntity.empty(Identifier.from("root"), rootCatalogRef(testEntityBosk));
+		bosk = new Bosk<TestEntity>("Test bosk", TestEntity.class, AbstractDriverTest::initialRoot, Bosk::simpleDriver);
 	}
 
 	private CatalogReference<TestEntity> rootCatalogRef(Bosk<TestEntity> bosk) throws InvalidTypeException {
