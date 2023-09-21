@@ -3,9 +3,9 @@ package io.vena.bosk.drivers;
 import io.vena.bosk.Bosk;
 import io.vena.bosk.BoskDriver;
 import io.vena.bosk.DriverFactory;
-import io.vena.bosk.Entity;
 import io.vena.bosk.Identifier;
 import io.vena.bosk.Reference;
+import io.vena.bosk.StateTreeNode;
 import io.vena.bosk.exceptions.InvalidTypeException;
 import java.io.IOException;
 import java.lang.reflect.Type;
@@ -18,10 +18,10 @@ import static lombok.AccessLevel.PRIVATE;
  * Sends events to another {@link Bosk} of the same type.
  */
 @RequiredArgsConstructor(access=PRIVATE)
-public class MirroringDriver<R extends Entity> implements BoskDriver<R> {
+public class MirroringDriver<R extends StateTreeNode> implements BoskDriver<R> {
 	private final Bosk<R> mirror;
 
-	public static <RR extends Entity> DriverFactory<RR> targeting(Bosk<RR> mirror) {
+	public static <RR extends StateTreeNode> DriverFactory<RR> targeting(Bosk<RR> mirror) {
 		return (bosk, downstream) -> new ForwardingDriver<>(asList(
 			new MirroringDriver<>(mirror),
 			downstream

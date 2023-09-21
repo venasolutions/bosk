@@ -6,7 +6,7 @@ import java.util.Arrays;
  * Composes multiple {@link DriverFactory} objects into a stack so that they
  * can be instantiated and connected to each other.
  */
-public interface DriverStack<R extends Entity> extends DriverFactory<R> {
+public interface DriverStack<R extends StateTreeNode> extends DriverFactory<R> {
 	/**
 	 * Returns a {@link DriverStack} that composes multiple {@link DriverFactory}
 	 * objects in such a way that each factory is downstream of the one before it.
@@ -20,7 +20,7 @@ public interface DriverStack<R extends Entity> extends DriverFactory<R> {
 	 * @return a factory that composes <code>factories</code> from right to left
 	 */
 	@SafeVarargs
-	static <RR extends Entity> DriverStack<RR> of(DriverFactory<RR>...factories) {
+	static <RR extends StateTreeNode> DriverStack<RR> of(DriverFactory<RR>...factories) {
 		return new DriverStack<RR>() {
 			@Override
 			public BoskDriver<RR> build(Bosk<RR> bosk, BoskDriver<RR> downstream) {
