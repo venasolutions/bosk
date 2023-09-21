@@ -15,6 +15,7 @@ import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Stream;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -63,6 +64,15 @@ public final class ReferenceUtils {
 			}
 		}
 
+		@Override public boolean equals(Object o) {
+			if (this == o) {
+				return true;
+			} else {
+				return ref.equals(o);
+			}
+		}
+
+		@Override public int hashCode() { return ref.hashCode(); }
 		@Override public String toString() { return ref.toString(); }
 	}
 
@@ -85,6 +95,15 @@ public final class ReferenceUtils {
 			}
 		}
 
+		@Override public boolean equals(Object o) {
+			if (this == o) {
+				return true;
+			} else {
+				return ref.equals(o);
+			}
+		}
+
+		@Override public int hashCode() { return ref.hashCode(); }
 		@Override public String toString() { return ref.toString(); }
 	}
 
@@ -111,13 +130,11 @@ public final class ReferenceUtils {
 			return new SideTableRef<>(ref.boundBy(bindings), keyClass(), valueClass());
 		}
 
-		@Override public boolean equals(Object obj) {
-			if (obj == this) {
+		@Override public boolean equals(Object o) {
+			if (this == o) {
 				return true;
-			} else if (obj instanceof Reference) {
-				return obj.equals(ref);
 			} else {
-				return false;
+				return ref.equals(o);
 			}
 		}
 

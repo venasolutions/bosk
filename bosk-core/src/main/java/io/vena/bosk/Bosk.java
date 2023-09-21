@@ -890,7 +890,7 @@ try (ReadContext originalThReadContext = bosk.readContext()) {
 			if (obj == null) {
 				return false;
 			}
-			if (!(obj instanceof ReferenceImpl)) {
+			if (!(obj instanceof Reference)) {
 				return false;
 			}
 
@@ -900,9 +900,9 @@ try (ReadContext originalThReadContext = bosk.readContext()) {
 			// if they both have the same root type.
 
 			@SuppressWarnings({"rawtypes", "unchecked"})
-			ReferenceImpl other = (ReferenceImpl) obj;
-			return Objects.equals(this.rootType(), other.rootType())
-				&& Objects.equals(path, other.path);
+			Reference other = (Reference) obj;
+			return Objects.equals(this.rootType(), other.root().targetType())
+				&& Objects.equals(path, other.path());
 		}
 
 		private Type rootType() {
