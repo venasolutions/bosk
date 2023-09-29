@@ -54,8 +54,8 @@ public class MongoDriverResiliencyTest extends AbstractMongoDriverTest {
 	static Stream<MongoDriverSettings.MongoDriverSettingsBuilder> driverSettings() {
 		return TestParameters.driverSettings(
 			Stream.of(
-				SEQUOIA,
-				PandoFormat.withSeparateCollections("/catalog", "/sideTable")
+				PandoFormat.withSeparateCollections("/catalog", "/sideTable"),
+				SEQUOIA
 			),
 			Stream.of(EventTiming.NORMAL)
 		).map(b -> b
