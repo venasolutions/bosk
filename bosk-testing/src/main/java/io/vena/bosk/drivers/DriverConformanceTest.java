@@ -220,6 +220,19 @@ public abstract class DriverConformanceTest extends AbstractDriverTest {
 	}
 
 	@ParametersByName
+	void replaceNonexistentField(Path enclosingCatalogPath) throws InvalidTypeException {
+		CatalogReference<TestEntity> ref = initializeBoskWithCatalog(enclosingCatalogPath);
+		driver.submitReplacement(
+			ref.then(String.class, "nonexistent", "string"),
+			"new value");
+		assertCorrectBoskContents();
+		driver.submitReplacement(
+			ref.then(String.class, "nonexistent", TestEntity.Fields.catalog, "nonexistent2", "string"),
+			"new value");
+		assertCorrectBoskContents();
+	}
+
+	@ParametersByName
 	void deleteNonexistent(Path enclosingCatalogPath) throws InvalidTypeException {
 		CatalogReference<TestEntity> ref = initializeBoskWithCatalog(enclosingCatalogPath);
 		driver.submitDeletion(ref.then(Identifier.from("nonexistent")));
