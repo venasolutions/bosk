@@ -200,6 +200,11 @@ final class SequoiaFormatDriver<R extends StateTreeNode> implements FormatDriver
 		}
 		switch (event.getOperationType()) {
 			case INSERT: case REPLACE: {
+				// Note: an INSERT could be coming from this very bosk initializing the collection,
+				// in which case replacing the entire bosk state downstream is unnecessary.
+				// However, it could also be coming from another bosk, or even a human operator doing
+				// a repair, so we can't ignore it either.
+				// It seems unavoidable to pass the change downstream.
 				BsonDocument fullDocument = event.getFullDocument();
 				if (fullDocument == null) {
 					throw new UnprocessableEventException("Missing fullDocument", event.getOperationType());
