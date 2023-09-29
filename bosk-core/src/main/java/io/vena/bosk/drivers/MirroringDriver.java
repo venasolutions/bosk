@@ -21,11 +21,21 @@ import static lombok.AccessLevel.PRIVATE;
 public class MirroringDriver<R extends StateTreeNode> implements BoskDriver<R> {
 	private final Bosk<R> mirror;
 
+	/**
+	 * Causes updates to be applied both to <code>mirror</code> and to the downstream driver.
+	 */
 	public static <RR extends StateTreeNode> DriverFactory<RR> targeting(Bosk<RR> mirror) {
 		return (bosk, downstream) -> new ForwardingDriver<>(asList(
 			new MirroringDriver<>(mirror),
 			downstream
 		));
+	}
+
+	/**
+	 * Causes updates to be applied only to <code>other</code>.
+	 */
+	public static <RR extends StateTreeNode> MirroringDriver<RR> redirectingTo(Bosk<RR> other) {
+		return new MirroringDriver<>(other);
 	}
 
 	@Override
