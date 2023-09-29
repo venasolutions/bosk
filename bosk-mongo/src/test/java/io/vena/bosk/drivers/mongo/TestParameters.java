@@ -21,7 +21,9 @@ public class TestParameters {
 					.preferredDatabaseFormat(f)
 					.recoveryPollingMS(3000) // Note that some tests can take as long as 10x this
 					.flushTimeoutMS(4000) // A little more than recoveryPollingMS
-					.testing(MongoDriverSettings.Testing.builder().eventDelayMS(e.eventDelayMS).build())
+					.testing(MongoDriverSettings.Testing.builder()
+						.eventDelayMS(e.eventDelayMS)
+						.build())
 					.database(MongoDriverResiliencyTest.class.getSimpleName()
 						+ "_" + dbCounter.incrementAndGet()
 						+ "_" + f.getClass().getSimpleName()
