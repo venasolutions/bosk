@@ -101,8 +101,12 @@ public abstract class DriverConformanceTest extends AbstractDriverTest {
 	}
 
 	@ParametersByName
-	void delete(Path enclosingCatalogPath, Identifier childID) {
+	void deleteExisting(Path enclosingCatalogPath) {
 		CatalogReference<TestEntity> ref = initializeBoskWithCatalog(enclosingCatalogPath);
+		// Here, we surgically initialize just the one child we want to delete, for a little variety.
+		// Once upon a time, MongoDriver failed this specific case.
+		Identifier childID = Identifier.unique("child");
+		autoInitialize(ref.then(childID));
 		driver.submitDeletion(ref.then(childID));
 		assertCorrectBoskContents();
 	}
