@@ -1,5 +1,6 @@
 package io.vena.bosk;
 
+import io.vena.bosk.annotations.ReferencePath;
 import io.vena.bosk.exceptions.InvalidTypeException;
 import java.util.ArrayList;
 import java.util.List;
@@ -23,12 +24,23 @@ class ReferenceTest extends AbstractBoskTest {
 	private Bosk<TestRoot> bosk;
 	private TestRoot root;
 	private Bosk<TestRoot>.ReadContext context;
+	private Refs refs;
+
+	public interface Refs {
+		@ReferencePath("/entities") CatalogReference<TestEntity> catalog();
+		@ReferencePath("/entities") Reference<Catalog<TestEntity>> catalogNormalRef();
+		@ReferencePath("/entities/-e-/oddChildren") ListingReference<TestEntity> listing();
+		@ReferencePath("/entities/-e-/oddChildren") Reference<Listing<TestEntity>> listingNormalRef();
+		@ReferencePath("/entities/-e-/stringSideTable") SideTableReference<TestEntity, String> sideTable();
+		@ReferencePath("/entities/-e-/stringSideTable") Reference<SideTable<TestEntity, String>> sideTableNormalRef();
+	}
 
 	@BeforeEach
-	void setup() {
+	void setup() throws InvalidTypeException {
 		this.bosk = setUpBosk(Bosk::simpleDriver);
 		context = bosk.readContext();
 		this.root = bosk.rootReference().value();
+		this.refs = bosk.buildReferences(Refs.class);
 	}
 
 	@AfterEach
@@ -156,6 +168,24 @@ class ReferenceTest extends AbstractBoskTest {
 			children.stream().collect(toList()),
 			children.idStream().map(id -> BindingEnvironment.singleton("child", id)).collect(toList())
 		);
+	}
+
+	@Test
+	void catalogRef_normalRef_equals() throws InvalidTypeException {
+		assertEquals(refs.catalog(), refs.catalogNormalRef());
+		assertEquals(refs.catalogNormalRef(), refs.catalog());
+	}
+
+	@Test
+	void listingRef_normalRef_equals() throws InvalidTypeException {
+		assertEquals(refs.listing(), refs.listingNormalRef());
+		assertEquals(refs.listingNormalRef(), refs.listing());
+	}
+
+	@Test
+	void sideTableRef_normalRef_equals() throws InvalidTypeException {
+		assertEquals(refs.sideTable(), refs.sideTableNormalRef());
+		assertEquals(refs.sideTableNormalRef(), refs.sideTable());
 	}
 
 	private <T> void assertForEachValueWorks(Reference<T> ref, List<T> expectedValues, List<BindingEnvironment> expectedEnvironments) {

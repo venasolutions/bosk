@@ -181,6 +181,7 @@ public class Bosk<R extends StateTreeNode> {
 
 		@Override
 		public <T> void submitReplacement(Reference<T> target, T newValue) {
+			assertCorrectBosk(target);
 			synchronized (this) {
 				R priorRoot = currentRoot;
 				if (!tryGraftReplacement(target, newValue)) {
@@ -193,6 +194,7 @@ public class Bosk<R extends StateTreeNode> {
 
 		@Override
 		public <T> void submitInitialization(Reference<T> target, T newValue) {
+			assertCorrectBosk(target);
 			synchronized (this) {
 				boolean preconditionsSatisfied;
 				try (@SuppressWarnings("unused") ReadContext executionContext = new ReadContext(currentRoot)) {
@@ -211,6 +213,7 @@ public class Bosk<R extends StateTreeNode> {
 
 		@Override
 		public <T> void submitDeletion(Reference<T> target) {
+			assertCorrectBosk(target);
 			synchronized (this) {
 				R priorRoot = currentRoot;
 				if (!tryGraftDeletion(target)) {
@@ -229,6 +232,8 @@ public class Bosk<R extends StateTreeNode> {
 
 		@Override
 		public <T> void submitConditionalReplacement(Reference<T> target, T newValue, Reference<Identifier> precondition, Identifier requiredValue) {
+			assertCorrectBosk(target);
+			assertCorrectBosk(precondition);
 			synchronized (this) {
 				boolean preconditionsSatisfied;
 				try (@SuppressWarnings("unused") ReadContext executionContext = new ReadContext(currentRoot)) {
@@ -247,6 +252,8 @@ public class Bosk<R extends StateTreeNode> {
 
 		@Override
 		public <T> void submitConditionalDeletion(Reference<T> target, Reference<Identifier> precondition, Identifier requiredValue) {
+			assertCorrectBosk(target);
+			assertCorrectBosk(precondition);
 			synchronized (this) {
 				boolean preconditionsSatisfied;
 				try (@SuppressWarnings("unused") ReadContext executionContext = new ReadContext(currentRoot)) {
@@ -271,6 +278,16 @@ public class Bosk<R extends StateTreeNode> {
 				triggerQueueingOfHooks(rootReference(), null, currentRoot, reg);
 			}
 			drainQueueIfAllowed();
+		}
+
+		private <T> void assertCorrectBosk(Reference<T> target) {
+			// TODO: Do we need to be this strict?
+			// On the one hand, we could write conditional updates in a way that don't require the
+			// reference to point to the right bosk.
+			// On the other hand, there's a certain symmetry to requiring the references to have the right
+			// bosk for both reads and writes, and forcing this discipline on users might help them avoid
+			// some pretty confusing mistakes.
+			assert ((RootRef) target.root()).bosk() == Bosk.this: "Reference supplied to driver operation must refer to the correct bosk";
 		}
 
 		/**
@@ -753,6 +770,8 @@ try (ReadContext originalThReadContext = bosk.readContext()) {
 			super(Path.empty(), targetType);
 		}
 
+		Bosk<?> bosk() { return Bosk.this; }
+
 		@Override
 		public <U> Reference<U> then(Class<U> requestedClass, Path path) throws InvalidTypeException {
 			Type targetType;
@@ -890,7 +909,7 @@ try (ReadContext originalThReadContext = bosk.readContext()) {
 			if (obj == null) {
 				return false;
 			}
-			if (!(obj instanceof ReferenceImpl)) {
+			if (!(obj instanceof Reference)) {
 				return false;
 			}
 
@@ -900,9 +919,9 @@ try (ReadContext originalThReadContext = bosk.readContext()) {
 			// if they both have the same root type.
 
 			@SuppressWarnings({"rawtypes", "unchecked"})
-			ReferenceImpl other = (ReferenceImpl) obj;
-			return Objects.equals(this.rootType(), other.rootType())
-				&& Objects.equals(path, other.path);
+			Reference other = (Reference) obj;
+			return Objects.equals(this.rootType(), other.root().targetType())
+				&& Objects.equals(path, other.path());
 		}
 
 		private Type rootType() {

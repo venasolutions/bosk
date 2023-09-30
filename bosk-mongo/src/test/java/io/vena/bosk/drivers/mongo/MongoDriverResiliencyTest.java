@@ -54,8 +54,8 @@ public class MongoDriverResiliencyTest extends AbstractMongoDriverTest {
 	static Stream<MongoDriverSettings.MongoDriverSettingsBuilder> driverSettings() {
 		return TestParameters.driverSettings(
 			Stream.of(
-				SEQUOIA,
-				PandoFormat.withSeparateCollections("/catalog", "/sideTable")
+				PandoFormat.withSeparateCollections("/catalog", "/sideTable"),
+				SEQUOIA
 			),
 			Stream.of(EventTiming.NORMAL)
 		).map(b -> b
@@ -187,6 +187,9 @@ public class MongoDriverResiliencyTest extends AbstractMongoDriverTest {
 			collection.deleteMany(rootDocumentFilter);
 		}, (b) -> {
 			LOGGER.debug("Restore original document");
+			// NOTE: This doesn't actually work cleanly with Pando, because restoring the root document by itself
+			// doesn't cause all the subparts to appear in the change stream, which means there's not enough
+			// info to reassemble the whole state tree. It ends up failing and reinitializing, so it passes the test.
 			collection.insertOne(originalDocument.get());
 			return b;
 		});

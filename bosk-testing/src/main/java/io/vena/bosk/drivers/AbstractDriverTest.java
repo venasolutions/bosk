@@ -53,12 +53,12 @@ public abstract class AbstractDriverTest {
 		// This is the bosk we're testing
 		bosk = new Bosk<TestEntity>("Test bosk", TestEntity.class, AbstractDriverTest::initialRoot, DriverStack.of(
 			MirroringDriver.targeting(canonicalBosk),
-			driverFactory
+			DriverStateVerifier.wrap(driverFactory, TestEntity.class, AbstractDriverTest::initialRoot)
 		));
 		driver = bosk.driver();
 	}
 
-	private static TestEntity initialRoot(Bosk<TestEntity> b) throws InvalidTypeException {
+	public static TestEntity initialRoot(Bosk<TestEntity> b) throws InvalidTypeException {
 		return TestEntity.empty(Identifier.from("root"), b.rootReference().thenCatalog(TestEntity.class, Path.just(TestEntity.Fields.catalog)));
 	}
 
