@@ -30,9 +30,9 @@ import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 import lombok.var;
 import org.bson.BsonDocument;
-import org.bson.BsonInt32;
 import org.bson.BsonInt64;
 import org.bson.BsonString;
+import org.bson.BsonValue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -358,9 +358,23 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 
 		@Override
 		public void onEvent(ChangeStreamDocument<BsonDocument> event) throws UnprocessableEventException {
-			LOGGER.debug("onEvent({})", event.getOperationType().getValue());
+			LOGGER.debug("onEvent({}:{})", event.getOperationType().getValue(), getDocumentKeyValue(event));
 			LOGGER.trace("Event details: {}", event);
 			formatDriver.onEvent(event);
+		}
+
+		private Object getDocumentKeyValue(ChangeStreamDocument<BsonDocument> event) {
+			BsonDocument documentKey = event.getDocumentKey();
+			if (documentKey == null) {
+				return null;
+			} else  {
+				BsonValue value = documentKey.get("_id");
+				if (value instanceof BsonString) {
+					return value.asString().getValue();
+				} else {
+					return value;
+				}
+			}
 		}
 
 		@Override
