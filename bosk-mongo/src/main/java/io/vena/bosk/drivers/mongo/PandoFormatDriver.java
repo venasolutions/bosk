@@ -286,7 +286,7 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 					throw new UnprocessableEventException("Missing fullDocument on final event", finalEvent.getOperationType());
 				}
 
-				BsonInt64 revision = getRevisionFromFullDocumentEvent(fullDocument);
+				BsonInt64 revision = formatter.getRevisionFromFullDocument(fullDocument);
 				if (shouldSkip(revision)) {
 					LOGGER.debug("Skipping revision {}", revision.longValue());
 					return;
@@ -306,7 +306,7 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 			} break;
 			case UPDATE: {
 				// TODO: Combine code with INSERT and REPLACE events
-				BsonInt64 revision = getRevisionFromUpdateEvent(finalEvent);
+				BsonInt64 revision = formatter.getRevisionFromUpdateEvent(finalEvent);
 				if (shouldSkip(revision)) {
 					LOGGER.debug("Skipping revision {}", revision.longValue());
 					return;
@@ -447,33 +447,6 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 		LOGGER.debug("+ onRevisionToSkip({})", revision.longValue());
 		revisionToSkip = revision;
 		flushLock.finishedRevision(revision);
-	}
-
-	private BsonInt64 getRevisionFromFullDocumentEvent(BsonDocument fullDocument) {
-		if (fullDocument == null) {
-			return null;
-		}
-		BsonValue revision = fullDocument.get(DocumentFields.revision.name());
-		if (revision == null) {
-			return null;
-		} else {
-			return revision.asInt64();
-		}
-	}
-
-	private static BsonInt64 getRevisionFromUpdateEvent(ChangeStreamDocument<BsonDocument> event) {
-		if (event == null) {
-			return null;
-		}
-		UpdateDescription updateDescription = event.getUpdateDescription();
-		if (updateDescription == null) {
-			return null;
-		}
-		BsonDocument updatedFields = updateDescription.getUpdatedFields();
-		if (updatedFields == null) {
-			return null;
-		}
-		return updatedFields.getInt64(DocumentFields.revision.name(), null);
 	}
 
 	private static boolean updateEventHasField(ChangeStreamDocument<BsonDocument> event, DocumentFields field) {

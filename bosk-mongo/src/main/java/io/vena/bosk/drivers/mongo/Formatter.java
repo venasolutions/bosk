@@ -1,5 +1,7 @@
 package io.vena.bosk.drivers.mongo;
 
+import com.mongodb.client.model.changestream.ChangeStreamDocument;
+import com.mongodb.client.model.changestream.UpdateDescription;
 import io.vena.bosk.Bosk;
 import io.vena.bosk.Listing;
 import io.vena.bosk.Reference;
@@ -203,6 +205,29 @@ final class Formatter {
 			return objectCodec.decode(reader, DecoderContext.builder().build());
 		}
 	}
+
+	BsonInt64 getRevisionFromFullDocument(BsonDocument fullDocument) {
+		if (fullDocument == null) {
+			return null;
+		}
+		return fullDocument.getInt64(DocumentFields.revision.name(), null);
+	}
+
+	BsonInt64 getRevisionFromUpdateEvent(ChangeStreamDocument<BsonDocument> event) {
+		if (event == null) {
+			return null;
+		}
+		UpdateDescription updateDescription = event.getUpdateDescription();
+		if (updateDescription == null) {
+			return null;
+		}
+		BsonDocument updatedFields = updateDescription.getUpdatedFields();
+		if (updatedFields == null) {
+			return null;
+		}
+		return updatedFields.getInt64(DocumentFields.revision.name(), null);
+	}
+
 
 	/**
 	 * @return MongoDB field name corresponding to the given Reference

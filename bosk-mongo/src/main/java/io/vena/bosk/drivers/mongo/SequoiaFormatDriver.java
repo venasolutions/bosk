@@ -209,7 +209,7 @@ final class SequoiaFormatDriver<R extends StateTreeNode> implements FormatDriver
 				if (fullDocument == null) {
 					throw new UnprocessableEventException("Missing fullDocument", event.getOperationType());
 				}
-				BsonInt64 revision = getRevisionFromFullDocumentEvent(fullDocument);
+				BsonInt64 revision = formatter.getRevisionFromFullDocument(fullDocument);
 				BsonDocument state = fullDocument.getDocument(DocumentFields.state.name(), null);
 				if (state == null) {
 					throw new UnprocessableEventException("Missing state field", event.getOperationType());
@@ -225,7 +225,7 @@ final class SequoiaFormatDriver<R extends StateTreeNode> implements FormatDriver
 			case UPDATE: {
 				UpdateDescription updateDescription = event.getUpdateDescription();
 				if (updateDescription != null) {
-					BsonInt64 revision = getRevisionFromUpdateEvent(event);
+					BsonInt64 revision = formatter.getRevisionFromUpdateEvent(event);
 					if (shouldNotSkip(revision)) {
 						replaceUpdatedFields(updateDescription.getUpdatedFields());
 						deleteRemovedFields(updateDescription.getRemovedFields(), event.getOperationType());
@@ -271,28 +271,6 @@ final class SequoiaFormatDriver<R extends StateTreeNode> implements FormatDriver
 		LOGGER.debug("+ onRevisionToSkip({})", revision.longValue());
 		revisionToSkip = revision;
 		flushLock.finishedRevision(revision);
-	}
-
-	private BsonInt64 getRevisionFromFullDocumentEvent(BsonDocument fullDocument) {
-		if (fullDocument == null) {
-			return null;
-		}
-		return fullDocument.getInt64(DocumentFields.revision.name(), null);
-	}
-
-	private static BsonInt64 getRevisionFromUpdateEvent(ChangeStreamDocument<BsonDocument> event) {
-		if (event == null) {
-			return null;
-		}
-		UpdateDescription updateDescription = event.getUpdateDescription();
-		if (updateDescription == null) {
-			return null;
-		}
-		BsonDocument updatedFields = updateDescription.getUpdatedFields();
-		if (updatedFields == null) {
-			return null;
-		}
-		return updatedFields.getInt64(DocumentFields.revision.name(), null);
 	}
 
 	//
