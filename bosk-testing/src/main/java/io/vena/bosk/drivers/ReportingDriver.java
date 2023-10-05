@@ -1,5 +1,6 @@
 package io.vena.bosk.drivers;
 
+import io.vena.bosk.BoskDiagnosticContext;
 import io.vena.bosk.BoskDriver;
 import io.vena.bosk.DriverFactory;
 import io.vena.bosk.Identifier;
@@ -15,6 +16,8 @@ import io.vena.bosk.exceptions.InvalidTypeException;
 import java.io.IOException;
 import java.lang.reflect.Type;
 import java.util.function.Consumer;
+import lombok.AccessLevel;
+import lombok.RequiredArgsConstructor;
 
 /**
  * Sends an {@link UpdateOperation} to a given listener whenever one of the update methods is called.
@@ -22,19 +25,15 @@ import java.util.function.Consumer;
  * <em>Implementation note</em>: this class calls the downstream driver using {@link UpdateOperation#submitTo}
  * so that the ordinary {@link DriverConformanceTest} suite also tests all the {@link UpdateOperation} objects.
  */
+@RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 public class ReportingDriver<R extends StateTreeNode> implements BoskDriver<R> {
 	final BoskDriver<R> downstream;
+	final BoskDiagnosticContext diagnosticContext;
 	final Consumer<UpdateOperation> updateListener;
 	final Runnable flushListener;
 
-	private ReportingDriver(BoskDriver<R> downstream, Consumer<UpdateOperation> updateListener, Runnable flushListener) {
-		this.downstream = downstream;
-		this.updateListener = updateListener;
-		this.flushListener = flushListener;
-	}
-
 	public static <RR extends StateTreeNode> DriverFactory<RR> factory(Consumer<UpdateOperation> listener, Runnable flushListener) {
-		return (b,d) -> new ReportingDriver<>(d, listener, flushListener);
+		return (b,d) -> new ReportingDriver<>(d, b.diagnosticContext(), listener, flushListener);
 	}
 
 	@Override
@@ -44,35 +43,35 @@ public class ReportingDriver<R extends StateTreeNode> implements BoskDriver<R> {
 
 	@Override
 	public <T> void submitReplacement(Reference<T> target, T newValue) {
-		SubmitReplacement<T> op = new SubmitReplacement<>(target, newValue);
+		SubmitReplacement<T> op = new SubmitReplacement<>(target, newValue, diagnosticContext.getAttributes());
 		updateListener.accept(op);
 		op.submitTo(downstream);
 	}
 
 	@Override
 	public <T> void submitConditionalReplacement(Reference<T> target, T newValue, Reference<Identifier> precondition, Identifier requiredValue) {
-		SubmitConditionalReplacement<T> op = new SubmitConditionalReplacement<>(target, newValue, precondition, requiredValue);
+		SubmitConditionalReplacement<T> op = new SubmitConditionalReplacement<>(target, newValue, precondition, requiredValue, diagnosticContext.getAttributes());
 		updateListener.accept(op);
 		op.submitTo(downstream);
 	}
 
 	@Override
 	public <T> void submitInitialization(Reference<T> target, T newValue) {
-		SubmitInitialization<T> op = new SubmitInitialization<>(target, newValue);
+		SubmitInitialization<T> op = new SubmitInitialization<>(target, newValue, diagnosticContext.getAttributes());
 		updateListener.accept(op);
 		op.submitTo(downstream);
 	}
 
 	@Override
 	public <T> void submitDeletion(Reference<T> target) {
-		SubmitDeletion<T> op = new SubmitDeletion<>(target);
+		SubmitDeletion<T> op = new SubmitDeletion<>(target, diagnosticContext.getAttributes());
 		updateListener.accept(op);
 		op.submitTo(downstream);
 	}
 
 	@Override
 	public <T> void submitConditionalDeletion(Reference<T> target, Reference<Identifier> precondition, Identifier requiredValue) {
-		SubmitConditionalDeletion<T> op = new SubmitConditionalDeletion<>(target, precondition, requiredValue);
+		SubmitConditionalDeletion<T> op = new SubmitConditionalDeletion<>(target, precondition, requiredValue, diagnosticContext.getAttributes());
 		updateListener.accept(op);
 		op.submitTo(downstream);
 	}
