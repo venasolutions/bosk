@@ -18,6 +18,9 @@ import java.util.function.Consumer;
 
 /**
  * Sends an {@link UpdateOperation} to a given listener whenever one of the update methods is called.
+ * <p>
+ * <em>Implementation note</em>: this class calls the downstream driver using {@link UpdateOperation#submitTo}
+ * so that the ordinary {@link DriverConformanceTest} suite also tests all the {@link UpdateOperation} objects.
  */
 public class ReportingDriver<R extends StateTreeNode> implements BoskDriver<R> {
 	final BoskDriver<R> downstream;
@@ -41,32 +44,37 @@ public class ReportingDriver<R extends StateTreeNode> implements BoskDriver<R> {
 
 	@Override
 	public <T> void submitReplacement(Reference<T> target, T newValue) {
-		updateListener.accept(new SubmitReplacement<>(target, newValue));
-		downstream.submitReplacement(target, newValue);
+		SubmitReplacement<T> op = new SubmitReplacement<>(target, newValue);
+		updateListener.accept(op);
+		op.submitTo(downstream);
 	}
 
 	@Override
 	public <T> void submitConditionalReplacement(Reference<T> target, T newValue, Reference<Identifier> precondition, Identifier requiredValue) {
-		updateListener.accept(new SubmitConditionalReplacement<>(target, newValue, precondition, requiredValue));
-		downstream.submitConditionalReplacement(target, newValue, precondition, requiredValue);
+		SubmitConditionalReplacement<T> op = new SubmitConditionalReplacement<>(target, newValue, precondition, requiredValue);
+		updateListener.accept(op);
+		op.submitTo(downstream);
 	}
 
 	@Override
 	public <T> void submitInitialization(Reference<T> target, T newValue) {
-		updateListener.accept(new SubmitInitialization<>(target, newValue));
-		downstream.submitInitialization(target, newValue);
+		SubmitInitialization<T> op = new SubmitInitialization<>(target, newValue);
+		updateListener.accept(op);
+		op.submitTo(downstream);
 	}
 
 	@Override
 	public <T> void submitDeletion(Reference<T> target) {
-		updateListener.accept(new SubmitDeletion<>(target));
-		downstream.submitDeletion(target);
+		SubmitDeletion<T> op = new SubmitDeletion<>(target);
+		updateListener.accept(op);
+		op.submitTo(downstream);
 	}
 
 	@Override
 	public <T> void submitConditionalDeletion(Reference<T> target, Reference<Identifier> precondition, Identifier requiredValue) {
-		updateListener.accept(new SubmitConditionalDeletion<>(target, precondition, requiredValue));
-		downstream.submitConditionalDeletion(target, precondition, requiredValue);
+		SubmitConditionalDeletion<T> op = new SubmitConditionalDeletion<>(target, precondition, requiredValue);
+		updateListener.accept(op);
+		op.submitTo(downstream);
 	}
 
 	@Override
