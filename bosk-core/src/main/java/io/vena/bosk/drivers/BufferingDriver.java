@@ -1,7 +1,9 @@
 package io.vena.bosk.drivers;
 
+import io.vena.bosk.BoskDiagnosticContext;
 import io.vena.bosk.BoskDriver;
 import io.vena.bosk.Identifier;
+import io.vena.bosk.MapValue;
 import io.vena.bosk.Reference;
 import io.vena.bosk.StateTreeNode;
 import io.vena.bosk.exceptions.InvalidTypeException;
@@ -11,6 +13,7 @@ import java.util.Deque;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.function.Consumer;
 import lombok.RequiredArgsConstructor;
+import lombok.var;
 
 import static lombok.AccessLevel.PROTECTED;
 
@@ -44,17 +47,27 @@ public class BufferingDriver<R extends StateTreeNode> implements BoskDriver<R> {
 
 	@Override
 	public <T> void submitReplacement(Reference<T> target, T newValue) {
-		updateQueue.add(d -> d.submitReplacement(target, newValue));
+		enqueue(d -> d.submitReplacement(target, newValue), target.root().diagnosticContext());
 	}
 
 	@Override
 	public <T> void submitInitialization(Reference<T> target, T newValue) {
-		updateQueue.add(d -> d.submitInitialization(target, newValue));
+		enqueue(d -> d.submitInitialization(target, newValue), target.root().diagnosticContext());
 	}
 
 	@Override
 	public <T> void submitDeletion(Reference<T> target) {
-		updateQueue.add(d -> d.submitDeletion(target));
+		enqueue(d -> d.submitDeletion(target), target.root().diagnosticContext());
+	}
+
+	@Override
+	public <T> void submitConditionalReplacement(Reference<T> target, T newValue, Reference<Identifier> precondition, Identifier requiredValue) {
+		enqueue(d -> d.submitConditionalReplacement(target, newValue, precondition, requiredValue), target.root().diagnosticContext());
+	}
+
+	@Override
+	public <T> void submitConditionalDeletion(Reference<T> target, Reference<Identifier> precondition, Identifier requiredValue) {
+		enqueue(d -> d.submitConditionalDeletion(target, precondition, requiredValue), target.root().diagnosticContext());
 	}
 
 	@Override
@@ -65,14 +78,13 @@ public class BufferingDriver<R extends StateTreeNode> implements BoskDriver<R> {
 		downstream.flush();
 	}
 
-	@Override
-	public <T> void submitConditionalReplacement(Reference<T> target, T newValue, Reference<Identifier> precondition, Identifier requiredValue) {
-		updateQueue.add(d -> d.submitConditionalReplacement(target, newValue, precondition, requiredValue));
-	}
-
-	@Override
-	public <T> void submitConditionalDeletion(Reference<T> target, Reference<Identifier> precondition, Identifier requiredValue) {
-		updateQueue.add(d -> d.submitConditionalDeletion(target, precondition, requiredValue));
+	private void enqueue(Consumer<BoskDriver<R>> action, BoskDiagnosticContext diagnosticContext) {
+		MapValue<String> capturedAttributes = diagnosticContext.getAttributes();
+		updateQueue.add(d -> {
+			try (var __ = diagnosticContext.withOnly(capturedAttributes)) {
+				action.accept(d);
+			}
+		});
 	}
 
 }

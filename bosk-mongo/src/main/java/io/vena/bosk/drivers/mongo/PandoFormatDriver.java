@@ -15,6 +15,7 @@ import io.vena.bosk.BoskDriver;
 import io.vena.bosk.Entity;
 import io.vena.bosk.EnumerableByIdentifier;
 import io.vena.bosk.Identifier;
+import io.vena.bosk.MapValue;
 import io.vena.bosk.Reference;
 import io.vena.bosk.RootReference;
 import io.vena.bosk.StateTreeNode;
@@ -33,6 +34,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
 import lombok.NonNull;
+import lombok.var;
 import org.bson.BsonDocument;
 import org.bson.BsonInt32;
 import org.bson.BsonInt64;
@@ -193,17 +195,18 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 			throw new IllegalStateException("Cannot locate root document");
 		}
 		BsonValue revision = mainPart.get(DocumentFields.revision.name(), REVISION_ZERO);
+		MapValue<String> diagnosticAttributes = formatter.getDiagnosticAttributesFromFullDocument(mainPart);
 
 		BsonDocument combinedState = bsonSurgeon.gather(allParts);
 		R root = formatter.document2object(combinedState, rootRef);
-		return new StateAndMetadata<>(root, revision.asInt64());
+		return new StateAndMetadata<>(root, revision.asInt64(), diagnosticAttributes);
 	}
 
 	@Override
 	public void initializeCollection(StateAndMetadata<R> priorContents) {
 		BsonValue initialState = formatter.object2bsonValue(priorContents.state, rootRef.targetType());
 		BsonInt64 newRevision = new BsonInt64(1 + priorContents.revision.longValue());
-
+		// Note that priorContents.diagnosticAttributes are ignored, and we use the attributes from this thread
 
 		LOGGER.debug("** Initial upsert for {}", ROOT_DOCUMENT_ID.getValue());
 		collection.ensureTransactionStarted();
@@ -286,41 +289,47 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 					throw new UnprocessableEventException("Missing fullDocument on final event", finalEvent.getOperationType());
 				}
 
-				BsonInt64 revision = getRevisionFromFullDocumentEvent(fullDocument);
+				BsonInt64 revision = formatter.getRevisionFromFullDocument(fullDocument);
 				if (shouldSkip(revision)) {
 					LOGGER.debug("Skipping revision {}", revision.longValue());
 					return;
 				}
 
-				BsonDocument state = fullDocument.getDocument(DocumentFields.state.name());
-				if (state == null) {
-					ChangeStreamDocument<BsonDocument> mainEvent = events.get(events.size() - 2);
-					LOGGER.debug("Main event is {} on {}", mainEvent.getOperationType(), mainEvent.getDocumentKey());
-					propagateDownstream(mainEvent, events.subList(0, events.size() - 2));
-				} else {
-					LOGGER.debug("Main event is final event");
-					propagateDownstream(finalEvent, events.subList(0, events.size() - 1));
+				MapValue<String> diagnosticAttributes = formatter.getDiagnosticAttributesFromFullDocument(fullDocument);
+				try (var __ = rootRef.diagnosticContext().withOnly(diagnosticAttributes)) {
+					BsonDocument state = fullDocument.getDocument(DocumentFields.state.name());
+					if (state == null) {
+						ChangeStreamDocument<BsonDocument> mainEvent = events.get(events.size() - 2);
+						LOGGER.debug("Main event is {} on {}", mainEvent.getOperationType(), mainEvent.getDocumentKey());
+						propagateDownstream(mainEvent, events.subList(0, events.size() - 2));
+					} else {
+						LOGGER.debug("Main event is final event");
+						propagateDownstream(finalEvent, events.subList(0, events.size() - 1));
+					}
 				}
 
 				flushLock.finishedRevision(revision);
 			} break;
 			case UPDATE: {
 				// TODO: Combine code with INSERT and REPLACE events
-				BsonInt64 revision = getRevisionFromUpdateEvent(finalEvent);
+				BsonInt64 revision = formatter.getRevisionFromUpdateEvent(finalEvent);
 				if (shouldSkip(revision)) {
 					LOGGER.debug("Skipping revision {}", revision.longValue());
 					return;
 				}
-				boolean mainEventIsFinalEvent = updateEventHasField(finalEvent, DocumentFields.state); // If the final update changes only the revision field, then it's not the main event
-				if (mainEventIsFinalEvent) {
-					LOGGER.debug("Main event is final event");
-					propagateDownstream(finalEvent, events.subList(0, events.size() - 1));
-				} else if (events.size() < 2) {
-					LOGGER.debug("Main event is a no-op");
-				} else {
-					ChangeStreamDocument<BsonDocument> mainEvent = events.get(events.size() - 2);
-					LOGGER.debug("Main event is {} on {}", mainEvent.getOperationType(), mainEvent.getDocumentKey());
-					propagateDownstream(mainEvent, events.subList(0, events.size() - 2));
+				MapValue<String> attributes = formatter.getDiagnosticAttributesFromUpdateEvent(finalEvent);
+				try (var __ = rootRef.diagnosticContext().withOnly(attributes)) {
+					boolean mainEventIsFinalEvent = updateEventHasField(finalEvent, DocumentFields.state); // If the final update changes only the revision field, then it's not the main event
+					if (mainEventIsFinalEvent) {
+						LOGGER.debug("Main event is final event");
+						propagateDownstream(finalEvent, events.subList(0, events.size() - 1));
+					} else if (events.size() < 2) {
+						LOGGER.debug("Main event is a no-op");
+					} else {
+						ChangeStreamDocument<BsonDocument> mainEvent = events.get(events.size() - 2);
+						LOGGER.debug("Main event is {} on {}", mainEvent.getOperationType(), mainEvent.getDocumentKey());
+						propagateDownstream(mainEvent, events.subList(0, events.size() - 2));
+					}
 				}
 				flushLock.finishedRevision(revision);
 			} break;
@@ -447,33 +456,6 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 		LOGGER.debug("+ onRevisionToSkip({})", revision.longValue());
 		revisionToSkip = revision;
 		flushLock.finishedRevision(revision);
-	}
-
-	private BsonInt64 getRevisionFromFullDocumentEvent(BsonDocument fullDocument) {
-		if (fullDocument == null) {
-			return null;
-		}
-		BsonValue revision = fullDocument.get(DocumentFields.revision.name());
-		if (revision == null) {
-			return null;
-		} else {
-			return revision.asInt64();
-		}
-	}
-
-	private static BsonInt64 getRevisionFromUpdateEvent(ChangeStreamDocument<BsonDocument> event) {
-		if (event == null) {
-			return null;
-		}
-		UpdateDescription updateDescription = event.getUpdateDescription();
-		if (updateDescription == null) {
-			return null;
-		}
-		BsonDocument updatedFields = updateDescription.getUpdatedFields();
-		if (updatedFields == null) {
-			return null;
-		}
-		return updatedFields.getInt64(DocumentFields.revision.name(), null);
 	}
 
 	private static boolean updateEventHasField(ChangeStreamDocument<BsonDocument> event, DocumentFields field) {
@@ -727,8 +709,15 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 	private <T> BsonDocument replacementDoc(Reference<T> target, BsonValue value, Reference<?> startingRef) {
 		String key = dottedFieldNameOf(target, startingRef);
 		LOGGER.debug("| Set field {}: {}", key, value);
-		return blankUpdateDoc()
-			.append("$set", new BsonDocument(key, value));
+		BsonDocument result = blankUpdateDoc();
+		result.compute("$set", (__,existing) -> {
+			if (existing == null) {
+				return new BsonDocument(key, value);
+			} else {
+				return existing.asDocument().append(key, value);
+			}
+		});
+		return result;
 	}
 
 	private <T> BsonDocument deletionDoc(Reference<T> target, Reference<?> startingRef) {
@@ -738,7 +727,8 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 	}
 
 	private BsonDocument blankUpdateDoc() {
-		return new BsonDocument("$inc", new BsonDocument(DocumentFields.revision.name(), new BsonInt64(1)));
+		return new BsonDocument("$inc", new BsonDocument(DocumentFields.revision.name(), new BsonInt64(1)))
+			.append("$set", new BsonDocument(DocumentFields.diagnostics.name(), formatter.encodeDiagnostics(rootRef.diagnosticContext().getAttributes())));
 	}
 
 	private BsonDocument initialDocument(BsonValue initialState, BsonInt64 revision) {
@@ -747,6 +737,7 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 		fieldValues.put(DocumentFields.path.name(), new BsonString("/"));
 		fieldValues.put(DocumentFields.state.name(), initialState);
 		fieldValues.put(DocumentFields.revision.name(), revision);
+		fieldValues.put(DocumentFields.diagnostics.name(), formatter.encodeDiagnostics(rootRef.diagnosticContext().getAttributes()));
 
 		return fieldValues;
 	}

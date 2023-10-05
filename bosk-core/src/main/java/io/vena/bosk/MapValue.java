@@ -86,6 +86,10 @@ public final class MapValue<V> implements Map<String, V> {
 		}
 	}
 
+	public MapValue<V> withAll(Map<String, ? extends V> m) {
+		return new MapValue<>(contents.plusAll(m));
+	}
+
 	@Override
 	public String toString() {
 		return contents.toString();

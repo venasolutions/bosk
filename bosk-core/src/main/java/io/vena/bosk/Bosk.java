@@ -1,5 +1,6 @@
 package io.vena.bosk;
 
+import io.vena.bosk.BoskDiagnosticContext.DiagnosticScope;
 import io.vena.bosk.ReferenceUtils.CatalogRef;
 import io.vena.bosk.ReferenceUtils.ListingRef;
 import io.vena.bosk.ReferenceUtils.SideTableRef;
@@ -25,6 +26,7 @@ import lombok.Getter;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.Value;
+import lombok.var;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -76,6 +78,7 @@ public class Bosk<R extends StateTreeNode> {
 	@Getter private final String name;
 	@Getter private final Identifier instanceID = Identifier.from(randomUUID().toString());
 	@Getter private final BoskDriver<R> driver;
+	@Getter private final BoskDiagnosticContext diagnosticContext = new BoskDiagnosticContext();
 	private final LocalDriver localDriver;
 	private final RootRef rootRef;
 	private final ThreadLocal<R> rootSnapshot = new ThreadLocal<>();
@@ -361,14 +364,20 @@ public class Bosk<R extends StateTreeNode> {
 		 * on every matching object that exists in <code>rootForHook</code>.
 		 */
 		private <T,S> void triggerQueueingOfHooks(Reference<T> target, @Nullable R priorRoot, R rootForHook, HookRegistration<S> reg) {
+			MapValue<String> attributes = diagnosticContext.getAttributes();
 			reg.triggerAction(priorRoot, rootForHook, target, changedRef -> {
 				LOGGER.debug("Hook: queue {}({}) due to {}", reg.name, changedRef, target);
 				hookExecutionQueue.addLast(() -> {
-					try (@SuppressWarnings("unused") ReadContext executionContext = new ReadContext(rootForHook)) {
-						LOGGER.debug("Hook: RUN {}({})", reg.name, changedRef);
-						reg.hook.onChanged(changedRef);
-					} finally {
-						LOGGER.debug("Hook: end {}({})", reg.name, changedRef);
+					// We use two nested try statements here so that the "finally" clause runs within the diagnostic scope
+					try(
+						@SuppressWarnings("unused") DiagnosticScope foo = diagnosticContext.withOnly(attributes)
+					) {
+						try (@SuppressWarnings("unused") ReadContext executionContext = new ReadContext(rootForHook)) {
+							LOGGER.debug("Hook: RUN {}({})", reg.name, changedRef);
+							reg.hook.onChanged(changedRef);
+						} finally {
+							LOGGER.debug("Hook: end {}({})", reg.name, changedRef);
+						}
 					}
 				});
 			});
@@ -815,6 +824,11 @@ try (ReadContext originalThReadContext = bosk.readContext()) {
 		@Override
 		public <TT> Reference<Reference<TT>> thenReference(Class<TT> targetClass, Path path) throws InvalidTypeException {
 			return this.then(Classes.reference(targetClass), path);
+		}
+
+		@Override
+		public BoskDiagnosticContext diagnosticContext() {
+			return diagnosticContext;
 		}
 
 		@Override
