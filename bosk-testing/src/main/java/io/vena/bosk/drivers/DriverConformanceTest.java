@@ -385,7 +385,10 @@ public abstract class DriverConformanceTest extends AbstractDriverTest {
 	void submitReplacement_propagatesDiagnosticContext() throws InvalidTypeException, IOException, InterruptedException {
 		initializeBoskWithBlankValues(Path.just(TestEntity.Fields.catalog));
 		Reference<String> ref = bosk.rootReference().then(String.class, "string");
-		testDiagnosticContextPropagation(() -> bosk.driver().submitReplacement(ref, "newValue"));
+		testDiagnosticContextPropagation(() -> bosk.driver().submitReplacement(ref, "value1"));
+		// Do a second one with the same diagnostics to verify that they
+		// still propagate even when they don't change
+		testDiagnosticContextPropagation(() -> bosk.driver().submitReplacement(ref, "value2"));
 	}
 
 	@ParametersByName
@@ -423,7 +426,7 @@ public abstract class DriverConformanceTest extends AbstractDriverTest {
 		testDiagnosticContextPropagation(() -> bosk.driver().submitConditionalDeletion(ref, refs.rootID(), Identifier.from("root")));
 	}
 
-	private void testDiagnosticContextPropagation(Runnable operation) throws InvalidTypeException, IOException, InterruptedException {
+	private void testDiagnosticContextPropagation(Runnable operation) throws IOException, InterruptedException {
 		AtomicBoolean diagnosticsAreReady = new AtomicBoolean(false);
 		Semaphore diagnosticsVerified = new Semaphore(0);
 		bosk.registerHook("contextPropagatesToHook", bosk.rootReference(), ref -> {
@@ -441,6 +444,7 @@ public abstract class DriverConformanceTest extends AbstractDriverTest {
 		}
 		assertCorrectBoskContents();
 		assertTrue(diagnosticsVerified.tryAcquire(5, SECONDS));
+		diagnosticsAreReady.set(false); // Deactivate the hook
 	}
 
 	private Reference<TestValues> initializeBoskWithBlankValues(Path enclosingCatalogPath) throws InvalidTypeException {
