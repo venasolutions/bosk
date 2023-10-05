@@ -4,6 +4,7 @@ import com.mongodb.client.model.changestream.ChangeStreamDocument;
 import com.mongodb.client.model.changestream.UpdateDescription;
 import io.vena.bosk.Bosk;
 import io.vena.bosk.Listing;
+import io.vena.bosk.MapValue;
 import io.vena.bosk.Reference;
 import io.vena.bosk.SerializationPlugin;
 import io.vena.bosk.SideTable;
@@ -17,6 +18,7 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.function.Function;
@@ -28,6 +30,7 @@ import org.bson.BsonDocumentWriter;
 import org.bson.BsonInt32;
 import org.bson.BsonInt64;
 import org.bson.BsonReader;
+import org.bson.BsonString;
 import org.bson.BsonValue;
 import org.bson.codecs.Codec;
 import org.bson.codecs.DecoderContext;
@@ -94,6 +97,7 @@ final class Formatter {
 		path,
 		state,
 		revision,
+		diagnostics,
 	}
 
 	private final BsonInt32 SUPPORTED_MANIFEST_VERSION = new BsonInt32(1);
@@ -170,6 +174,22 @@ final class Formatter {
 				DecoderContext.builder().build());
 	}
 
+	BsonDocument encodeDiagnostics(MapValue<String> attributes) {
+		BsonDocument result = new BsonDocument();
+		attributes.forEach((name, value) -> result.put(name, new BsonString(value)));
+		return new BsonDocument("attributes", result);
+	}
+
+	MapValue<String> decodeDiagnosticAttributes(BsonDocument diagnostics) {
+		MapValue<String> result = MapValue.empty();
+		for (Map.Entry<String, BsonValue> foo: diagnostics.getDocument("attributes").entrySet()) {
+			String name = foo.getKey();
+			String value = foo.getValue().asString().getValue();
+			result = result.with(name, value);
+		}
+		return result;
+	}
+
 	/**
 	 * @see #bsonValue2object(BsonValue, Reference)
 	 */
@@ -213,6 +233,17 @@ final class Formatter {
 		return fullDocument.getInt64(DocumentFields.revision.name(), null);
 	}
 
+	MapValue<String> getDiagnosticAttributesFromFullDocument(BsonDocument fullDocument) {
+		if (fullDocument == null) {
+			return null;
+		}
+		BsonDocument diagnostics = fullDocument.getDocument(DocumentFields.diagnostics.name(), null);
+		if (diagnostics == null) {
+			return null;
+		}
+		return decodeDiagnosticAttributes(diagnostics);
+	}
+
 	BsonInt64 getRevisionFromUpdateEvent(ChangeStreamDocument<BsonDocument> event) {
 		if (event == null) {
 			return null;
@@ -228,6 +259,24 @@ final class Formatter {
 		return updatedFields.getInt64(DocumentFields.revision.name(), null);
 	}
 
+	MapValue<String> getDiagnosticAttributesFromUpdateEvent(ChangeStreamDocument<BsonDocument> event) {
+		if (event == null) {
+			return null;
+		}
+		UpdateDescription updateDescription = event.getUpdateDescription();
+		if (updateDescription == null) {
+			return null;
+		}
+		BsonDocument updatedFields = updateDescription.getUpdatedFields();
+		if (updatedFields == null) {
+			return null;
+		}
+		BsonDocument diagnostics = updatedFields.getDocument(DocumentFields.diagnostics.name(), null);
+		if (diagnostics == null) {
+			return null;
+		}
+		return decodeDiagnosticAttributes(diagnostics);
+	}
 
 	/**
 	 * @return MongoDB field name corresponding to the given Reference

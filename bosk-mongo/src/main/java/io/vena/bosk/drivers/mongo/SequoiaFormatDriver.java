@@ -11,7 +11,9 @@ import com.mongodb.lang.Nullable;
 import io.vena.bosk.Bosk;
 import io.vena.bosk.BoskDriver;
 import io.vena.bosk.Identifier;
+import io.vena.bosk.MapValue;
 import io.vena.bosk.Reference;
+import io.vena.bosk.RootReference;
 import io.vena.bosk.StateTreeNode;
 import io.vena.bosk.drivers.mongo.Formatter.DocumentFields;
 import io.vena.bosk.exceptions.FlushFailureException;
@@ -22,6 +24,7 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import lombok.var;
 import org.bson.BsonDocument;
 import org.bson.BsonInt64;
 import org.bson.BsonNull;
@@ -52,7 +55,7 @@ final class SequoiaFormatDriver<R extends StateTreeNode> implements FormatDriver
 	private final MongoDriverSettings settings;
 	private final Formatter formatter;
 	private final MongoCollection<BsonDocument> collection;
-	private final Reference<R> rootRef;
+	private final RootReference<R> rootRef;
 	private final BoskDriver<R> downstream;
 	private final FlushLock flushLock;
 
@@ -136,11 +139,12 @@ final class SequoiaFormatDriver<R extends StateTreeNode> implements FormatDriver
 			BsonDocument document = cursor.next();
 			BsonDocument state = document.getDocument(DocumentFields.state.name(), null);
 			BsonInt64 revision = document.getInt64(DocumentFields.revision.name(), REVISION_ZERO);
+			MapValue<String> diagnosticAttributes = formatter.getDiagnosticAttributesFromFullDocument(document);
 			if (state == null) {
 				throw new IOException("No existing state in document");
 			} else {
 				R root = formatter.document2object(state, rootRef);
-				return new StateAndMetadata<>(root, revision);
+				return new StateAndMetadata<>(root, revision, diagnosticAttributes);
 			}
 		} catch (NoSuchElementException e) {
 			throw new UninitializedCollectionException("No existing document", e);
@@ -152,6 +156,7 @@ final class SequoiaFormatDriver<R extends StateTreeNode> implements FormatDriver
 	public void initializeCollection(StateAndMetadata<R> priorContents) {
 		BsonValue initialState = formatter.object2bsonValue(priorContents.state, rootRef.targetType());
 		BsonInt64 newRevision = new BsonInt64(1 + priorContents.revision.longValue());
+		// Note that priorContents.diagnosticAttributes are ignored, and we use the attributes from this thread
 		BsonDocument update = new BsonDocument("$set", initialDocument(initialState, newRevision));
 		BsonDocument filter = documentFilter();
 		UpdateOptions options = new UpdateOptions().upsert(true);
@@ -219,7 +224,10 @@ final class SequoiaFormatDriver<R extends StateTreeNode> implements FormatDriver
 				// saves us in MongoDriverResiliencyTest.documentReappears_recovers because when the doc
 				// disappears, we don't null out revisionToSkip. TODO: Rethink what's the right way to handle this.
 				LOGGER.debug("| Replace {}", rootRef);
-				downstream.submitReplacement(rootRef, newRoot);
+				MapValue<String> diagnosticAttributes = formatter.getDiagnosticAttributesFromFullDocument(fullDocument);
+				try (var __ = rootRef.diagnosticContext().withOnly(diagnosticAttributes)) {
+					downstream.submitReplacement(rootRef, newRoot);
+				}
 				flushLock.finishedRevision(revision);
 			} break;
 			case UPDATE: {
@@ -227,8 +235,11 @@ final class SequoiaFormatDriver<R extends StateTreeNode> implements FormatDriver
 				if (updateDescription != null) {
 					BsonInt64 revision = formatter.getRevisionFromUpdateEvent(event);
 					if (shouldNotSkip(revision)) {
-						replaceUpdatedFields(updateDescription.getUpdatedFields());
-						deleteRemovedFields(updateDescription.getRemovedFields(), event.getOperationType());
+						MapValue<String> attributes = formatter.getDiagnosticAttributesFromUpdateEvent(event);
+						try (var __ = rootRef.diagnosticContext().withOnly(attributes)) {
+							replaceUpdatedFields(updateDescription.getUpdatedFields());
+							deleteRemovedFields(updateDescription.getRemovedFields(), event.getOperationType());
+						}
 					}
 					flushLock.finishedRevision(revision);
 				}
@@ -340,8 +351,15 @@ final class SequoiaFormatDriver<R extends StateTreeNode> implements FormatDriver
 		String key = dottedFieldNameOf(target, rootRef);
 		BsonValue value = formatter.object2bsonValue(newValue, target.targetType());
 		LOGGER.debug("| Set field {}: {}", key, value);
-		return updateDoc()
-			.append("$set", new BsonDocument(key, value));
+		BsonDocument result = updateDoc();
+		result.compute("$set", (__,existing) -> {
+			if (existing == null) {
+				return new BsonDocument(key, value);
+			} else {
+				return existing.asDocument().append(key, value);
+			}
+		});
+		return result;
 	}
 
 	private <T> BsonDocument deletionDoc(Reference<T> target) {
@@ -351,7 +369,8 @@ final class SequoiaFormatDriver<R extends StateTreeNode> implements FormatDriver
 	}
 
 	private BsonDocument updateDoc() {
-		return new BsonDocument("$inc", new BsonDocument(DocumentFields.revision.name(), new BsonInt64(1)));
+		return new BsonDocument("$inc", new BsonDocument(DocumentFields.revision.name(), new BsonInt64(1)))
+			.append("$set", new BsonDocument(DocumentFields.diagnostics.name(), formatter.encodeDiagnostics(rootRef.diagnosticContext().getAttributes())));
 	}
 
 	private BsonDocument initialDocument(BsonValue initialState, BsonInt64 revision) {
@@ -360,6 +379,7 @@ final class SequoiaFormatDriver<R extends StateTreeNode> implements FormatDriver
 		fieldValues.put(DocumentFields.path.name(), new BsonString("/"));
 		fieldValues.put(DocumentFields.state.name(), initialState);
 		fieldValues.put(DocumentFields.revision.name(), revision);
+		fieldValues.put(DocumentFields.diagnostics.name(), formatter.encodeDiagnostics(rootRef.diagnosticContext().getAttributes()));
 
 		return fieldValues;
 	}

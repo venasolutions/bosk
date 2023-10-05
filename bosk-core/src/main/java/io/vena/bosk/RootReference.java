@@ -42,4 +42,5 @@ public interface RootReference<R> extends Reference<R> {
 	<K extends Entity,V> SideTableReference<K,V> thenSideTable(Class<K> keyClass, Class<V> valueClass, Path path) throws InvalidTypeException;
 	<T> Reference<Reference<T>> thenReference(Class<T> targetClass, Path path) throws InvalidTypeException;
 
+	BoskDiagnosticContext diagnosticContext();
 }
