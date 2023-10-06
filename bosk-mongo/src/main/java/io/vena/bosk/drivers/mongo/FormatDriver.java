@@ -20,6 +20,8 @@ import org.bson.BsonInt64;
  *     Processing change stream events via {@link #onEvent}
  * </li><li>
  *     Implementing {@link #flush()} (consider using {@link FlushLock})
+ * </li><li>
+ *     Propagating {@link io.vena.bosk.BoskDiagnosticContext diagnostic context} downstream.
  * </li></ol>
  *
  * Implementations are not responsible for:
