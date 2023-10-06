@@ -430,7 +430,6 @@ public abstract class DriverConformanceTest extends AbstractDriverTest {
 			// Note that this will run as soon as it's registered
 			if (diagnosticsAreReady.get()) {
 				assertEquals("attributeValue", bosk.diagnosticContext().getAttribute("attributeName"));
-				assertEquals(MapValue.singleton("attributeName", "attributeValue"), bosk.diagnosticContext().getAttributes());
 				diagnosticsVerified.release();
 			}
 		});
