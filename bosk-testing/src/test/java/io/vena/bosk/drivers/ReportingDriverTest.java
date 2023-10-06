@@ -19,6 +19,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 import lombok.var;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -142,7 +143,10 @@ class ReportingDriverTest extends AbstractDriverTest {
 		} catch (IOException | InterruptedException e) {
 			throw new NotYetImplementedException(e);
 		}
-		assertEquals(asList(expectedOps), this.ops);
+		List<UpdateOperation> actual = ops.stream()
+			.map(op -> op.withFilteredAttributes(expectedAttributes.keySet())) // Unexpected attributes are not grounds for failing the test
+			.collect(Collectors.toList());
+		assertEquals(asList(expectedOps), actual);
 	}
 
 	private <T> void assertNodeEquals(T expectedValue, Reference<T> location) {

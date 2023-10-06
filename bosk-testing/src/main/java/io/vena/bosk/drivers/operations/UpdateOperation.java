@@ -3,6 +3,7 @@ package io.vena.bosk.drivers.operations;
 import io.vena.bosk.BoskDriver;
 import io.vena.bosk.MapValue;
 import io.vena.bosk.Reference;
+import java.util.Collection;
 
 public interface UpdateOperation {
 	Reference<?> target();
@@ -13,6 +14,7 @@ public interface UpdateOperation {
 	 */
 	boolean matchesIfApplied(UpdateOperation other);
 
+	UpdateOperation withFilteredAttributes(Collection<String> allowedNames);
 	/**
 	 * Calls the appropriate <code>submit</code> method on the given driver.
 	 * Any {@link io.vena.bosk.BoskDiagnosticContext diagnostic context} is <em>not</em> propagated;

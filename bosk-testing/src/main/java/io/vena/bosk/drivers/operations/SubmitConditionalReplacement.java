@@ -4,6 +4,7 @@ import io.vena.bosk.BoskDriver;
 import io.vena.bosk.Identifier;
 import io.vena.bosk.MapValue;
 import io.vena.bosk.Reference;
+import java.util.Collection;
 import lombok.Value;
 
 @Value
@@ -17,6 +18,11 @@ public class SubmitConditionalReplacement<T> implements ReplacementOperation<T>,
 	@Override
 	public SubmitReplacement<T> unconditional() {
 		return new SubmitReplacement<>(target, newValue, diagnosticAttributes);
+	}
+
+	@Override
+	public SubmitConditionalReplacement<T> withFilteredAttributes(Collection<String> allowedNames) {
+		return new SubmitConditionalReplacement<>(target, newValue, precondition, requiredValue, MapValue.fromFunction(allowedNames, diagnosticAttributes::get));
 	}
 
 	@Override
