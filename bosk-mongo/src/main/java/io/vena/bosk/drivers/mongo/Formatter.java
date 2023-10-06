@@ -24,6 +24,7 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.function.UnaryOperator;
 import java.util.regex.Pattern;
+import lombok.NonNull;
 import org.bson.BsonDocument;
 import org.bson.BsonDocumentReader;
 import org.bson.BsonDocumentWriter;
@@ -39,6 +40,8 @@ import org.bson.codecs.EncoderContext;
 import org.bson.codecs.ValueCodecProvider;
 import org.bson.codecs.configuration.CodecRegistries;
 import org.bson.codecs.configuration.CodecRegistry;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import static io.vena.bosk.ReferenceUtils.rawClass;
 import static java.lang.String.format;
@@ -54,6 +57,13 @@ final class Formatter {
 	private final CodecRegistry simpleCodecs;
 	private final Function<Type, Codec<?>> preferredBoskCodecs;
 	private final Function<Reference<?>, SerializationPlugin.DeserializationScope> deserializationScopeFunction;
+
+	/**
+	 * If the diagnostic attributes are identical from one update to the next,
+	 * MongoDB won't send them. This field retains the last value so we can
+	 * always set the correct context for each downstream operation.
+	 */
+	private volatile MapValue<String> lastEventDiagnosticAttributes = MapValue.empty();
 
 	Formatter(Bosk<?> bosk, BsonPlugin bsonPlugin) {
 		this.simpleCodecs = CodecRegistries.fromProviders(
@@ -233,6 +243,10 @@ final class Formatter {
 		return fullDocument.getInt64(DocumentFields.revision.name(), null);
 	}
 
+	@NonNull MapValue<String> eventDiagnosticAttributesFromFullDocument(BsonDocument fullDocument) {
+		return getOrSetEventDiagnosticAttributes(getDiagnosticAttributesFromFullDocument(fullDocument));
+	}
+
 	MapValue<String> getDiagnosticAttributesFromFullDocument(BsonDocument fullDocument) {
 		if (fullDocument == null) {
 			return null;
@@ -245,29 +259,19 @@ final class Formatter {
 	}
 
 	BsonInt64 getRevisionFromUpdateEvent(ChangeStreamDocument<BsonDocument> event) {
-		if (event == null) {
-			return null;
-		}
-		UpdateDescription updateDescription = event.getUpdateDescription();
-		if (updateDescription == null) {
-			return null;
-		}
-		BsonDocument updatedFields = updateDescription.getUpdatedFields();
+		BsonDocument updatedFields = getUpdatedFieldsIfAny(event);
 		if (updatedFields == null) {
 			return null;
 		}
 		return updatedFields.getInt64(DocumentFields.revision.name(), null);
 	}
 
+	@NonNull MapValue<String> eventDiagnosticAttributesFromUpdate(ChangeStreamDocument<BsonDocument> event) {
+		return getOrSetEventDiagnosticAttributes(getDiagnosticAttributesFromUpdateEvent(event));
+	}
+
 	MapValue<String> getDiagnosticAttributesFromUpdateEvent(ChangeStreamDocument<BsonDocument> event) {
-		if (event == null) {
-			return null;
-		}
-		UpdateDescription updateDescription = event.getUpdateDescription();
-		if (updateDescription == null) {
-			return null;
-		}
-		BsonDocument updatedFields = updateDescription.getUpdatedFields();
+		BsonDocument updatedFields = getUpdatedFieldsIfAny(event);
 		if (updatedFields == null) {
 			return null;
 		}
@@ -276,6 +280,27 @@ final class Formatter {
 			return null;
 		}
 		return decodeDiagnosticAttributes(diagnostics);
+	}
+
+	private static BsonDocument getUpdatedFieldsIfAny(ChangeStreamDocument<BsonDocument> event) {
+		if (event == null) {
+			return null;
+		}
+		UpdateDescription updateDescription = event.getUpdateDescription();
+		if (updateDescription == null) {
+			return null;
+		}
+		return updateDescription.getUpdatedFields();
+	}
+
+	@NonNull private MapValue<String> getOrSetEventDiagnosticAttributes(MapValue<String> fromEvent) {
+		if (fromEvent == null) {
+			LOGGER.debug("No diagnostic attributes in event; assuming they are unchanged");
+			return lastEventDiagnosticAttributes;
+		} else {
+			lastEventDiagnosticAttributes = fromEvent;
+			return fromEvent;
+		}
 	}
 
 	/**
@@ -450,4 +475,6 @@ final class Formatter {
 			return (char)('A' + value - 10);
 		}
 	}
+
+	private static final Logger LOGGER = LoggerFactory.getLogger(Formatter.class);
 }

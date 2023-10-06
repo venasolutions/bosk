@@ -427,6 +427,8 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest {
 	@ParametersByName
 	@UsesMongoService
 	void manifestVersionBump_disconnects() throws IOException, InterruptedException {
+		setLogging(ERROR, MongoDriver.class.getPackage()); // We're expecting some warnings here
+
 		Bosk<TestEntity> bosk = new Bosk<TestEntity>(
 			"bosk",
 			TestEntity.class,

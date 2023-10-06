@@ -224,7 +224,7 @@ final class SequoiaFormatDriver<R extends StateTreeNode> implements FormatDriver
 				// saves us in MongoDriverResiliencyTest.documentReappears_recovers because when the doc
 				// disappears, we don't null out revisionToSkip. TODO: Rethink what's the right way to handle this.
 				LOGGER.debug("| Replace {}", rootRef);
-				MapValue<String> diagnosticAttributes = formatter.getDiagnosticAttributesFromFullDocument(fullDocument);
+				MapValue<String> diagnosticAttributes = formatter.eventDiagnosticAttributesFromFullDocument(fullDocument);
 				try (var __ = rootRef.diagnosticContext().withOnly(diagnosticAttributes)) {
 					downstream.submitReplacement(rootRef, newRoot);
 				}
@@ -235,8 +235,8 @@ final class SequoiaFormatDriver<R extends StateTreeNode> implements FormatDriver
 				if (updateDescription != null) {
 					BsonInt64 revision = formatter.getRevisionFromUpdateEvent(event);
 					if (shouldNotSkip(revision)) {
-						MapValue<String> attributes = formatter.getDiagnosticAttributesFromUpdateEvent(event);
-						try (var __ = rootRef.diagnosticContext().withOnly(attributes)) {
+						MapValue<String> diagnosticAttributes = formatter.eventDiagnosticAttributesFromUpdate(event);
+						try (var __ = rootRef.diagnosticContext().withOnly(diagnosticAttributes)) {
 							replaceUpdatedFields(updateDescription.getUpdatedFields());
 							deleteRemovedFields(updateDescription.getRemovedFields(), event.getOperationType());
 						}

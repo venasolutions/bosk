@@ -47,7 +47,8 @@ public class DriverStateVerifier<R extends StateTreeNode> {
 	 */
 	final BoskDriver<R> stateTrackingDriver;
 
-	final Map<Thread, Deque<UpdateOperation>> pendingOperations = new ConcurrentHashMap<>();
+	final Map<String, Deque<UpdateOperation>> pendingOperationsByThreadName = new ConcurrentHashMap<>();
+	static final String THREAD_NAME = "thread.name";
 
 	public static <RR extends StateTreeNode> DriverFactory<RR> wrap(DriverFactory<RR> subject, Type rootType, Bosk.DefaultRootFunction<RR> defaultRootFunction) {
 		Bosk<RR> stateTrackingBosk = new Bosk<>(
@@ -60,6 +61,7 @@ public class DriverStateVerifier<R extends StateTreeNode> {
 			MirroringDriver.redirectingTo(stateTrackingBosk)
 		);
 		return DriverStack.of(
+			DiagnosticScopeDriver.factory(dc -> dc.withAttribute(THREAD_NAME, currentThread().getName())),
 			ReportingDriver.factory(verifier::incomingUpdate, verifier::incomingFlush),
 			subject,
 			ReportingDriver.factory(verifier::outgoingUpdate, verifier::outgoingFlush)
@@ -73,8 +75,8 @@ public class DriverStateVerifier<R extends StateTreeNode> {
 	private void incomingUpdate(UpdateOperation updateOperation) {
 		LOGGER.debug("---> IN: {}", updateOperation);
 		// Note: because we have a separate queue for each thread, this isn't actually blocking
-		pendingOperations
-			.computeIfAbsent(currentThread(), t -> new LinkedBlockingDeque<>())
+		pendingOperationsByThreadName
+			.computeIfAbsent(updateOperation.diagnosticAttributes().get(THREAD_NAME), t -> new LinkedBlockingDeque<>())
 			.addLast(updateOperation);
 	}
 
@@ -95,34 +97,39 @@ public class DriverStateVerifier<R extends StateTreeNode> {
 			LOGGER.trace("\t\tbefore: {}", before);
 			LOGGER.trace("\t\t after: {}", after);
 
-			for (var e : pendingOperations.entrySet()) {
-				Thread thread = e.getKey();
-				Deque<UpdateOperation> q = e.getValue();
-				LOGGER.trace("\tChecking {} with {} queued operations", thread.getName(), q.size());
-				for (UpdateOperation expected : q) {
-					Object expectedBefore = currentStateBefore(expected); // May not equal `before` if the two operations have different targets
-					Object expectedAfter = hypotheticalStateAfter(expected);
-					LOGGER.trace("\t\texpectedAfter: {}", expectedAfter);
-					if (op.matchesIfApplied(expected) && Objects.equals(after, expectedAfter)) {
-						LOGGER.debug("\tConclusion: found match: {}", expected);
-						UpdateOperation discarded;
-						while ((discarded = q.removeFirst()) != expected) {
-							LOGGER.trace("\t\tdiscard preceding no-op: {}", discarded);
+			String threadName = op.diagnosticAttributes().get(THREAD_NAME);
+			if (threadName == null) {
+				LOGGER.debug("\tMissing " + THREAD_NAME + " diagnostic attribute");
+			} else {
+				Deque<UpdateOperation> q = pendingOperationsByThreadName.get(threadName);
+				if (q == null) {
+					LOGGER.debug("\tNo queued events for thread \"{}\"", threadName);
+				} else {
+					LOGGER.trace("\tThread \"{}\" has {} queued operations", threadName, q.size());
+					for (UpdateOperation expected : q) {
+						Object expectedBefore = currentStateBefore(expected); // May not equal `before` if the two operations have different targets
+						Object expectedAfter = hypotheticalStateAfter(expected);
+						LOGGER.trace("\t\texpectedAfter: {}", expectedAfter);
+						if (op.matchesIfApplied(expected) && Objects.equals(after, expectedAfter)) {
+							LOGGER.debug("\tConclusion: found match: {}", expected);
+							UpdateOperation discarded;
+							while ((discarded = q.removeFirst()) != expected) {
+								LOGGER.trace("\t\tdiscard preceding no-op: {}", discarded);
+							}
+							expected.submitTo(stateTrackingDriver);
+							return;
+						} else if (Objects.equals(expectedBefore, expectedAfter)) {
+							LOGGER.trace("\t\tSkip queued no-op: {}", expected);
+						} else {
+							LOGGER.trace("\t\tNo match for: {}", expected);
+							break;
 						}
-						expected.submitTo(stateTrackingDriver);
-						return;
-					} else if (Objects.equals(expectedBefore, expectedAfter)) {
-						LOGGER.trace("\t\tSkip queued no-op: {}", expected);
-					} else {
-						LOGGER.trace("\t\tNo match on thread {}: {}", thread.getName(), expected);
-						break;
 					}
 				}
 			}
 
 			if (Objects.equals(before, after)) {
-				LOGGER.debug("\tConclusion: dropped no-op: {}", op);
-				return;
+				LOGGER.debug("\tConclusion: spontaneous no-op: {}", op);
 			} else {
 				throw new AssertionError("No matching operation\n\t" + op);
 			}
@@ -133,9 +140,9 @@ public class DriverStateVerifier<R extends StateTreeNode> {
 
 	private void outgoingFlush() {
 		LOGGER.debug("outgoingFlush()");
-		pendingOperations.forEach((thread, q) -> {
+		pendingOperationsByThreadName.forEach((thread, q) -> {
 			if (!q.isEmpty()) {
-				throw new AssertionError(q.size() + " pending operations remain on thread " + thread.getName()
+				throw new AssertionError(q.size() + " pending operations remain on thread " + thread
 					+ "\n\tFirst is: " + q.getFirst());
 			}
 		});

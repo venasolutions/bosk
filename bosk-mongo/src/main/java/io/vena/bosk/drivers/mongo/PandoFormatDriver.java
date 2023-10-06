@@ -295,7 +295,7 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 					return;
 				}
 
-				MapValue<String> diagnosticAttributes = formatter.getDiagnosticAttributesFromFullDocument(fullDocument);
+				MapValue<String> diagnosticAttributes = formatter.eventDiagnosticAttributesFromFullDocument(fullDocument);
 				try (var __ = rootRef.diagnosticContext().withOnly(diagnosticAttributes)) {
 					BsonDocument state = fullDocument.getDocument(DocumentFields.state.name());
 					if (state == null) {
@@ -317,7 +317,7 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 					LOGGER.debug("Skipping revision {}", revision.longValue());
 					return;
 				}
-				MapValue<String> attributes = formatter.getDiagnosticAttributesFromUpdateEvent(finalEvent);
+				MapValue<String> attributes = formatter.eventDiagnosticAttributesFromUpdate(finalEvent);
 				try (var __ = rootRef.diagnosticContext().withOnly(attributes)) {
 					boolean mainEventIsFinalEvent = updateEventHasField(finalEvent, DocumentFields.state); // If the final update changes only the revision field, then it's not the main event
 					if (mainEventIsFinalEvent) {
