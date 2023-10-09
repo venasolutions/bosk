@@ -496,7 +496,7 @@ public class Bosk<R extends StateTreeNode> {
 		localDriver.triggerEverywhere(reg);
 	}
 
-	public Iterable<HookRegistration<?>> allRegisteredHooks() {
+	public List<HookRegistration<?>> allRegisteredHooks() {
 		return unmodifiableList(hooks);
 	}
 
