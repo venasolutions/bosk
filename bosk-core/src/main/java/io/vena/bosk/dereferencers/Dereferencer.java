@@ -20,6 +20,12 @@ import io.vena.bosk.Reference;
  */
 public interface Dereferencer {
 	/**
+	 * <em>Evolution note:</em>
+	 * Note that dereferencer throws if the entry is nonexistent.
+	 * This was intended to short-circuit the evaluation, but actually
+	 * has the effect of doing a stack walk even for callers like {@link Reference#valueIfExists()}
+	 * that are anticipating nulls. TODO: Find a way to return null instead of throwing here.
+	 *
 	 * @param source the bosk root object
 	 * @param ref points to the object to get
 	 * @return the object pointed to by <code>ref</code>
