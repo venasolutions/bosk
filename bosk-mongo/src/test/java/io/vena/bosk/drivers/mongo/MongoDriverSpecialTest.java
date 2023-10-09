@@ -58,12 +58,12 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  */
 class MongoDriverSpecialTest extends AbstractMongoDriverTest {
 	@ParametersByName
-	public MongoDriverSpecialTest(MongoDriverSettingsBuilder driverSettings) {
-		super(driverSettings);
+	public MongoDriverSpecialTest(TestParameters.ParameterSet parameters) {
+		super(parameters.driverSettingsBuilder());
 	}
 
 	@SuppressWarnings("unused")
-	static Stream<MongoDriverSettingsBuilder> driverSettings() {
+	static Stream<TestParameters.ParameterSet> parameters() {
 		return TestParameters.driverSettings(
 			Stream.of(
 				SEQUOIA,
