@@ -90,6 +90,7 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 				.getDatabase(driverSettings.database())
 				.getCollection(COLLECTION_NAME, BsonDocument.class);
 			this.collection = TransactionalCollection.of(rawCollection, mongoClient);
+			LOGGER.debug("Using database \"{}\" collection \"{}\"", driverSettings.database(), COLLECTION_NAME);
 
 			Type rootType = bosk.rootReference().targetType();
 			this.listener = new Listener(new FutureTask<>(() -> doInitialRoot(rootType)));

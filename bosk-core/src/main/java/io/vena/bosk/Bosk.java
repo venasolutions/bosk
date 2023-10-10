@@ -26,7 +26,6 @@ import lombok.Getter;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.Value;
-import lombok.var;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -497,7 +496,7 @@ public class Bosk<R extends StateTreeNode> {
 		localDriver.triggerEverywhere(reg);
 	}
 
-	public Iterable<HookRegistration<?>> allRegisteredHooks() {
+	public List<HookRegistration<?>> allRegisteredHooks() {
 		return unmodifiableList(hooks);
 	}
 

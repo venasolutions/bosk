@@ -45,23 +45,23 @@ public class MongoDriverResiliencyTest extends AbstractMongoDriverTest {
 	}
 
 	@ParametersByName
-	MongoDriverResiliencyTest(FlushOrWait flushOrWait, MongoDriverSettings.MongoDriverSettingsBuilder driverSettings) {
-		super(driverSettings);
+	MongoDriverResiliencyTest(FlushOrWait flushOrWait, TestParameters.ParameterSet parameters) {
+		super(parameters.driverSettingsBuilder());
 		this.flushOrWait = flushOrWait;
 	}
 
 	@SuppressWarnings("unused")
-	static Stream<MongoDriverSettings.MongoDriverSettingsBuilder> driverSettings() {
+	static Stream<TestParameters.ParameterSet> parameters() {
 		return TestParameters.driverSettings(
 			Stream.of(
 				PandoFormat.withSeparateCollections("/catalog", "/sideTable"),
 				SEQUOIA
 			),
 			Stream.of(EventTiming.NORMAL)
-		).map(b -> b
+		).map(b -> b.applyDriverSettings(s -> s
 			.recoveryPollingMS(1500) // Note that some tests can take as long as 10x this
 			.flushTimeoutMS(2000) // A little more than recoveryPollingMS
-		);
+		));
 	}
 
 	enum FlushOrWait { FLUSH, WAIT };

@@ -3,8 +3,8 @@ package io.vena.bosk.drivers.mongo;
 import io.vena.bosk.DriverFactory;
 import io.vena.bosk.StateTreeNode;
 import io.vena.bosk.drivers.DriverConformanceTest;
-import io.vena.bosk.drivers.mongo.MongoDriverSettings.MongoDriverSettingsBuilder;
 import io.vena.bosk.drivers.mongo.TestParameters.EventTiming;
+import io.vena.bosk.drivers.mongo.TestParameters.ParameterSet;
 import io.vena.bosk.junit.ParametersByName;
 import java.util.ArrayDeque;
 import java.util.Deque;
@@ -22,12 +22,12 @@ class MongoDriverConformanceTest extends DriverConformanceTest {
 	private final MongoDriverSettings driverSettings;
 
 	@ParametersByName
-	public MongoDriverConformanceTest(MongoDriverSettingsBuilder driverSettings) {
-		this.driverSettings = driverSettings.build();
+	public MongoDriverConformanceTest(ParameterSet parameters) {
+		this.driverSettings = parameters.driverSettingsBuilder().build();
 	}
 
 	@SuppressWarnings("unused")
-	static Stream<MongoDriverSettingsBuilder> driverSettings() {
+	static Stream<ParameterSet> parameters() {
 		return TestParameters.driverSettings(
 			Stream.of(
 				PandoFormat.oneBigDocument(),
