@@ -56,7 +56,7 @@ public class HooksTest extends AbstractBoskTest {
 
 	@ParameterizedTest
 	@EnumSource(Variant.class)
-	void testNothingBeforeRegistration(Variant variant) {
+	void beforeRegistration_noHooks(Variant variant) {
 		variant.submit.replacement(bosk, refs, refs.childString(child2), "Too early");
 		assertEquals(emptyList(), recorder.events(), "Hook shouldn't see updates unless they are registered");
 	}
@@ -67,7 +67,7 @@ public class HooksTest extends AbstractBoskTest {
 	//
 
 	@Test
-	void testBasic_hooksRunWhenRegistered() {
+	void basic_hooksRunWhenRegistered() {
 		bosk.registerHook("child2", refs.child(child2), recorder.hookNamed("child2"));
 		assertEquals(
 			singletonList(
@@ -78,7 +78,7 @@ public class HooksTest extends AbstractBoskTest {
 
 	@ParameterizedTest
 	@EnumSource(Variant.class)
-	void testBasic_noIrrelevantHooks(Variant variant) {
+	void basic_noIrrelevantHooks(Variant variant) {
 		bosk.registerHook("child2", refs.child(child2), recorder.hookNamed("child2"));
 		recorder.restart();
 		variant.submit.replacement(bosk, refs, refs.childString(child1), "Child 1 only");
@@ -87,7 +87,7 @@ public class HooksTest extends AbstractBoskTest {
 
 	@ParameterizedTest
 	@EnumSource(Variant.class)
-	void testBasic_objectReplacement(Variant variant) {
+	void basic_objectReplacement(Variant variant) {
 		registerInterleavedHooks();
 
 		TestChild newChild = originalChild2.withString(originalChild2.string() + " v2");
@@ -99,7 +99,7 @@ public class HooksTest extends AbstractBoskTest {
 
 	@ParameterizedTest
 	@EnumSource(Variant.class)
-	void testBasic_fieldReplacement(Variant variant) {
+	void basic_fieldReplacement(Variant variant) {
 		registerInterleavedHooks();
 
 		String stringV3 = originalChild2.string() + " v3";
@@ -112,7 +112,7 @@ public class HooksTest extends AbstractBoskTest {
 
 	@ParameterizedTest
 	@EnumSource(Variant.class)
-	void testBasic_parentReplacementSameChildren(Variant variant) {
+	void basic_parentReplacementSameChildren(Variant variant) {
 		registerInterleavedHooks();
 
 		TestEntity newParent = originalParent.withString(originalParent.string() + " v2");
@@ -128,7 +128,7 @@ public class HooksTest extends AbstractBoskTest {
 
 	@ParameterizedTest
 	@EnumSource(Variant.class)
-	void testBasic_parentReplacementReplacedChild(Variant variant) {
+	void basic_parentReplacementReplacedChild(Variant variant) {
 		registerInterleavedHooks();
 
 		String replacement = "replacement";
@@ -149,7 +149,7 @@ public class HooksTest extends AbstractBoskTest {
 
 	@ParameterizedTest
 	@EnumSource(Variant.class)
-	void testBasic_parentReplacementChildDisappearedAndModified(Variant variant) {
+	void basic_parentReplacementChildDisappearedAndModified(Variant variant) {
 		registerInterleavedHooks();
 
 		TestChild newChild1 = originalChild1.withString("replacement1");
@@ -177,7 +177,7 @@ public class HooksTest extends AbstractBoskTest {
 
 	@ParameterizedTest
 	@EnumSource(Variant.class)
-	void testBasic_parentCreation(Variant variant) {
+	void basic_parentCreation(Variant variant) {
 		variant.submit.deletion(bosk, refs, refs.parent());
 		registerInterleavedHooks();
 		variant.submit.replacement(bosk, refs, refs.parent(), originalParent); // Time travel!
@@ -198,7 +198,7 @@ public class HooksTest extends AbstractBoskTest {
 
 	@ParameterizedTest
 	@EnumSource(Variant.class)
-	void testBasic_parentDeletion(Variant variant) {
+	void basic_parentDeletion(Variant variant) {
 		registerInterleavedHooks();
 		variant.submit.deletion(bosk, refs, refs.parent());
 
@@ -219,7 +219,7 @@ public class HooksTest extends AbstractBoskTest {
 
 	@ParameterizedTest
 	@EnumSource(Variant.class)
-	void testBasic_objectDeletion(Variant variant) {
+	void basic_objectDeletion(Variant variant) {
 		registerInterleavedHooks();
 
 		variant.submit.deletion(bosk, refs, refs.child(child2));
@@ -237,7 +237,7 @@ public class HooksTest extends AbstractBoskTest {
 
 	@ParameterizedTest
 	@EnumSource(Variant.class)
-	void testBasic_nonexistentObjectDeletion(Variant variant) {
+	void basic_nonexistentObjectDeletion(Variant variant) {
 		registerInterleavedHooks();
 
 		variant.submit.deletion(bosk, refs, refs.anyChild().boundTo(Identifier.from("nonexistent"), Identifier.from("child1")));
@@ -248,7 +248,7 @@ public class HooksTest extends AbstractBoskTest {
 	}
 
 	@Test
-	void testBasic_initialization() {
+	void basic_initialization() {
 		registerInterleavedHooks();
 
 		Identifier child4ID = Identifier.from("child4");
@@ -268,7 +268,7 @@ public class HooksTest extends AbstractBoskTest {
 	}
 
 	@Test
-	void testBasic_reinitialization() {
+	void basic_reinitialization() {
 		registerInterleavedHooks();
 
 		TestChild newValue = originalChild1
@@ -283,7 +283,7 @@ public class HooksTest extends AbstractBoskTest {
 	}
 
 	@Test
-	void testBasic_initializationInNonexistentParent() {
+	void basic_initializationInNonexistentParent() {
 		registerInterleavedHooks();
 
 		Identifier child4ID = Identifier.from("child4");
@@ -329,7 +329,7 @@ public class HooksTest extends AbstractBoskTest {
 	//
 
 	@Test
-	void testNested_breadthFirst() throws IOException, InterruptedException {
+	void nested_breadthFirst() throws IOException, InterruptedException {
 		AtomicBoolean initializing = new AtomicBoolean(true);
 
 		// Child 1 update triggers A and B, and A triggers C
@@ -399,7 +399,7 @@ public class HooksTest extends AbstractBoskTest {
 	}
 
 	@Test
-	void testNestedMultipleUpdates_breadthFirst() {
+	void nestedMultipleUpdates_breadthFirst() {
 		// Register hooks to propagate string updates from parent -> child 1 -> 2 -> 3 with a tag
 		bosk.registerHook("+P", refs.parentString(), recorder.hookNamed("P", ref -> {
 			bosk.driver().submitReplacement(refs.childString(child1), ref.value() + "+P");
@@ -450,7 +450,7 @@ public class HooksTest extends AbstractBoskTest {
 	}
 
 	@Test
-	void testNested_correctReadContext() {
+	void nested_correctReadContext() {
 		bosk.registerHook("stringCopier", refs.child(child2), recorder.hookNamed("stringCopier", ref ->
 			bosk.driver().submitReplacement(refs.childString(child1), ref.value().string())));
 		recorder.restart();
