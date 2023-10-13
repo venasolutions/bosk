@@ -14,7 +14,7 @@ import static io.vena.bosk.bytecode.ClassBuilder.here;
 
 class ReferenceBuilder {
 	@SuppressWarnings({"unchecked","rawtypes"})
-	static <T, R extends StateTreeNode> T buildReferences(Class<T> refsClass, Bosk<R> bosk) throws InvalidTypeException {
+	static <T> T buildReferences(Class<T> refsClass, Bosk<?> bosk) throws InvalidTypeException {
 		ClassBuilder<T> cb = new ClassBuilder<>(
 			"REFS_" + refsClass.getSimpleName(),
 			refsClass,
@@ -24,7 +24,7 @@ class ReferenceBuilder {
 
 		cb.beginClass();
 
-		for (Method method: refsClass.getDeclaredMethods()) {
+		for (Method method: refsClass.getDeclaredMethods()) { // TODO: Inherited methods
 			ReferencePath referencePath = method.getAnnotation(ReferencePath.class);
 			if (referencePath == null) {
 				throw new InvalidTypeException("Missing " + ReferencePath.class.getSimpleName() + " annotation on " + methodName(method));

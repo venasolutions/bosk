@@ -64,7 +64,7 @@ public class MongoDriverResiliencyTest extends AbstractMongoDriverTest {
 		));
 	}
 
-	enum FlushOrWait { FLUSH, WAIT };
+	enum FlushOrWait { FLUSH, WAIT }
 
 	@SuppressWarnings("unused")
 	static Stream<FlushOrWait> flushOrWait() {

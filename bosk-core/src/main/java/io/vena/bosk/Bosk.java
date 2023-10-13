@@ -496,6 +496,10 @@ public class Bosk<R extends StateTreeNode> {
 		localDriver.triggerEverywhere(reg);
 	}
 
+	public void registerHooks(Object receiver) throws InvalidTypeException {
+		HookRegistrar.registerHooks(receiver, this);
+	}
+
 	public List<HookRegistration<?>> allRegisteredHooks() {
 		return unmodifiableList(hooks);
 	}
