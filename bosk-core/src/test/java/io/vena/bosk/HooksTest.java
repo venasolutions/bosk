@@ -4,6 +4,7 @@ import io.vena.bosk.HookRecorder.Event;
 import io.vena.bosk.annotations.ReferencePath;
 import io.vena.bosk.exceptions.InvalidTypeException;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.val;
@@ -470,6 +471,33 @@ public class HooksTest extends AbstractBoskTest {
 
 		try (val __ = bosk.readContext()) {
 			assertEquals(expectedString, refs.childString(child2).value(), "Correct value got copied");
+		}
+	}
+
+	@Test
+	void registerHooks_works() throws InvalidTypeException {
+		HookReceiver receiver = new HookReceiver(bosk);
+		bosk.driver().submitReplacement(refs.childString(child1), "New value");
+		List<List<Object>> expected = asList(
+			// At registration time, the hook is called on all existing nodes
+			asList(refs.childString(child1), BindingEnvironment.singleton("child", child1), "child1"),
+			asList(refs.childString(child2), BindingEnvironment.singleton("child", child2), "child2"),
+			asList(refs.childString(child3), BindingEnvironment.singleton("child", child3), "child3"),
+			// Then the replacement causes another call
+			asList(refs.childString(child1), BindingEnvironment.singleton("child", child1), "New value")
+		);
+		assertEquals(expected, receiver.hookCalls);
+	}
+
+	public static class HookReceiver {
+		final List<List<Object>> hookCalls = new ArrayList<>();
+		public HookReceiver(Bosk<?> bosk) throws InvalidTypeException {
+			bosk.registerHooks(this);
+		}
+
+		@ReferencePath("/entities/parent/children/-child-/string")
+		void childStringChanged(Reference<String> ref, BindingEnvironment env) {
+			hookCalls.add(asList(ref, env, ref.valueIfExists()));
 		}
 	}
 
