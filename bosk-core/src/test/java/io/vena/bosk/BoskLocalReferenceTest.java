@@ -34,6 +34,7 @@ import static java.util.stream.Collectors.toList;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -333,9 +334,9 @@ class BoskLocalReferenceTest {
 
 		try (val __ = bosk.readContext()) {
 			if (expectedValue == null) {
-				assertEquals(null, ref.then(Catalog.class, TestEntity.Fields.catalog).valueIfExists());
-				assertEquals(null, ref.then(Listing.class, TestEntity.Fields.listing).valueIfExists());
-				assertEquals(null, ref.then(SideTable.class, TestEntity.Fields.sideTable).valueIfExists());
+				assertNull(ref.then(Catalog.class, TestEntity.Fields.catalog).valueIfExists());
+				assertNull(ref.then(Listing.class, TestEntity.Fields.listing).valueIfExists());
+				assertNull(ref.then(SideTable.class, TestEntity.Fields.sideTable).valueIfExists());
 			} else {
 				assertEquals(expectedValue.catalog(), ref.then(Catalog.class, TestEntity.Fields.catalog).value());
 				assertEquals(expectedValue.listing(), ref.then(Listing.class, TestEntity.Fields.listing).value());

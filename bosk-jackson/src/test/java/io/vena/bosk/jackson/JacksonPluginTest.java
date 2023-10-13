@@ -283,7 +283,7 @@ class JacksonPluginTest extends AbstractBoskTest {
 		);
 		LinkedHashMap<Object, Object> expectedB = new LinkedHashMap<>();
 		expectedB.put("listOfA", asList(3.0, 4.0));
-		expectedB.put("listOfB", asList("string1, string2"));
+		expectedB.put("listOfB", singletonList("string1, string2"));
 		Map<String, Object> expected = new LinkedHashMap<>();
 		expected.put("listOfA", asList(1, 2));
 		expected.put("listOfB", singletonList(expectedB));

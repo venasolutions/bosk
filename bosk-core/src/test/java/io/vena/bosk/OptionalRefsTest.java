@@ -15,6 +15,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.StringContains.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class OptionalRefsTest extends AbstractRoundTripTest {
@@ -121,7 +122,7 @@ class OptionalRefsTest extends AbstractRoundTripTest {
 		@SuppressWarnings("unchecked")
 		Reference<V> optionalRef = bosk.rootReference().then((Class<V>)value.getClass(), "field");
 		try (val context = bosk.readContext()) {
-			assertEquals(null, optionalRef.valueIfExists());
+			assertNull(optionalRef.valueIfExists());
 		}
 		bosk.driver().submitReplacement(optionalRef, value);
 		try (val context = bosk.readContext()) {
@@ -129,7 +130,7 @@ class OptionalRefsTest extends AbstractRoundTripTest {
 		}
 		bosk.driver().submitDeletion(optionalRef);
 		try (val context = bosk.readContext()) {
-			assertEquals(null, optionalRef.valueIfExists());
+			assertNull(optionalRef.valueIfExists());
 		}
 
 		// Try other ways of getting the same reference
