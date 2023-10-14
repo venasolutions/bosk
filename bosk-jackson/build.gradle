@@ -2,7 +2,7 @@
 plugins {
 	id 'bosk.development'
 	id 'bosk.maven-publish'
-	id 'com.github.spotbugs' version '5.1.3'
+	id 'com.github.spotbugs' version '5.1.5'
 }
 
 java {
@@ -11,7 +11,7 @@ java {
 }
 
 dependencies {
-	api 'com.fasterxml.jackson.core:jackson-databind:2.15.1'
+	api 'com.fasterxml.jackson.core:jackson-databind:2.15.3'
 	api project(":bosk-core")
 
 	testImplementation project(":lib-testing")

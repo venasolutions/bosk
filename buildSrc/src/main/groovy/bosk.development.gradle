@@ -49,27 +49,27 @@ dependencies {
 
 // Developer aids
 dependencies {
-	annotationProcessor "org.projectlombok:lombok:1.18.24"
-	compileOnly "org.projectlombok:lombok:1.18.24"
-	testAnnotationProcessor "org.projectlombok:lombok:1.18.24"
-	testCompileOnly "org.projectlombok:lombok:1.18.24"
+	annotationProcessor "org.projectlombok:lombok:1.18.30"
+	compileOnly "org.projectlombok:lombok:1.18.30"
+	testAnnotationProcessor "org.projectlombok:lombok:1.18.30"
+	testCompileOnly "org.projectlombok:lombok:1.18.30"
 
-	testImplementation "org.junit.jupiter:junit-jupiter-api:5.9.1"
-	testImplementation "org.junit.jupiter:junit-jupiter-params:5.9.1"
-	testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:5.9.1"
+	testImplementation "org.junit.jupiter:junit-jupiter-api:5.10.0"
+	testImplementation "org.junit.jupiter:junit-jupiter-params:5.10.0"
+	testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:5.10.0"
 
-	testImplementation "org.testcontainers:testcontainers:1.17.6"
-	testImplementation "org.testcontainers:junit-jupiter:1.17.6"
-	testImplementation "org.testcontainers:toxiproxy:1.17.6"
+	testImplementation "org.testcontainers:testcontainers:1.19.1"
+	testImplementation "org.testcontainers:junit-jupiter:1.19.1"
+	testImplementation "org.testcontainers:toxiproxy:1.19.1"
 
 	testImplementation "org.hamcrest:hamcrest:2.2"
 	testImplementation "org.hamcrest:hamcrest-library:2.2"
 
 	implementation "org.slf4j:slf4j-api:1.7.36"
-	testImplementation "ch.qos.logback:logback-classic:1.4.5"
+	testImplementation "ch.qos.logback:logback-classic:1.4.11"
 
-	testImplementation 'org.openjdk.jmh:jmh-core:1.36'
-	testAnnotationProcessor 'org.openjdk.jmh:jmh-generator-annprocess:1.36'
+	testImplementation 'org.openjdk.jmh:jmh-core:1.37'
+	testAnnotationProcessor 'org.openjdk.jmh:jmh-generator-annprocess:1.37'
 
 }
 

@@ -20,6 +20,12 @@
 		<Bug code="DP"/> <!-- doPrivileged is deprecated for removal -->
 	</Match>
 	<Match>
+		<Bug code="CT"/> <!-- Finalizers are deprecated for removal -->
+	</Match>
+	<Match>
+		<Bug code="PI"/> <!-- Some of our type names match those of the Java Standard Library -->
+	</Match>
+	<Match>
 		<Class name="io.vena.bosk.Path"/>
 		<Method name="empty"/>
 		<Bug code="MS"/>
