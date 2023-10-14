@@ -1,6 +1,7 @@
 package io.vena.bosk;
 
 import io.vena.bosk.HookRecorder.Event;
+import io.vena.bosk.annotations.Hook;
 import io.vena.bosk.annotations.ReferencePath;
 import io.vena.bosk.exceptions.InvalidTypeException;
 import java.io.IOException;
@@ -495,7 +496,7 @@ public class HooksTest extends AbstractBoskTest {
 			bosk.registerHooks(this);
 		}
 
-		@ReferencePath("/entities/parent/children/-child-/string")
+		@Hook("/entities/parent/children/-child-/string")
 		void childStringChanged(Reference<String> ref, BindingEnvironment env) {
 			hookCalls.add(asList(ref, env, ref.valueIfExists()));
 		}
