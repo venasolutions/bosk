@@ -651,6 +651,9 @@ public class Bosk<R extends StateTreeNode> {
 			originalRoot = rootSnapshot.get();
 			if (originalRoot == null) {
 				snapshot = currentRoot;
+				if (snapshot == null) {
+					throw new IllegalStateException("Bosk constructor has not yet finished; cannot create a ReadContext");
+				}
 				rootSnapshot.set(snapshot);
 				LOGGER.trace("New {}", this);
 			} else {
