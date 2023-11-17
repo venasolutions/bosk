@@ -108,9 +108,7 @@ In particular, references from two different bosks can be equal.
 It has no functionality.
 
 `Entity` is a `StateTreeNode` that has a method `id()` returning an `Identifier`.
-Certain objects in a bosk are required to be entities:
-- The root object
-- Any `Catalog` entry
+This allows them to be stored in a `Catalog` (see below).
 
 A node's contents are defined by the names and types of its constructor's arguments.
 Each argument must have a corresponding getter method with the same name, taking no arguments, and returning the same type.
