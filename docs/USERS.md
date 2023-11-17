@@ -413,6 +413,7 @@ since the read context continues using the state snapshot acquired when the read
 
 `Flush` does not guarantee that any hooks triggered by the applied updates will have been called yet.
 To wait for a particular hook to run, the hook and application code must cooperate using a synchronization mechanism such as a semaphore.
+(Be aware, though, that hooks can be called more than once, so make sure your semaphore code can cope with this case.)
 
 ### Hooks
 
