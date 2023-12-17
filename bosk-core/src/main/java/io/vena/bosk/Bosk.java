@@ -26,6 +26,7 @@ import lombok.Getter;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.Value;
+import lombok.val;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -289,7 +290,7 @@ public class Bosk<R extends StateTreeNode> {
 			// On the other hand, there's a certain symmetry to requiring the references to have the right
 			// bosk for both reads and writes, and forcing this discipline on users might help them avoid
 			// some pretty confusing mistakes.
-			assert ((RootRef) target.root()).bosk() == Bosk.this: "Reference supplied to driver operation must refer to the correct bosk";
+			assert ((Bosk<?>.RootRef)target.root()).bosk() == Bosk.this: "Reference supplied to driver operation must refer to the correct bosk";
 		}
 
 		/**
@@ -651,6 +652,9 @@ public class Bosk<R extends StateTreeNode> {
 			originalRoot = rootSnapshot.get();
 			if (originalRoot == null) {
 				snapshot = currentRoot;
+				if (snapshot == null) {
+					throw new IllegalStateException("Bosk constructor has not yet finished; cannot create a ReadContext");
+				}
 				rootSnapshot.set(snapshot);
 				LOGGER.trace("New {}", this);
 			} else {
