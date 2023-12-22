@@ -22,16 +22,17 @@ import static org.objectweb.asm.Opcodes.ACC_PRIVATE;
 import static org.objectweb.asm.Opcodes.ACC_PUBLIC;
 import static org.objectweb.asm.Opcodes.ACC_SUPER;
 import static org.objectweb.asm.Opcodes.ALOAD;
-import static org.objectweb.asm.Opcodes.ASTORE;
 import static org.objectweb.asm.Opcodes.CHECKCAST;
 import static org.objectweb.asm.Opcodes.DUP;
 import static org.objectweb.asm.Opcodes.GETFIELD;
 import static org.objectweb.asm.Opcodes.IFEQ;
 import static org.objectweb.asm.Opcodes.IFNE;
+import static org.objectweb.asm.Opcodes.ILOAD;
 import static org.objectweb.asm.Opcodes.INVOKEINTERFACE;
 import static org.objectweb.asm.Opcodes.INVOKESPECIAL;
 import static org.objectweb.asm.Opcodes.INVOKESTATIC;
 import static org.objectweb.asm.Opcodes.INVOKEVIRTUAL;
+import static org.objectweb.asm.Opcodes.ISTORE;
 import static org.objectweb.asm.Opcodes.NEW;
 import static org.objectweb.asm.Opcodes.POP;
 import static org.objectweb.asm.Opcodes.PUTFIELD;
@@ -141,9 +142,13 @@ public final class ClassBuilder<T> {
 		methodVisitor().visitTypeInsn(CHECKCAST, Type.getInternalName(expectedType));
 	}
 
+	/**
+	 * @return a {@link LocalVariable} representing a reference parameter at the
+	 * given position, which is zero-based. Assumes all parameters are single-slot types.
+	 */
 	public LocalVariable parameter(int index) {
 		if (0 <= index && index < currentMethod.numParameters) {
-			return new LocalVariable(index);
+			return new LocalVariable(OBJECT_TYPE, index);
 		} else {
 			throw new IllegalStateException("No parameter #" + index);
 		}
@@ -154,16 +159,24 @@ public final class ClassBuilder<T> {
 	 */
 	public void pushLocal(LocalVariable var) {
 		beginPush();
-		methodVisitor().visitVarInsn(ALOAD, var.slot());
+		methodVisitor().visitVarInsn(var.type().getOpcode(ILOAD), var.slot());
 	}
 
 	/**
 	 * Emit ASTORE: <a href="https://docs.oracle.com/javase/specs/jvms/se8/html/jvms-6.html#jvms-6.5.astore">...</a>
 	 */
 	public LocalVariable popToLocal() {
-		LocalVariable result = currentMethod.newLocal();
-		methodVisitor().visitVarInsn(ASTORE, result.slot());
-		endPop(1);
+		return popToLocal(OBJECT_TYPE);
+	}
+
+	/**
+	 * Emit the appropriate store opcode for the given type, which can be either
+	 * {@link #OBJECT_TYPE} or else one of the primitive types ({@link Type#INT_TYPE} etc.).
+	 */
+	public LocalVariable popToLocal(Type type) {
+		LocalVariable result = currentMethod.newLocal(type);
+		methodVisitor().visitVarInsn(type.getOpcode(ISTORE), result.slot());
+		endPop(type.getSize());
 		return result;
 	}
 
@@ -395,4 +408,6 @@ public final class ClassBuilder<T> {
 			return defineClass(dottyName, b, 0, b.length);
 		}
 	}
+
+	public static final Type OBJECT_TYPE = Type.getType(Object.class);
 }
