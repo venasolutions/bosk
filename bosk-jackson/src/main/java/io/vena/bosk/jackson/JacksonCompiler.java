@@ -257,7 +257,7 @@ final class JacksonCompiler {
 		@Override
 		public void generateFieldWrite(String name, ClassBuilder<Codec> cb, LocalVariable jsonGenerator, LocalVariable serializers, SerializerProvider serializerProvider, JavaType type) {
 			cb.pushString(name);
-			cb.pushObject(type);
+			cb.pushObject("type", type, JavaType.class);
 			cb.pushLocal(jsonGenerator);
 			cb.pushLocal(serializers);
 			cb.invoke(DYNAMIC_WRITE_FIELD);
@@ -302,7 +302,7 @@ final class JacksonCompiler {
 			cb.pop();
 
 			// Write the field value using the statically bound serializer
-			cb.pushObject(serializer);
+			cb.pushObject("serializer", serializer, JsonSerializer.class);
 			cb.pushLocal(fieldValue);
 			cb.pushLocal(jsonGenerator);
 			cb.pushLocal(serializers);

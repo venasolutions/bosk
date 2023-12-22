@@ -231,8 +231,8 @@ final class GsonAdapterCompiler {
 		@Override
 		public void generateFieldWrite(String name, ClassBuilder<Codec> cb, Gson gson, LocalVariable jsonWriter, Type type) {
 			cb.pushString(name);
-			cb.pushObject(TypeToken.get(type));
-			cb.pushObject(gson);
+			cb.pushObject("typeToken", TypeToken.get(type), TypeToken.class);
+			cb.pushObject("gson", gson, Gson.class);
 			cb.pushLocal(jsonWriter);
 			cb.invoke(DYNAMIC_WRITE_FIELD);
 		}
@@ -270,7 +270,7 @@ final class GsonAdapterCompiler {
 			cb.pop();
 
 			// Write the field value using the statically bound TypeAdapter
-			cb.pushObject(typeAdapter);
+			cb.pushObject("typeAdapter", typeAdapter, TypeAdapter.class);
 			cb.pushLocal(jsonWriter);
 			cb.pushLocal(fieldValue);
 			cb.invoke(TYPE_ADAPTER_WRITE);

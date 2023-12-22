@@ -56,7 +56,7 @@ class ReferenceBuilder {
 				// Add some troubleshooting info for the user
 				throw new InvalidTypeException("Reference type mismatch on " + methodName(method) + ": " + e.getMessage(), e);
 			}
-			cb.pushObject(result);
+			cb.pushObject(method.getName(), result, Reference.class);
 			int parameterIndex = 0;
 			for (Parameter p: method.getParameters()) {
 				++parameterIndex;

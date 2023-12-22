@@ -185,38 +185,20 @@ public final class ClassBuilder<T> {
 	 *
 	 * <p>
 	 * Implemented as a GETFIELD: <a href="https://docs.oracle.com/javase/specs/jvms/se8/html/jvms-6.html#jvms-6.5.getfield">...</a>
+	 *
+	 * @param name purely descriptive; doesn't need to be unique
+	 * @param type the static type of the value (because the dynamic type might not
+	 *             be accessible from the generated class)
 	 */
-	public void pushObject(Object object) {
-		CurriedField field = curry(object);
+	public void pushObject(String name, Object object, Class<?> type) {
+		CurriedField field = curry(name, object, type);
 		beginPush();
 		methodVisitor().visitVarInsn(ALOAD, 0);
 		methodVisitor().visitFieldInsn(GETFIELD, slashyName, field.name(), field.typeDescriptor());
 	}
 
-	/**
-	 * Makes the given <code>object</code> available to the generated code via
-	 * a final field in the generated object.
-	 *
-	 * <p>
-	 * This is not necessary for values that can be put in the constant pool instead.
-	 * For those, methods like {@link #pushInt} and {@link #pushString} are more efficient.
-	 *
-	 * <p>
-	 * <em>Implementation note</em>: For each distinct <code>object</code>, this method:
-	 *
-	 * <ul><li>
-	 * adds a field to the class,
-	 * </li><li>
-	 * adds a parameter to the constructor,
-	 * </li><li>
-	 * adds code to the constructor that stores the parameter to the field, and
-	 * </li><li>
-	 * saves the <code>object</code> in {@link #curriedFields} so that {@link #buildInstance()}
-	 * will pass the object to the constructor.
-	 * </li></ul>
-	 *
-	 */
-	private CurriedField curry(Object object) {
+	private CurriedField curry(String name, Object object, Class<?> type) {
+		type.cast(object);
 		for (CurriedField candidate: curriedFields) {
 			if (candidate.value() == object) {
 				return candidate;
@@ -226,8 +208,8 @@ public final class ClassBuilder<T> {
 		int ctorParameterSlot = 1 + curriedFields.size();
 		CurriedField result = new CurriedField(
 			ctorParameterSlot,
-			"CURRIED" + ctorParameterSlot + "_" + object.getClass().getSimpleName(),
-			Type.getDescriptor(object.getClass()),
+			"CURRIED" + ctorParameterSlot + "_" + name,
+			Type.getDescriptor(type),
 			object);
 		curriedFields.add(result);
 
