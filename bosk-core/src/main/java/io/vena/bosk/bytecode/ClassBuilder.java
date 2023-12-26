@@ -1,5 +1,9 @@
 package io.vena.bosk.bytecode;
 
+import io.vena.bosk.exceptions.NotYetImplementedException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.PrintWriter;
 import java.lang.invoke.CallSite;
 import java.lang.invoke.ConstantCallSite;
 import java.lang.invoke.MethodHandles;
@@ -12,12 +16,14 @@ import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Stream;
+import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Handle;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Type;
+import org.objectweb.asm.util.TraceClassVisitor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -97,6 +103,7 @@ public final class ClassBuilder<T> {
 		}
 		this.classWriter = new ClassWriter(COMPUTE_FRAMES);
 		this.classVisitor = classWriter;
+//		this.classVisitor = new TraceClassVisitor(classWriter, new PrintWriter(System.out));
 		classVisitor.visit(V1_8, ACC_PUBLIC | ACC_FINAL | ACC_SUPER, slashyName, null, superClassName, interfaces);
 		classVisitor.visitSource(sourceFileOrigin.getFileName(), null);
 	}
@@ -314,8 +321,21 @@ public final class ClassBuilder<T> {
 		generateConstructor(sourceFileOrigin);
 		classVisitor.visitEnd();
 
+		byte[] bytes = classWriter.toByteArray();
+		if (TRACE_BYTECODE_TO_STDOUT) {
+			ClassReader reader = new ClassReader(bytes);
+			TraceClassVisitor visitor = new TraceClassVisitor(new PrintWriter(System.out));
+			reader.accept(visitor, 0);
+		}
+		if (DUMP_BYTECODE_TO_FILE) {
+			try (FileOutputStream out = new FileOutputStream("out.class")) {
+				out.write(bytes);
+			} catch (IOException e) {
+				throw new NotYetImplementedException(e);
+			}
+		}
 		Constructor<?> ctor = new CustomClassLoader()
-			.loadThemBytes(dottyName, classWriter.toByteArray())
+			.loadThemBytes(dottyName, bytes)
 			.getConstructors()[0];
 		try {
 			return supertype.cast(ctor.newInstance());
@@ -418,4 +438,6 @@ public final class ClassBuilder<T> {
 	);
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(ClassBuilder.class);
+	private static final boolean TRACE_BYTECODE_TO_STDOUT = false;
+	private static final boolean DUMP_BYTECODE_TO_FILE = false;
 }
