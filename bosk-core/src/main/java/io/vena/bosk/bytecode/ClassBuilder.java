@@ -23,6 +23,7 @@ import org.slf4j.LoggerFactory;
 
 import static io.vena.bosk.util.ReflectionHelpers.setAccessible;
 import static java.lang.reflect.Modifier.isStatic;
+import static java.util.Objects.requireNonNull;
 import static org.objectweb.asm.ClassWriter.COMPUTE_FRAMES;
 import static org.objectweb.asm.Opcodes.ACC_FINAL;
 import static org.objectweb.asm.Opcodes.ACC_PUBLIC;
@@ -186,25 +187,27 @@ public final class ClassBuilder<T> {
 	public void pushObject(String name, Object object, Class<?> type) {
 		type.cast(object);
 
+		// TODO: Use ConstantDynamic instead
+		invokeDynamic(name, new ConstantCallSite(MethodHandles.constant(type, object)));
+	}
+
+	public void invokeDynamic(String name, CallSite callSite) {
 		String fullName = "CallSite_" + CALL_SITE_COUNT.incrementAndGet() + "_" + name;
 
-		CALL_SITES_BY_NAME.put(fullName, new ConstantCallSite(MethodHandles.constant(type, object)));
-		LOGGER.warn("{} = {} {}", fullName, type.getSimpleName(), object);
+		CALL_SITES_BY_NAME.put(fullName, callSite);
+		LOGGER.debug("Added call site ({})", name);
 
-		beginPush();
-		/*
-		// Dynamic constants aren't supported in Java 8
-		methodVisitor().visitLdcInsn(new ConstantDynamic(
-			 field.name(),
-			 field.typeDescriptor(),
-			 FETCH_CONSTANT, constMapKey, field.slot()
-		));
-		*/
 		methodVisitor().visitInvokeDynamicInsn(
 			fullName,
-			"()" + Type.getDescriptor(type),
+			callSite.getTarget().type().toMethodDescriptorString(),
 			RETRIEVE_CALL_SITE
 		);
+
+		Type methodType = Type.getType(callSite.getTarget().type().descriptorString());
+		int weird = methodType.getArgumentsAndReturnSizes();
+		int argumentSlots = (weird >> 2) - 1; // ASM assumes there's a receiver object, but MethodHandles represent those explicitly
+		int resultSlots = weird & 0x3;
+		endPop(argumentSlots - resultSlots);
 	}
 
 	/**
@@ -392,8 +395,8 @@ public final class ClassBuilder<T> {
 	private static final Map<String, CallSite> CALL_SITES_BY_NAME = new ConcurrentHashMap<>();
 
 	public static CallSite retrieveCallSite(MethodHandles.Lookup __, String name, MethodType ___) {
-		LOGGER.warn("retrieveCallSite({})", name);
-		return CALL_SITES_BY_NAME.remove(name);
+		LOGGER.debug("retrieveCallSite({})", name);
+		return requireNonNull(CALL_SITES_BY_NAME.remove(name));
 	}
 
 	private static final Method RETRIEVE_CALL_SITE_METHOD;
