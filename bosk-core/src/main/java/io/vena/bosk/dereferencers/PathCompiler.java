@@ -13,6 +13,12 @@ import io.vena.bosk.SideTable;
 import io.vena.bosk.StateTreeNode;
 import io.vena.bosk.bytecode.LocalVariable;
 import io.vena.bosk.exceptions.InvalidTypeException;
+import io.vena.bosk.exceptions.NotYetImplementedException;
+import java.lang.invoke.CallSite;
+import java.lang.invoke.ConstantCallSite;
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodType;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
@@ -27,6 +33,7 @@ import java.util.WeakHashMap;
 import java.util.concurrent.ConcurrentHashMap;
 import lombok.RequiredArgsConstructor;
 import lombok.Value;
+import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -37,6 +44,8 @@ import static io.vena.bosk.ReferenceUtils.parameterType;
 import static io.vena.bosk.ReferenceUtils.rawClass;
 import static io.vena.bosk.ReferenceUtils.theOnlyConstructorFor;
 import static io.vena.bosk.bytecode.ClassBuilder.here;
+import static java.lang.invoke.MethodHandles.collectArguments;
+import static java.lang.invoke.MethodHandles.permuteArguments;
 import static java.util.Collections.synchronizedList;
 import static java.util.Collections.synchronizedMap;
 import static java.util.Locale.ROOT;
@@ -232,7 +241,7 @@ public final class PathCompiler {
 				// InvalidTypeException here instead of adding the getter to the map. -pdoyle
 				getters.put(segment, getterMethod(currentClass, segment));
 
-				FieldStep fieldStep = new FieldStep(segment, getters, theOnlyConstructorFor(currentClass));
+				Step fieldStep = newFieldStep(segment, getters, theOnlyConstructorFor(currentClass));
 				Class<?> fieldClass = rawClass(fieldStep.targetType());
 				if (Optional.class.isAssignableFrom(fieldClass)) {
 					return new OptionalValueStep(parameterType(fieldStep.targetType(), Optional.class, 0), fieldStep);
@@ -244,6 +253,51 @@ public final class PathCompiler {
 			} else {
 				throw new InvalidTypeException("Can't reference contents of " + currentClass.getSimpleName());
 			}
+		}
+
+		@NotNull
+		private Step newFieldStep(String segment, Map<String, Method> getters, Constructor<?> constructor) {
+			if (USE_FIELD_STEP) {
+				return new FieldStep(segment, getters, constructor);
+			} else {
+				Method getter = getters.get(segment);
+				Type targetType = getter.getGenericReturnType();
+				MethodHandle methodHandle_get;
+				MethodHandle methodHandle_with;
+				try {
+					methodHandle_get = MethodHandles.lookup().unreflect(getter);
+					methodHandle_with = methodHandle_with(segment, getters, constructor);
+				} catch (IllegalAccessException e) {
+					throw new NotYetImplementedException(e);
+				}
+				return new CustomStep(
+					targetType,
+					segment,
+					new ConstantCallSite(methodHandle_get),
+					new ConstantCallSite(methodHandle_with)
+				);
+			}
+		}
+
+		private MethodHandle methodHandle_with(String segment, Map<String, Method> getters, Constructor<?> constructor) throws IllegalAccessException {
+			MethodHandle result = MethodHandles.lookup().unreflectConstructor(constructor);
+			Parameter[] parameters = constructor.getParameters();
+			int[] permutation = new int[parameters.length]; // Note: all but one parameter will be left as zero
+			for (int i = 0; i < parameters.length; i++) {
+				Parameter p = parameters[i];
+				if (segment.equals(p.getName())) {
+					// This is the one parameter we just pass through
+					permutation[i] = 1;
+				} else {
+					MethodHandle getter = MethodHandles.lookup().unreflect(getters.get(p.getName()));
+					result = collectArguments(result, i, getter);
+				}
+			}
+			MethodType resultType = MethodType.methodType(
+				constructor.getDeclaringClass(),
+				constructor.getDeclaringClass(),
+				getters.get(segment).getReturnType());
+			return permuteArguments(result, resultType, permutation);
 		}
 
 		//
@@ -469,7 +523,7 @@ public final class PathCompiler {
 		@Value
 		public class OptionalValueStep implements DeletableStep {
 			Type targetType;
-			FieldStep fieldStep;
+			Step fieldStep;
 
 			@Override public String fullyParameterizedPathSegment() { return fieldStep.fullyParameterizedPathSegment(); }
 
@@ -490,6 +544,18 @@ public final class PathCompiler {
 			@Override public void generate_without() { /* No effect */ }
 		}
 
+		@Value
+		public class CustomStep implements Step {
+			Type targetType;
+			String fullyParameterizedPathSegment;
+			CallSite callSite_get;
+			CallSite callSite_with;
+
+			@Override public String fullyParameterizedPathSegment() { return fullyParameterizedPathSegment; }
+
+			@Override public void generate_get()      { cb.invokeDynamic("get", callSite_get); }
+			@Override public void generate_with()     { cb.invokeDynamic("with", callSite_with); }
+		}
 	}
 
 	/**
@@ -557,4 +623,6 @@ public final class PathCompiler {
 	}
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(PathCompiler.class);
+
+	private static final boolean USE_FIELD_STEP = false;
 }
