@@ -57,6 +57,7 @@ public final class ClassBuilder<T> {
 	private ClassVisitor classVisitor = null;
 	private ClassWriter classWriter = null;
 	private MethodBuilder currentMethod = null;
+	private int currentLineNumber = -1;
 
 	private final List<CurriedField> curriedFields = new ArrayList<>();
 
@@ -368,9 +369,15 @@ public final class ClassBuilder<T> {
 			}
 		}
 
-		Label label = new Label();
-		methodVisitor().visitLabel(label);
-		methodVisitor().visitLineNumber(bestFrame.getLineNumber(), label);
+		int lineNumber = bestFrame.getLineNumber();
+		if (lineNumber == currentLineNumber) {
+			LOGGER.debug("Omitting line number info; line number is already {}", lineNumber);
+		} else {
+			currentLineNumber = lineNumber;
+			Label label = new Label();
+			methodVisitor().visitLabel(label);
+			methodVisitor().visitLineNumber(lineNumber, label);
+		}
 	}
 
 	private MethodVisitor methodVisitor() {
