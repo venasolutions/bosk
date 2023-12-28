@@ -41,8 +41,8 @@ final class MethodBuilder {
 		pushSlots(-numSlots);
 	}
 
-	LocalVariable newLocal() {
-		return new LocalVariable(++numLocals);
+	LocalVariable newLocal(Type type) {
+		return new LocalVariable(type, ++numLocals);
 	}
 
 }

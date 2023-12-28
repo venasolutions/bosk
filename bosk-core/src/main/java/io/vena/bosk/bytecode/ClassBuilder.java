@@ -1,40 +1,53 @@
 package io.vena.bosk.bytecode;
 
+import io.vena.bosk.exceptions.NotYetImplementedException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.lang.invoke.CallSite;
+import java.lang.invoke.ConstantCallSite;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodType;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Stream;
+import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
+import org.objectweb.asm.Handle;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Type;
+import org.objectweb.asm.util.TraceClassVisitor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import static io.vena.bosk.util.ReflectionHelpers.setAccessible;
 import static java.lang.reflect.Modifier.isStatic;
-import static java.util.stream.Collectors.joining;
+import static java.util.Objects.requireNonNull;
 import static org.objectweb.asm.ClassWriter.COMPUTE_FRAMES;
 import static org.objectweb.asm.Opcodes.ACC_FINAL;
-import static org.objectweb.asm.Opcodes.ACC_PRIVATE;
 import static org.objectweb.asm.Opcodes.ACC_PUBLIC;
 import static org.objectweb.asm.Opcodes.ACC_SUPER;
 import static org.objectweb.asm.Opcodes.ALOAD;
-import static org.objectweb.asm.Opcodes.ASTORE;
 import static org.objectweb.asm.Opcodes.CHECKCAST;
 import static org.objectweb.asm.Opcodes.DUP;
-import static org.objectweb.asm.Opcodes.GETFIELD;
+import static org.objectweb.asm.Opcodes.H_INVOKESTATIC;
 import static org.objectweb.asm.Opcodes.IFEQ;
 import static org.objectweb.asm.Opcodes.IFNE;
+import static org.objectweb.asm.Opcodes.ILOAD;
 import static org.objectweb.asm.Opcodes.INVOKEINTERFACE;
 import static org.objectweb.asm.Opcodes.INVOKESPECIAL;
 import static org.objectweb.asm.Opcodes.INVOKESTATIC;
 import static org.objectweb.asm.Opcodes.INVOKEVIRTUAL;
+import static org.objectweb.asm.Opcodes.ISTORE;
 import static org.objectweb.asm.Opcodes.NEW;
 import static org.objectweb.asm.Opcodes.POP;
-import static org.objectweb.asm.Opcodes.PUTFIELD;
 import static org.objectweb.asm.Opcodes.RETURN;
 import static org.objectweb.asm.Opcodes.SWAP;
 import static org.objectweb.asm.Opcodes.V1_8;
@@ -56,8 +69,7 @@ public final class ClassBuilder<T> {
 	private ClassVisitor classVisitor = null;
 	private ClassWriter classWriter = null;
 	private MethodBuilder currentMethod = null;
-
-	private final List<CurriedField> curriedFields = new ArrayList<>();
+	private int currentLineNumber = -1;
 
 	/**
 	 * @param className The simple name of the generated class;
@@ -91,26 +103,19 @@ public final class ClassBuilder<T> {
 		}
 		this.classWriter = new ClassWriter(COMPUTE_FRAMES);
 		this.classVisitor = classWriter;
+//		this.classVisitor = new TraceClassVisitor(classWriter, new PrintWriter(System.out));
 		classVisitor.visit(V1_8, ACC_PUBLIC | ACC_FINAL | ACC_SUPER, slashyName, null, superClassName, interfaces);
 		classVisitor.visitSource(sourceFileOrigin.getFileName(), null);
 	}
 
 	private void generateConstructor(StackTraceElement sourceFileOrigin) {
-		String ctorParameterDescriptor = curriedFields.stream()
-			.map(CurriedField::typeDescriptor)
-			.collect(joining());
-		MethodVisitor ctor = classVisitor.visitMethod(ACC_PUBLIC, "<init>", "(" + ctorParameterDescriptor + ")V", null, null);
+		MethodVisitor ctor = classVisitor.visitMethod(ACC_PUBLIC, "<init>", "()V", null, null);
 		ctor.visitCode();
 		Label label = new Label();
 		ctor.visitLabel(label);
 		ctor.visitLineNumber(sourceFileOrigin.getLineNumber(), label);
 		ctor.visitVarInsn(ALOAD, 0);
 		ctor.visitMethodInsn(INVOKESPECIAL, superClassName, "<init>", "()V", false);
-		for (CurriedField field: curriedFields) {
-			ctor.visitVarInsn(ALOAD, 0);
-			ctor.visitVarInsn(ALOAD, field.slot());
-			ctor.visitFieldInsn(PUTFIELD, slashyName, field.name(), field.typeDescriptor());
-		}
 		ctor.visitInsn(RETURN);
 		ctor.visitMaxs(0, 0); // Computed automatically
 		ctor.visitEnd();
@@ -141,9 +146,13 @@ public final class ClassBuilder<T> {
 		methodVisitor().visitTypeInsn(CHECKCAST, Type.getInternalName(expectedType));
 	}
 
+	/**
+	 * @return a {@link LocalVariable} representing a reference parameter at the
+	 * given position, which is zero-based. Assumes all parameters are single-slot types.
+	 */
 	public LocalVariable parameter(int index) {
 		if (0 <= index && index < currentMethod.numParameters) {
-			return new LocalVariable(index);
+			return new LocalVariable(OBJECT_TYPE, index);
 		} else {
 			throw new IllegalStateException("No parameter #" + index);
 		}
@@ -154,78 +163,58 @@ public final class ClassBuilder<T> {
 	 */
 	public void pushLocal(LocalVariable var) {
 		beginPush();
-		methodVisitor().visitVarInsn(ALOAD, var.slot());
+		methodVisitor().visitVarInsn(var.type().getOpcode(ILOAD), var.slot());
 	}
 
 	/**
 	 * Emit ASTORE: <a href="https://docs.oracle.com/javase/specs/jvms/se8/html/jvms-6.html#jvms-6.5.astore">...</a>
 	 */
 	public LocalVariable popToLocal() {
-		LocalVariable result = currentMethod.newLocal();
-		methodVisitor().visitVarInsn(ASTORE, result.slot());
-		endPop(1);
+		return popToLocal(OBJECT_TYPE);
+	}
+
+	/**
+	 * Emit the appropriate store opcode for the given type, which can be either
+	 * {@link #OBJECT_TYPE} or else one of the primitive types ({@link Type#INT_TYPE} etc.).
+	 */
+	public LocalVariable popToLocal(Type type) {
+		LocalVariable result = currentMethod.newLocal(type);
+		methodVisitor().visitVarInsn(type.getOpcode(ISTORE), result.slot());
+		endPop(type.getSize());
 		return result;
 	}
 
 	/**
 	 * Emit code to push the given object on the operand stack.
 	 *
-	 * <p>
-	 * Implemented as a GETFIELD: <a href="https://docs.oracle.com/javase/specs/jvms/se8/html/jvms-6.html#jvms-6.5.getfield">...</a>
+	 * @param name purely descriptive; doesn't need to be unique
+	 * @param type the static type of the value (because the dynamic type might not
+	 *             be accessible from the generated class)
 	 */
-	public void pushObject(Object object) {
-		CurriedField field = curry(object);
-		beginPush();
-		methodVisitor().visitVarInsn(ALOAD, 0);
-		methodVisitor().visitFieldInsn(GETFIELD, slashyName, field.name(), field.typeDescriptor());
+	public void pushObject(String name, Object object, Class<?> type) {
+		type.cast(object);
+
+		// TODO: Use ConstantDynamic instead
+		invokeDynamic(name, new ConstantCallSite(MethodHandles.constant(type, object)));
 	}
 
-	/**
-	 * Makes the given <code>object</code> available to the generated code via
-	 * a final field in the generated object.
-	 *
-	 * <p>
-	 * This is not necessary for values that can be put in the constant pool instead.
-	 * For those, methods like {@link #pushInt} and {@link #pushString} are more efficient.
-	 *
-	 * <p>
-	 * <em>Implementation note</em>: For each distinct <code>object</code>, this method:
-	 *
-	 * <ul><li>
-	 * adds a field to the class,
-	 * </li><li>
-	 * adds a parameter to the constructor,
-	 * </li><li>
-	 * adds code to the constructor that stores the parameter to the field, and
-	 * </li><li>
-	 * saves the <code>object</code> in {@link #curriedFields} so that {@link #buildInstance()}
-	 * will pass the object to the constructor.
-	 * </li></ul>
-	 *
-	 */
-	private CurriedField curry(Object object) {
-		for (CurriedField candidate: curriedFields) {
-			if (candidate.value() == object) {
-				return candidate;
-			}
-		}
+	public void invokeDynamic(String name, CallSite callSite) {
+		String fullName = "CallSite_" + CALL_SITE_COUNT.incrementAndGet() + "_" + name;
 
-		int ctorParameterSlot = 1 + curriedFields.size();
-		CurriedField result = new CurriedField(
-			ctorParameterSlot,
-			"CURRIED" + ctorParameterSlot + "_" + object.getClass().getSimpleName(),
-			Type.getDescriptor(object.getClass()),
-			object);
-		curriedFields.add(result);
+		CALL_SITES_BY_NAME.put(fullName, callSite);
+		LOGGER.debug("Added call site ({})", name);
 
-		classVisitor.visitField(
-			ACC_PRIVATE | ACC_FINAL,
-			result.name(),
-			result.typeDescriptor(),
-			null, null
-		).visitEnd();
+		methodVisitor().visitInvokeDynamicInsn(
+			fullName,
+			callSite.getTarget().type().toMethodDescriptorString(),
+			RETRIEVE_CALL_SITE
+		);
 
-		return result;
+		Type methodType = Type.getType(callSite.getTarget().type().descriptorString());
+		int weird = methodType.getArgumentsAndReturnSizes();
+		int argumentSlots = (weird >> 2) - 1; // ASM assumes there's a receiver object, but MethodHandles represent those explicitly
+		int resultSlots = weird & 0x3;
+		endPop(argumentSlots - resultSlots);
 	}
 
 	/**
@@ -332,12 +321,24 @@ public final class ClassBuilder<T> {
 		generateConstructor(sourceFileOrigin);
 		classVisitor.visitEnd();
 
+		byte[] bytes = classWriter.toByteArray();
+		if (TRACE_BYTECODE_TO_STDOUT) {
+			ClassReader reader = new ClassReader(bytes);
+			TraceClassVisitor visitor = new TraceClassVisitor(new PrintWriter(System.out));
+			reader.accept(visitor, 0);
+		}
+		if (DUMP_BYTECODE_TO_FILE) {
+			try (FileOutputStream out = new FileOutputStream("out.class")) {
+				out.write(bytes);
+			} catch (IOException e) {
+				throw new NotYetImplementedException(e);
+			}
+		}
 		Constructor<?> ctor = new CustomClassLoader()
-			.loadThemBytes(dottyName, classWriter.toByteArray())
+			.loadThemBytes(dottyName, bytes)
 			.getConstructors()[0];
-		Object[] args = curriedFields.stream().map(CurriedField::value).toArray();
 		try {
-			return supertype.cast(ctor.newInstance(args));
+			return supertype.cast(ctor.newInstance());
 		} catch (InstantiationException | IllegalAccessException | VerifyError | InvocationTargetException e) {
 			throw new AssertionError("Should be able to instantiate the generated class", e);
 		}
@@ -373,9 +374,15 @@ public final class ClassBuilder<T> {
 			}
 		}
 
-		Label label = new Label();
-		methodVisitor().visitLabel(label);
-		methodVisitor().visitLineNumber(bestFrame.getLineNumber(), label);
+		int lineNumber = bestFrame.getLineNumber();
+		if (lineNumber == currentLineNumber) {
+			LOGGER.debug("Omitting line number info; line number is already {}", lineNumber);
+		} else {
+			currentLineNumber = lineNumber;
+			Label label = new Label();
+			methodVisitor().visitLabel(label);
+			methodVisitor().visitLineNumber(lineNumber, label);
+		}
 	}
 
 	private MethodVisitor methodVisitor() {
@@ -395,4 +402,42 @@ public final class ClassBuilder<T> {
 			return defineClass(dottyName, b, 0, b.length);
 		}
 	}
+
+	public static final Type OBJECT_TYPE = Type.getType(Object.class);
+
+	// MethodHandle map
+
+	/*
+	 * These need to be static because they need to be accessible from static initializers
+	 * without having any object to start from.
+	 */
+	private static final AtomicLong CALL_SITE_COUNT = new AtomicLong(0);
+	private static final Map<String, CallSite> CALL_SITES_BY_NAME = new ConcurrentHashMap<>();
+
+	public static CallSite retrieveCallSite(MethodHandles.Lookup __, String name, MethodType ___) {
+		LOGGER.debug("retrieveCallSite({})", name);
+		return requireNonNull(CALL_SITES_BY_NAME.remove(name));
+	}
+
+	private static final Method RETRIEVE_CALL_SITE_METHOD;
+
+	static {
+		try {
+			RETRIEVE_CALL_SITE_METHOD = ClassBuilder.class.getDeclaredMethod("retrieveCallSite", MethodHandles.Lookup.class, String.class, MethodType.class);
+		} catch (NoSuchMethodException e) {
+			throw new AssertionError(e);
+		}
+	}
+
+	private static final Handle RETRIEVE_CALL_SITE = new Handle(
+		H_INVOKESTATIC,
+		Type.getInternalName(ClassBuilder.class),
+		"retrieveCallSite",
+		Type.getMethodDescriptor(RETRIEVE_CALL_SITE_METHOD),
+		false
+	);
+
+	private static final Logger LOGGER = LoggerFactory.getLogger(ClassBuilder.class);
+	private static final boolean TRACE_BYTECODE_TO_STDOUT = false;
+	private static final boolean DUMP_BYTECODE_TO_FILE = false;
 }
