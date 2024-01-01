@@ -26,13 +26,14 @@ class Demultiplexer {
 		return transactionsInProgress.remove(TransactionID.from(finalEvent));
 	}
 
-	@Value
-	private static class TransactionID {
-		BsonDocument lsid;
-		BsonInt64 txnNumber;
+	private record TransactionID(BsonDocument lsid, BsonInt64 txnNumber) {
+		private TransactionID {
+			requireNonNull(lsid);
+			requireNonNull(txnNumber);
+		}
 
 		public static TransactionID from(ChangeStreamDocument<?> event) {
-			return new TransactionID(requireNonNull(event.getLsid()), requireNonNull(event.getTxnNumber()));
+			return new TransactionID(event.getLsid(), event.getTxnNumber());
 		}
 	}
 }

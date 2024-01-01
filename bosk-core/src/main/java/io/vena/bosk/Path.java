@@ -19,7 +19,6 @@ import java.util.function.Supplier;
 import java.util.function.UnaryOperator;
 import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
-import lombok.Value;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -567,11 +566,7 @@ public abstract class Path implements Iterable<String> {
 
 	private static final Interner<InternKey, Path> INTERNER = new Interner<>();
 
-	@Value
-	static class InternKey {
-		Path prefix;
-		String segment;
-
+	record InternKey(Path prefix, String segment) {
 		@Override
 		public String toString() {
 			return identityHashCode(prefix) + "/" + segment;

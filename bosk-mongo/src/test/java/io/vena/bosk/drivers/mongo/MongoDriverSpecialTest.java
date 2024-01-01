@@ -28,7 +28,6 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.stream.Stream;
-import lombok.Value;
 import org.bson.BsonDocument;
 import org.bson.BsonInt32;
 import org.bson.BsonInt64;
@@ -595,14 +594,13 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest {
 	/**
 	 * Represents an earlier version of the entity before some fields were added.
 	 */
-	@Value
-	public static class OldEntity implements Entity {
-		Identifier id;
-		String string;
+	public record OldEntity(
+		Identifier id,
+		String string,
 		// We need catalog and sideTable because we use them in our PandoConfiguration
-		Catalog<OldEntity> catalog;
-		SideTable<OldEntity, OldEntity> sideTable;
-
+		Catalog<OldEntity> catalog,
+		SideTable<OldEntity, OldEntity> sideTable
+	) implements Entity {
 		public static OldEntity withString(String value, Bosk<OldEntity> bosk) throws InvalidTypeException {
 			return new OldEntity(
 				rootID,
@@ -617,15 +615,15 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest {
 	 * A version of {@link TestEntity} where the {@link Optional} {@link TestEntity#values()}
 	 * field has a default (and some other fields have been deleted).
 	 */
-	@Value
-	public static class UpgradeableEntity implements Entity {
-		Identifier id;
-		String string;
-		Catalog<TestEntity> catalog;
-		Listing<TestEntity> listing;
-		SideTable<TestEntity, TestEntity> sideTable;
-		Optional<TestValues> values;
-
+	public record UpgradeableEntity(
+		Identifier id,
+		String string,
+		Catalog<TestEntity> catalog,
+		Listing<TestEntity> listing,
+		SideTable<TestEntity, TestEntity> sideTable,
+		Optional<TestValues> values
+	) implements Entity {
+		@Override
 		public Optional<TestValues> values() {
 			return Optional.of(values.orElse(TestValues.blank()));
 		}
