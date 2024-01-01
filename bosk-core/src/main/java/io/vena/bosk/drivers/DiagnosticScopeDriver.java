@@ -12,7 +12,6 @@ import java.io.IOException;
 import java.lang.reflect.Type;
 import java.util.function.Function;
 import lombok.RequiredArgsConstructor;
-import lombok.var;
 
 import static lombok.AccessLevel.PRIVATE;
 

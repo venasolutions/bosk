@@ -14,7 +14,6 @@ import io.vena.bosk.exceptions.InvalidTypeException;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
-import lombok.var;
 import org.bson.BsonBoolean;
 import org.bson.BsonDocument;
 import org.bson.BsonString;
