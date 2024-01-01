@@ -12,8 +12,8 @@ java {
 
 dependencies {
 	api project(":bosk-jackson")
-	implementation 'org.springframework.boot:spring-boot-starter-web:3.1.4'
-	annotationProcessor "org.springframework.boot:spring-boot-configuration-processor:3.1.4"
+	implementation 'org.springframework.boot:spring-boot-starter-web:3.2.1'
+	annotationProcessor "org.springframework.boot:spring-boot-configuration-processor:3.2.1"
 	testImplementation project(":bosk-testing")
 	testImplementation project(":lib-testing")
 }

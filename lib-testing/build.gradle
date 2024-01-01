@@ -22,9 +22,9 @@ dependencies {
 	// It's gross that we need to repeat the version info here.
 	// There must be a clean way to do this in Gradle??
 	implementation 'org.mongodb:mongodb-driver-sync:4.1.2'
-	implementation 'org.junit.jupiter:junit-jupiter-api:5.10.0'
-	implementation 'org.junit.jupiter:junit-jupiter-params:5.10.0'
-	runtimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.10.0'
+	implementation 'org.junit.jupiter:junit-jupiter-api:5.10.1'
+	implementation 'org.junit.jupiter:junit-jupiter-params:5.10.1'
+	runtimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.10.1'
 }
 
 spotbugsMain.enabled = false // Spotbugs is counterproductive on test code

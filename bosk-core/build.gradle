@@ -12,10 +12,10 @@ java {
 }
 
 dependencies {
-	implementation group: 'org.ow2.asm', name: 'asm', version: '9.4'
-	implementation group: 'org.ow2.asm', name: 'asm-util', version: '9.4'
+	implementation group: 'org.ow2.asm', name: 'asm', version: '9.6'
+	implementation group: 'org.ow2.asm', name: 'asm-util', version: '9.6'
 	implementation 'org.pcollections:pcollections:4.0.1'
-	implementation 'org.jetbrains:annotations:24.0.1'
+	implementation 'org.jetbrains:annotations:24.1.0'
 	testImplementation project(':bosk-testing')
 	testImplementation project(':lib-testing')
 }
