@@ -10,6 +10,7 @@ import io.vena.bosk.Entity;
 import io.vena.bosk.Identifier;
 import io.vena.bosk.Listing;
 import io.vena.bosk.ListingEntry;
+import io.vena.bosk.ListingReference;
 import io.vena.bosk.Reference;
 import io.vena.bosk.SideTable;
 import io.vena.bosk.annotations.ReferencePath;
@@ -155,6 +156,9 @@ abstract class AbstractMongoDriverTest {
 	public interface Refs {
 		@ReferencePath("/catalog")
 		CatalogReference<TestEntity> catalog();
+
+		@ReferencePath("/listing")
+		ListingReference<TestEntity> listing();
 
 		@ReferencePath("/listing/-entity-")
 		Reference<ListingEntry> listingEntry(Identifier entity);
