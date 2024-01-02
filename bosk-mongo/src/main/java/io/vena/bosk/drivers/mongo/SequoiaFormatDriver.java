@@ -312,7 +312,7 @@ final class SequoiaFormatDriver<R extends StateTreeNode> implements FormatDriver
 					LOGGER.debug("No revision field; assuming {}", REVISION_ZERO.longValue());
 					return REVISION_ZERO;
 				} else {
-					LOGGER.debug("Read revision {}", result);
+					LOGGER.debug("Read revision {}", result.longValue());
 					return result;
 				}
 			}

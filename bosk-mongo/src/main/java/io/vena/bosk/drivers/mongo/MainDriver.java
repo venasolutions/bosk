@@ -505,10 +505,11 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 	private <X extends Exception, Y extends Exception> void waitAndRetry(RetryableOperation<X, Y> operation, String description, Object... args) throws X, Y {
 		try {
 			formatDriverLock.lock();
-			LOGGER.debug("Waiting for new FormatDriver for {} ms", 5 * driverSettings.recoveryPollingMS());
-			boolean success = formatDriverChanged.await(5*driverSettings.recoveryPollingMS(), MILLISECONDS);
+			long waitTimeMS = 5 * driverSettings.recoveryPollingMS();
+			LOGGER.debug("Waiting for new FormatDriver for {} ms", waitTimeMS);
+			boolean success = formatDriverChanged.await(waitTimeMS, MILLISECONDS);
 			if (!success) {
-				LOGGER.debug("Timed out waiting for new FormatDriver; will retry anyway");
+				LOGGER.warn("Timed out waiting for MongoDB to recover; will retry anyway, but the operation may fail");
 			}
 		} catch (InterruptedException e) {
 			// In a library, it's hard to know what a user expects when interrupting a thread.
