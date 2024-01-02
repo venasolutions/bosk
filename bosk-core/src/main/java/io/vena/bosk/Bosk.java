@@ -418,7 +418,7 @@ public class Bosk<R extends StateTreeNode> {
 							try {
 								ex.run();
 							} catch (Exception e) {
-								LOGGER.error("Hook aborted due to exception: {}",  e.getMessage(), e);
+								LOGGER.error("Bosk hook terminated with an exception, which usually indicates a bug. State updates may have been lost", e);
 							}
 						}
 					} finally {
