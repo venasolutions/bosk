@@ -5,6 +5,7 @@ import io.vena.bosk.annotations.Hook;
 import io.vena.bosk.annotations.ReferencePath;
 import io.vena.bosk.exceptions.InvalidTypeException;
 import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -13,6 +14,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import static io.vena.bosk.HookRecorder.Event.Kind.CHANGED;
 import static java.util.Arrays.asList;
@@ -475,9 +477,10 @@ public class HooksTest extends AbstractBoskTest {
 		}
 	}
 
-	@Test
-	void registerHooks_works() throws InvalidTypeException {
-		HookReceiver receiver = new HookReceiver(bosk);
+	@ParameterizedTest
+	@ValueSource(classes = {HookReceiver.class, HookSubclass.class})
+	void registerHooks_works(Class<? extends HookReceiver> receiverClass) throws NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException {
+		HookReceiver receiver = receiverClass.getConstructor(Bosk.class).newInstance(bosk);
 		bosk.driver().submitReplacement(refs.childString(child1), "New value");
 		List<List<Object>> expected = asList(
 			// At registration time, the hook is called on all existing nodes
@@ -499,6 +502,12 @@ public class HooksTest extends AbstractBoskTest {
 		@Hook("/entities/parent/children/-child-/string")
 		void childStringChanged(Reference<String> ref, BindingEnvironment env) {
 			hookCalls.add(asList(ref, env, ref.valueIfExists()));
+		}
+	}
+
+	public static class HookSubclass extends HookReceiver {
+		public HookSubclass(Bosk<?> bosk) throws InvalidTypeException {
+			super(bosk);
 		}
 	}
 
