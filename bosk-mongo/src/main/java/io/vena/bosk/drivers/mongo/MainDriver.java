@@ -275,12 +275,12 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 					// TODO: Really, at the moment the damage is noticed, we should probably make the receiver reboot; but we currently have no way to do so!
 					LOGGER.debug("Revision field has been disrupted; wait for receiver to notice something is wrong", e);
 					waitAndRetry(flushOperation, "flush");
-				} catch (CannotOpenSessionException e) {
+				} catch (FailedSessionException e) {
 					LOGGER.debug("Cannot open MongoDB session; will wait and retry flush", e);
 					waitAndRetry(flushOperation, "flush");
 				}
 			}
-		} catch (DisconnectedException | CannotOpenSessionException e) {
+		} catch (DisconnectedException | FailedSessionException e) {
 			throw new FlushFailureException(e);
 		}
 	}
@@ -487,7 +487,7 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 			try (var session = collection.newSession()) {
 				operation.run();
 				session.commitTransactionIfAny();
-			} catch (CannotOpenSessionException e) {
+			} catch (FailedSessionException e) {
 				quietlySetFormatDriver(new DisconnectedDriver<>(e));
 				throw new DisconnectedException(e);
 			}
