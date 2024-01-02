@@ -11,6 +11,7 @@ import io.vena.bosk.Listing;
 import io.vena.bosk.ListingEntry;
 import io.vena.bosk.Reference;
 import io.vena.bosk.StateTreeNode;
+import io.vena.bosk.annotations.Hook;
 import io.vena.bosk.annotations.ReferencePath;
 import io.vena.bosk.exceptions.InvalidTypeException;
 import io.vena.bosk.junit.ParametersByName;
@@ -19,7 +20,6 @@ import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.IntStream;
 import lombok.Value;
-import lombok.var;
 import org.junit.jupiter.api.BeforeEach;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -58,8 +58,7 @@ public abstract class HanoiTest {
 		);
 		refs = bosk.rootReference().buildReferences(Refs.class);
 		numSolved = new LinkedBlockingDeque<>();
-		bosk.registerHook("quiescence", refs.solved(), this::solveReportingHook);
-		bosk.registerHook("discMoved", refs.anyDisc(), this::discMoved);
+		bosk.registerHooks(this);
 	}
 
 	@ParametersByName
@@ -104,13 +103,15 @@ public abstract class HanoiTest {
 		}
 	}
 
-	private void solveReportingHook(Reference<Listing<Puzzle>> ref) {
+	@Hook("/solved")
+	public void solveReportingHook(Reference<Listing<Puzzle>> ref) {
 		int n = ref.value().size();
 		LOGGER.debug("Reporting {} solved", n);
 		numSolved.add(n);
 	}
 
-	private void discMoved(Reference<Disc> ref) {
+	@Hook("/puzzles/-puzzle-/towers/-tower-/discs/-disc-")
+	public void discMoved(Reference<Disc> ref) {
 		Disc moved = ref.valueIfExists();
 		if (moved == null) {
 			LOGGER.debug("Ignoring disc deletion: {}", ref);

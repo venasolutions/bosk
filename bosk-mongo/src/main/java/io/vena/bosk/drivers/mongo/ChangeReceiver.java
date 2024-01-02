@@ -12,7 +12,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
-import lombok.var;
 import org.bson.BsonDocument;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,6 +32,7 @@ class ChangeReceiver implements Closeable {
 	private final MongoDriverSettings settings;
 	private final MongoCollection<BsonDocument> collection;
 	private final ScheduledExecutorService ex = Executors.newScheduledThreadPool(1);
+	private final Exception creationPoint;
 	private volatile boolean isClosed = false;
 
 	ChangeReceiver(String boskName, ChangeListener listener, MongoDriverSettings settings, MongoCollection<BsonDocument> collection) {
@@ -40,6 +40,7 @@ class ChangeReceiver implements Closeable {
 		this.listener = listener;
 		this.settings = settings;
 		this.collection = collection;
+		this.creationPoint = new Exception("Additional context: ChangeReceiver creation stack trace:");
 		ex.scheduleWithFixedDelay(
 			this::connectionLoop,
 			0,
@@ -104,49 +105,59 @@ class ChangeReceiver implements Closeable {
 								eventLoop(cursor);
 							} finally {
 								if (isClosed) {
-									LOGGER.debug("Cursor is closed; skipping usual error handling");
+									LOGGER.debug("Cursor is already closed; skipping usual error handling");
 									return;
 								}
 							}
 						} catch (UnprocessableEventException|UnexpectedEventProcessingException e) {
+							addContextToException(e);
 							LOGGER.warn("Unable to process MongoDB change event; reconnecting: {}", e, e);
 							listener.onDisconnect(e);
 							// Reconnection will skip this event, so it's safe to try it right away
 							continue;
 						} catch (InterruptedException e) {
+							addContextToException(e);
 							LOGGER.warn("Interrupted while processing MongoDB change events; reconnecting", e);
 							listener.onDisconnect(e);
 							continue;
 						} catch (IOException e) {
+							addContextToException(e);
 							LOGGER.warn("Unexpected exception while processing MongoDB change events; will wait and retry", e);
 							listener.onDisconnect(e);
 							return;
 						} catch (UnrecognizedFormatException e) {
+							addContextToException(e);
 							LOGGER.warn("Unrecognized MongoDB database content format; will wait and retry", e);
 							listener.onDisconnect(e);
 							return;
 						} catch (UninitializedCollectionException e) {
+							addContextToException(e);
 							LOGGER.warn("MongoDB collection is not initialized; will wait and retry", e);
 							listener.onDisconnect(e);
 							return;
 						} catch (InitialRootActionException e) {
+							addContextToException(e);
 							LOGGER.warn("Unable to initialize bosk state; will wait and retry", e);
 							listener.onDisconnect(e);
 							return;
 						} catch (TimeoutException e) {
+							addContextToException(e);
 							LOGGER.warn("Timed out waiting for bosk state to initialize; will wait and retry", e);
 							listener.onDisconnect(e);
 							return;
 						} catch (RuntimeException | Error e) {
+							addContextToException(e);
 							LOGGER.warn("Unexpected exception after connecting to MongoDB; will wait and retry", e);
 							listener.onDisconnect(e);
 							return;
 						}
 					} catch (RuntimeException e) {
+						addContextToException(e);
 						LOGGER.warn("Unable to connect to MongoDB database; will wait and retry", e);
 						try {
 							listener.onConnectionFailed(e);
 						} catch (InterruptedException | InitialRootActionException | TimeoutException e2) {
+							addContextToException(e);
 							LOGGER.error("Error while running MongoDB connection failure handler; will wait and reconnect", e2);
 						}
 						return;
@@ -158,10 +169,14 @@ class ChangeReceiver implements Closeable {
 				currentThread().setName(oldThreadName);
 			}
 		} catch (RuntimeException e) {
+			addContextToException(e);
 			LOGGER.warn("connectionLoop task ended with unexpected {}; discarding", e.getClass().getSimpleName(), e);
 		}
 	}
 
+	private void addContextToException(Throwable x) {
+		x.addSuppressed(creationPoint);
+	}
 	private MongoChangeStreamCursor<ChangeStreamDocument<BsonDocument>> openCursor() {
 		MongoChangeStreamCursor<ChangeStreamDocument<BsonDocument>> result = collection
 			.watch()
@@ -195,6 +210,7 @@ class ChangeReceiver implements Closeable {
 				processEvent(event);
 			}
 		} catch (RuntimeException e) {
+			addContextToException(e);
 			LOGGER.debug("Unexpected {} while processing events", e.getClass().getSimpleName(), e);
 			throw new UnexpectedEventProcessingException(e);
 		} finally {

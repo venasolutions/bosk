@@ -638,10 +638,7 @@ public final class JacksonPlugin extends SerializationPlugin {
 	 *
 	 * @author Patrick Doyle
 	 */
-	@Value
-	private static class StateTreeNodeFieldModerator implements FieldModerator {
-		Type nodeType;
-
+	private record StateTreeNodeFieldModerator(Type nodeType) implements FieldModerator {
 		@Override
 		public JavaType typeOf(JavaType parameterType) {
 			return parameterType;
@@ -661,10 +658,7 @@ public final class JacksonPlugin extends SerializationPlugin {
 	 *
 	 * @author Patrick Doyle
 	 */
-	@Value
-	private static class DerivedRecordFieldModerator implements FieldModerator {
-		Type nodeType;
-
+	private record DerivedRecordFieldModerator(Type nodeType) implements FieldModerator {
 		@Override
 		public JavaType typeOf(JavaType parameterType) {
 			if (reflectiveEntity(parameterType)) {
@@ -680,7 +674,7 @@ public final class JacksonPlugin extends SerializationPlugin {
 		public Object valueFor(JavaType parameterType, Object deserializedValue) {
 			if (reflectiveEntity(parameterType)) {
 				// The deserialized value is a Reference; what we want is Reference.value()
-				return ((Reference<?>)deserializedValue).value();
+				return ((Reference<?>) deserializedValue).value();
 			} else {
 				return deserializedValue;
 			}

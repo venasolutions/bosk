@@ -223,8 +223,7 @@ final class GsonAdapterCompiler {
 	/**
 	 * The basic, un-optimized, canonical way to write a field.
 	 */
-	@Value
-	private static class OrdinaryFieldWritePlan implements FieldWritePlan {
+	private record OrdinaryFieldWritePlan() implements FieldWritePlan {
 		/**
 		 * {@inheritDoc}
 		 */
@@ -248,8 +247,7 @@ final class GsonAdapterCompiler {
 	 * where we can't look up the field's type adapter because we're still in the midst
 	 * of compiling that very adapter itself.
 	 */
-	@Value
-	private static class StaticallyBoundFieldWritePlan implements FieldWritePlan {
+	private record StaticallyBoundFieldWritePlan() implements FieldWritePlan {
 		/**
 		 * {@inheritDoc}
 		 */
@@ -280,14 +278,10 @@ final class GsonAdapterCompiler {
 	/**
 	 * A stackable wrapper that writes an <code>{@link Optional}&lt;T&gt;</code> given
 	 * a {@link FieldWritePlan} for <code>T</code>.
+	 *
+	 * @param valueWriter Handles the value inside the {@link Optional}.
 	 */
-	@Value
-	private static class OptionalFieldWritePlan implements FieldWritePlan {
-		/**
-		 * Handles the value inside the {@link Optional}.
-		 */
-		FieldWritePlan valueWriter;
-
+	private record OptionalFieldWritePlan(FieldWritePlan valueWriter) implements FieldWritePlan {
 		/**
 		 * {@inheritDoc}
 		 */
@@ -297,7 +291,7 @@ final class GsonAdapterCompiler {
 			LocalVariable optional = cb.popToLocal();
 			cb.pushLocal(optional);
 			cb.invoke(OPTIONAL_IS_PRESENT);
-			cb.ifTrue(()-> {
+			cb.ifTrue(() -> {
 				// Unwrap
 				cb.pushLocal(optional);
 				cb.invoke(OPTIONAL_GET);
@@ -313,35 +307,36 @@ final class GsonAdapterCompiler {
 	 * A stackable wrapper to implement {@link DerivedRecord} semantics: writes {@link Entity}
 	 * fields as {@link Reference References}, and all other fields are written using the
 	 * supplied {@link #nonEntityWriter}.
+	 *
+	 * @param nodeClassName Just for error messages
 	 */
-	@Value
-	private static class ReferencingFieldWritePlan implements FieldWritePlan {
-		FieldWritePlan nonEntityWriter;
-		String nodeClassName; // Just for error messages
-
-		/**
-		 * {@inheritDoc}
-		 */
-		@Override
-		public void generateFieldWrite(String name, ClassBuilder<Codec> cb, Gson gson, LocalVariable jsonWriter, Type type) {
-			Class<?> parameterClass = rawClass(type);
-			boolean isEntity = Entity.class.isAssignableFrom(parameterClass);
-			if (isEntity) {
-				if (ReflectiveEntity.class.isAssignableFrom(parameterClass)) {
-					cb.castTo(ReflectiveEntity.class);
-					cb.invoke(REFLECTIVE_ENTITY_REFERENCE);
-					// Recurse to write the Reference
-					generateFieldWrite(name, cb, gson, jsonWriter, parameterizedType(Reference.class, type));
+	private record ReferencingFieldWritePlan(
+		FieldWritePlan nonEntityWriter,
+		String nodeClassName
+	) implements FieldWritePlan {
+			/**
+			 * {@inheritDoc}
+			 */
+			@Override
+			public void generateFieldWrite(String name, ClassBuilder<Codec> cb, Gson gson, LocalVariable jsonWriter, Type type) {
+				Class<?> parameterClass = rawClass(type);
+				boolean isEntity = Entity.class.isAssignableFrom(parameterClass);
+				if (isEntity) {
+					if (ReflectiveEntity.class.isAssignableFrom(parameterClass)) {
+						cb.castTo(ReflectiveEntity.class);
+						cb.invoke(REFLECTIVE_ENTITY_REFERENCE);
+						// Recurse to write the Reference
+						generateFieldWrite(name, cb, gson, jsonWriter, parameterizedType(Reference.class, type));
+					} else {
+						throw new IllegalArgumentException(String.format("%s %s cannot contain Entity that is not a ReflectiveEntity: \"%s\"", DerivedRecord.class.getSimpleName(), nodeClassName, name));
+					}
+				} else if (Catalog.class.isAssignableFrom(parameterClass)) {
+					throw new IllegalArgumentException(String.format("%s %s cannot contain Catalog \"%s\" (try Listing?)", DerivedRecord.class.getSimpleName(), nodeClassName, name));
 				} else {
-					throw new IllegalArgumentException(String.format("%s %s cannot contain Entity that is not a ReflectiveEntity: \"%s\"", DerivedRecord.class.getSimpleName(), nodeClassName, name));
+					nonEntityWriter.generateFieldWrite(name, cb, gson, jsonWriter, type);
 				}
-			} else if (Catalog.class.isAssignableFrom(parameterClass)) {
-				throw new IllegalArgumentException(String.format("%s %s cannot contain Catalog \"%s\" (try Listing?)", DerivedRecord.class.getSimpleName(), nodeClassName, name));
-			} else {
-				nonEntityWriter.generateFieldWrite(name, cb, gson, jsonWriter, type);
 			}
 		}
-	}
 
 	/**
 	 * Implements the Gson {@link TypeAdapter} interface using a {@link Codec} object.

@@ -15,7 +15,6 @@ import io.vena.bosk.Reference;
 import io.vena.bosk.SideTable;
 import io.vena.bosk.drivers.BufferingDriver;
 import io.vena.bosk.drivers.mongo.Formatter.DocumentFields;
-import io.vena.bosk.drivers.mongo.MongoDriverSettings.MongoDriverSettingsBuilder;
 import io.vena.bosk.drivers.mongo.TestParameters.EventTiming;
 import io.vena.bosk.drivers.state.TestEntity;
 import io.vena.bosk.drivers.state.TestValues;
@@ -26,10 +25,9 @@ import io.vena.bosk.util.Classes;
 import java.io.IOException;
 import java.util.Optional;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.stream.Stream;
-import lombok.Value;
-import lombok.var;
 import org.bson.BsonDocument;
 import org.bson.BsonInt32;
 import org.bson.BsonInt64;
@@ -49,9 +47,11 @@ import static io.vena.bosk.drivers.mongo.MongoDriverSettings.DatabaseFormat.SEQU
 import static java.lang.Long.max;
 import static java.lang.System.currentTimeMillis;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Tests for MongoDB-specific functionality
@@ -94,7 +94,6 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest {
 			TestEntity actual = latecomerBosk.rootReference().value();
 			assertEquals(expected, actual);
 		}
-
 	}
 
 	@ParametersByName
@@ -104,7 +103,7 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest {
 		// have tight control over all the comings and goings from MongoDriver.
 		BlockingQueue<Reference<?>> replacementsSeen = new LinkedBlockingDeque<>();
 		Bosk<TestEntity> bosk = new Bosk<TestEntity>("Test", TestEntity.class, this::initialRoot,
-			(b,d) -> driverFactory.build(b, new BufferingDriver<TestEntity>(d){
+			(b,d) -> driverFactory.build(b, new BufferingDriver<>(d) {
 				@Override
 				public <T> void submitReplacement(Reference<T> target, T newValue) {
 					super.submitReplacement(target, newValue);
@@ -233,6 +232,57 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest {
 			latecomerActual = latecomerBosk.rootReference().value();
 		}
 		assertEquals(expected, latecomerActual);
+	}
+
+	@ParametersByName
+	@DisruptsMongoService
+	void hookRegisteredDuringNetworkOutage_works() throws InvalidTypeException, InterruptedException, IOException {
+		setLogging(ERROR, MongoDriver.class.getPackage()); // We're expecting some warnings here
+		Bosk<TestEntity> bosk = new Bosk<TestEntity>("Main", TestEntity.class, this::initialRoot, driverFactory);
+		Refs refs = bosk.buildReferences(Refs.class);
+		BoskDriver<TestEntity> driver = bosk.driver();
+		CountDownLatch listingEntry124Exists = new CountDownLatch(1);
+
+		bosk.registerHook("notice 124", refs.listingEntry(entity124), ref -> {
+			if (ref.exists()) {
+				listingEntry124Exists.countDown();
+			}
+		});
+
+		LOGGER.debug("Wait till MongoDB is up and running");
+		driver.flush();
+
+		LOGGER.debug("Cut connection");
+		mongoService.proxy().setConnectionCut(true);
+		tearDownActions.add(()->mongoService.proxy().setConnectionCut(false));
+
+		assertThrows(FlushFailureException.class, driver::flush);
+
+		LOGGER.debug("Register hook");
+		bosk.registerHook("populateListing", refs.catalog(), ref -> {
+			LOGGER.debug("Hook populating listing with all ids from catalog");
+			bosk.driver().submitReplacement(refs.listing(), Listing.of(refs.catalog(), ref.value().ids()));
+		});
+
+		LOGGER.debug("Reestablish connection");
+		mongoService.proxy().setConnectionCut(false);
+
+		LOGGER.debug("Ensure populateListing hook has been triggered");
+		driver.flush();
+
+		LOGGER.debug("Wait for listing entry 124 to exist");
+		boolean success = listingEntry124Exists.await(30, SECONDS);
+		assertTrue(success, "Entry 124 wait should not time out");
+
+		LOGGER.debug("Check bosk state");
+		TestEntity expected = initialRoot(bosk)
+			.withListing(Listing.of(refs.catalog(), entity123, entity124));
+
+		TestEntity actual;
+		try (@SuppressWarnings("unused") Bosk<?>.ReadContext readContext = bosk.readContext()) {
+			actual = bosk.rootReference().value();
+		}
+		assertEquals(expected, actual);
 	}
 
 	@ParametersByName
@@ -544,14 +594,13 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest {
 	/**
 	 * Represents an earlier version of the entity before some fields were added.
 	 */
-	@Value
-	public static class OldEntity implements Entity {
-		Identifier id;
-		String string;
+	public record OldEntity(
+		Identifier id,
+		String string,
 		// We need catalog and sideTable because we use them in our PandoConfiguration
-		Catalog<OldEntity> catalog;
-		SideTable<OldEntity, OldEntity> sideTable;
-
+		Catalog<OldEntity> catalog,
+		SideTable<OldEntity, OldEntity> sideTable
+	) implements Entity {
 		public static OldEntity withString(String value, Bosk<OldEntity> bosk) throws InvalidTypeException {
 			return new OldEntity(
 				rootID,
@@ -566,15 +615,15 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest {
 	 * A version of {@link TestEntity} where the {@link Optional} {@link TestEntity#values()}
 	 * field has a default (and some other fields have been deleted).
 	 */
-	@Value
-	public static class UpgradeableEntity implements Entity {
-		Identifier id;
-		String string;
-		Catalog<TestEntity> catalog;
-		Listing<TestEntity> listing;
-		SideTable<TestEntity, TestEntity> sideTable;
-		Optional<TestValues> values;
-
+	public record UpgradeableEntity(
+		Identifier id,
+		String string,
+		Catalog<TestEntity> catalog,
+		Listing<TestEntity> listing,
+		SideTable<TestEntity, TestEntity> sideTable,
+		Optional<TestValues> values
+	) implements Entity {
+		@Override
 		public Optional<TestValues> values() {
 			return Optional.of(values.orElse(TestValues.blank()));
 		}

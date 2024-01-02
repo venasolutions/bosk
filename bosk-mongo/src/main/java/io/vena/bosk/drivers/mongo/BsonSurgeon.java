@@ -12,7 +12,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import lombok.Value;
+import lombok.Getter;
 import org.bson.BsonBoolean;
 import org.bson.BsonDocument;
 import org.bson.BsonInvalidOperationException;
@@ -43,10 +43,13 @@ import static java.util.Objects.requireNonNull;
 class BsonSurgeon {
 	final List<GraftPoint> graftPoints;
 
-	@Value(staticConstructor = "of")
-	public static class GraftPoint {
-		Reference<? extends EnumerableByIdentifier<?>> containerRef;
-		Reference<?> entryPlaceholderRef;
+	record GraftPoint (
+		Reference<? extends EnumerableByIdentifier<?>> containerRef,
+		Reference<?> entryPlaceholderRef
+	) {
+		public static GraftPoint of(Reference<? extends EnumerableByIdentifier<?>> containerRef, Reference<?> entryPlaceholderRef) {
+			return new GraftPoint(containerRef, entryPlaceholderRef);
+		}
 
 		public GraftPoint boundTo(Identifier id) {
 			return GraftPoint.of(

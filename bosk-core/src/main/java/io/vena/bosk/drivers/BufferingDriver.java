@@ -13,7 +13,6 @@ import java.util.Deque;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.function.Consumer;
 import lombok.RequiredArgsConstructor;
-import lombok.var;
 
 import static lombok.AccessLevel.PROTECTED;
 

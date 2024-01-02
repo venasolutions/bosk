@@ -1,7 +1,6 @@
 package io.vena.bosk.drivers.mongo.example;
 
 import io.vena.bosk.exceptions.InvalidTypeException;
-import lombok.var;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;

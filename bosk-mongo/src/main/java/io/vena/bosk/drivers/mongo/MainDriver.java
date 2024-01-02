@@ -28,7 +28,6 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
-import lombok.var;
 import org.bson.BsonDocument;
 import org.bson.BsonInt64;
 import org.bson.BsonString;
@@ -275,12 +274,12 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 					// TODO: Really, at the moment the damage is noticed, we should probably make the receiver reboot; but we currently have no way to do so!
 					LOGGER.debug("Revision field has been disrupted; wait for receiver to notice something is wrong", e);
 					waitAndRetry(flushOperation, "flush");
-				} catch (CannotOpenSessionException e) {
+				} catch (FailedSessionException e) {
 					LOGGER.debug("Cannot open MongoDB session; will wait and retry flush", e);
 					waitAndRetry(flushOperation, "flush");
 				}
 			}
-		} catch (DisconnectedException | CannotOpenSessionException e) {
+		} catch (DisconnectedException | FailedSessionException e) {
 			throw new FlushFailureException(e);
 		}
 	}
@@ -330,19 +329,32 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 			LOGGER.debug("onConnectionSucceeded");
 			FutureTask<R> initialRootAction = this.taskRef.get();
 			if (initialRootAction == null) {
+				FormatDriver<R> newDriver;
+				StateAndMetadata<R> loadedState;
 				try (var __ = collection.newReadOnlySession()) {
 					LOGGER.debug("Loading database state to submit to downstream driver");
-					FormatDriver<R> newDriver = detectFormat();
-					StateAndMetadata<R> loadedState = newDriver.loadAllState();
-					// TODO: It's not clear we actually want loadedState.diagnosticAttributes here.
-					// This causes downstream.submitReplacement to be associated with the last update to the state,
-					// which is of dubious relevance. We might just want to use the context from the current thread,
-					// which is probably empty because this runs on the ChangeReceiver thread.
-					try (var ___ = bosk.rootReference().diagnosticContext().withOnly(loadedState.diagnosticAttributes)) {
-						downstream.submitReplacement(bosk.rootReference(), loadedState.state);
-					}
-					newDriver.onRevisionToSkip(loadedState.revision);
-					publishFormatDriver(newDriver);
+					newDriver = detectFormat();
+					loadedState = newDriver.loadAllState();
+				}
+				// Note: can't call downstream methods with a session open,
+				// because that could run hooks, which could themselves submit
+				// new updates, and those updates need their own session.
+
+				// Update the FormatDriver before submitting the new state downstream in case
+				// a hook is triggered that calls more driver methods.
+				// Note: that there's no risk that another thread will submit a downstream update "out of order"
+				// before ours (below) because this code runs on the ChangeReceiver thread, which is
+				// the only thread that submits updates downstream.
+
+				newDriver.onRevisionToSkip(loadedState.revision);
+				publishFormatDriver(newDriver);
+
+				// TODO: It's not clear we actually want loadedState.diagnosticAttributes here.
+				// This causes downstream.submitReplacement to be associated with the last update to the state,
+				// which is of dubious relevance. We might just want to use the context from the current thread,
+				// which is probably empty because this runs on the ChangeReceiver thread.
+				try (var ___ = bosk.rootReference().diagnosticContext().withOnly(loadedState.diagnosticAttributes)) {
+					downstream.submitReplacement(bosk.rootReference(), loadedState.state);
 				}
 			} else {
 				LOGGER.debug("Running initialRoot action");
@@ -487,7 +499,7 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 			try (var session = collection.newSession()) {
 				operation.run();
 				session.commitTransactionIfAny();
-			} catch (CannotOpenSessionException e) {
+			} catch (FailedSessionException e) {
 				quietlySetFormatDriver(new DisconnectedDriver<>(e));
 				throw new DisconnectedException(e);
 			}
@@ -505,10 +517,11 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 	private <X extends Exception, Y extends Exception> void waitAndRetry(RetryableOperation<X, Y> operation, String description, Object... args) throws X, Y {
 		try {
 			formatDriverLock.lock();
-			LOGGER.debug("Waiting for new FormatDriver for {} ms", 5 * driverSettings.recoveryPollingMS());
-			boolean success = formatDriverChanged.await(5*driverSettings.recoveryPollingMS(), MILLISECONDS);
+			long waitTimeMS = 5 * driverSettings.recoveryPollingMS();
+			LOGGER.debug("Waiting for new FormatDriver for {} ms", waitTimeMS);
+			boolean success = formatDriverChanged.await(waitTimeMS, MILLISECONDS);
 			if (!success) {
-				LOGGER.debug("Timed out waiting for new FormatDriver; will retry anyway");
+				LOGGER.warn("Timed out waiting for MongoDB to recover; will retry anyway, but the operation may fail");
 			}
 		} catch (InterruptedException e) {
 			// In a library, it's hard to know what a user expects when interrupting a thread.

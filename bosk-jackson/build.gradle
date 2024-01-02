@@ -6,12 +6,12 @@ plugins {
 }
 
 java {
-	sourceCompatibility = '8'
-	targetCompatibility = '8'
+	sourceCompatibility = '17'
+	targetCompatibility = '17'
 }
 
 dependencies {
-	api 'com.fasterxml.jackson.core:jackson-databind:2.15.3'
+	api 'com.fasterxml.jackson.core:jackson-databind:2.16.1'
 	api project(":bosk-core")
 
 	testImplementation project(":lib-testing")
