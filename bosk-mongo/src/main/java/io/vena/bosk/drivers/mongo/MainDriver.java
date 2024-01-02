@@ -330,10 +330,22 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 			LOGGER.debug("onConnectionSucceeded");
 			FutureTask<R> initialRootAction = this.taskRef.get();
 			if (initialRootAction == null) {
+				FormatDriver<R> newDriver;
+				StateAndMetadata<R> loadedState;
 				try (var __ = collection.newReadOnlySession()) {
 					LOGGER.debug("Loading database state to submit to downstream driver");
-					FormatDriver<R> newDriver = detectFormat();
-					StateAndMetadata<R> loadedState = newDriver.loadAllState();
+					newDriver = detectFormat();
+					loadedState = newDriver.loadAllState();
+
+					// Update the FormatDriver before submitting the new state downstream in case
+					// a hook is triggered that calls more driver methods.
+					// Note: that there's no risk that another thread will submit a downstream update "out of order"
+					// before ours (below) because this code runs on the ChangeReceiver thread, which is
+					// the only thread that submits updates downstream.
+
+					newDriver.onRevisionToSkip(loadedState.revision);
+					publishFormatDriver(newDriver);
+
 					// TODO: It's not clear we actually want loadedState.diagnosticAttributes here.
 					// This causes downstream.submitReplacement to be associated with the last update to the state,
 					// which is of dubious relevance. We might just want to use the context from the current thread,
@@ -341,8 +353,6 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 					try (var ___ = bosk.rootReference().diagnosticContext().withOnly(loadedState.diagnosticAttributes)) {
 						downstream.submitReplacement(bosk.rootReference(), loadedState.state);
 					}
-					newDriver.onRevisionToSkip(loadedState.revision);
-					publishFormatDriver(newDriver);
 				}
 			} else {
 				LOGGER.debug("Running initialRoot action");
