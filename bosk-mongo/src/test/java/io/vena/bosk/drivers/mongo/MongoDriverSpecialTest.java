@@ -15,7 +15,6 @@ import io.vena.bosk.Reference;
 import io.vena.bosk.SideTable;
 import io.vena.bosk.drivers.BufferingDriver;
 import io.vena.bosk.drivers.mongo.Formatter.DocumentFields;
-import io.vena.bosk.drivers.mongo.MongoDriverSettings.MongoDriverSettingsBuilder;
 import io.vena.bosk.drivers.mongo.TestParameters.EventTiming;
 import io.vena.bosk.drivers.state.TestEntity;
 import io.vena.bosk.drivers.state.TestValues;
@@ -104,7 +103,7 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest {
 		// have tight control over all the comings and goings from MongoDriver.
 		BlockingQueue<Reference<?>> replacementsSeen = new LinkedBlockingDeque<>();
 		Bosk<TestEntity> bosk = new Bosk<TestEntity>("Test", TestEntity.class, this::initialRoot,
-			(b,d) -> driverFactory.build(b, new BufferingDriver<TestEntity>(d){
+			(b,d) -> driverFactory.build(b, new BufferingDriver<>(d) {
 				@Override
 				public <T> void submitReplacement(Reference<T> target, T newValue) {
 					super.submitReplacement(target, newValue);
