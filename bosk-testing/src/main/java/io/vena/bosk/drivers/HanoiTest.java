@@ -19,7 +19,6 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.IntStream;
-import lombok.Value;
 import org.junit.jupiter.api.BeforeEach;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -238,38 +237,37 @@ public abstract class HanoiTest {
 		);
 	}
 
-	@Value
-	public static class HanoiState implements StateTreeNode {
-		Catalog<Puzzle> puzzles;
-		Listing<Puzzle> solved;
-	}
+	public record HanoiState(
+		Catalog<Puzzle> puzzles,
+		Listing<Puzzle> solved
+	) implements StateTreeNode { }
 
-	@Value
-	public static class Puzzle implements Entity {
-		Identifier id;
-		Catalog<Tower> towers;
-		Reference<Tower> startingTower;
-	}
+	public record Puzzle(
+		Identifier id,
+		Catalog<Tower> towers,
+		Reference<Tower> startingTower
+	) implements Entity { }
 
-	@Value
-	public static class Tower implements Entity {
-		Identifier id;
-		Catalog<Disc> discs;
-
+	public record Tower(Identifier id, Catalog<Disc> discs) implements Entity {
 		public Disc topDisc() {
-			return discs.stream().reduce(null, (a,b) -> b);
+			return discs.stream().reduce(null, (a, b) -> b);
 		}
 
-		@Override public String toString() { return discs.asCollection().toString(); }
+		@Override
+		public String toString() {
+			return discs.asCollection().toString();
+		}
 	}
 
-	@Value
-	public static class Disc implements Entity {
-		Identifier id;
+	public record Disc(Identifier id) implements Entity {
+		public int size() {
+			return Integer.parseInt(id.toString());
+		}
 
-		public int size() { return Integer.parseInt(id.toString()); }
-
-		@Override public String toString() { return id.toString(); }
+		@Override
+		public String toString() {
+			return id.toString();
+		}
 	}
 
 	private Identifier nextTower(Identifier t) {

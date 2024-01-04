@@ -313,11 +313,10 @@ public abstract class SerializationPlugin {
 		}
 	}
 
-	@Value
-	private static class ParameterInfo {
-		Set<String> annotatedParameters_Self;
-		Set<String> annotatedParameters_Enclosing;
-		Map<String, DeserializationPath> annotatedParameters_DeserializationPath;
+	private record ParameterInfo(
+		Set<String> annotatedParameters_Self, Set<String> annotatedParameters_Enclosing,
+		Map<String, DeserializationPath> annotatedParameters_DeserializationPath
+	) {
 	}
 
 	private static final Map<Class<?>, ParameterInfo> PARAMETER_INFO_MAP = new ConcurrentHashMap<>();

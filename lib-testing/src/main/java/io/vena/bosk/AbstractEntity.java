@@ -3,6 +3,10 @@ package io.vena.bosk;
 /**
  * Some handy defaults for {@link Entity} implementations that don't
  * inherit {@link ReflectiveEntity}.
+ *
+ * @deprecated This dates back to a time when value-based equals and hashCode
+ * were discouraged, but this is no longer the case. There's no reason newly
+ * written Entities should inherit this.
  */
 public abstract class AbstractEntity implements Entity {
 

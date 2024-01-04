@@ -505,7 +505,7 @@ public class Bosk<R extends StateTreeNode> {
 		return unmodifiableList(hooks);
 	}
 
-	@Value
+	@Value // Inner class can't be a record
 	public class HookRegistration<S> {
 		String name;
 		Reference<S> scope;
