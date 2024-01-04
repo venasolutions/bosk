@@ -26,8 +26,8 @@ public abstract class ReflectiveEntity<T extends ReflectiveEntity<T>> implements
 	public boolean equals(Object obj) {
 		if (this == obj) {
 			return true;
-		} else if (obj instanceof ReflectiveEntity) {
-			return this.reference().equals(((ReflectiveEntity<?>) obj).reference());
+		} else if (obj instanceof ReflectiveEntity<?> r) {
+			return this.reference().equals(r.reference());
 		} else {
 			return false;
 		}

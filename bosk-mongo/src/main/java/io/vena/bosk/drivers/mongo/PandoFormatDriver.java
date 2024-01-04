@@ -245,12 +245,12 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 			throw new UnprocessableEventException("Null document key", event.getOperationType());
 		}
 		BsonValue bsonDocumentID = event.getDocumentKey().get("_id");
-		if (!(bsonDocumentID instanceof BsonString)) {
-			LOGGER.debug("Ignoring event for unrecognized non-string document key: {} type {}", event.getDocumentKey(), bsonDocumentID.getClass());
-			return;
-		}
 		if (MANIFEST_ID.equals(bsonDocumentID)) {
 			onManifestEvent(event);
+			return;
+		}
+		if (!(bsonDocumentID instanceof BsonString s) || !(s.getValue().startsWith("|"))) {
+			LOGGER.debug("Ignoring event for unrecognized document key: {} type {}", event.getDocumentKey(), bsonDocumentID.getClass());
 			return;
 		}
 
@@ -502,9 +502,9 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 		collection.ensureTransactionStarted();
 		Reference<?> mainRef = mainRef(target);
 		BsonValue value = formatter.object2bsonValue(newValue, target.targetType());
-		if (value instanceof BsonDocument) {
+		if (value instanceof BsonDocument b) {
 			deletePartsUnder(target);
-			upsertAndRemoveSubParts(target, value.asDocument());
+			upsertAndRemoveSubParts(target, b);
 			// Note that value will now have the sub-parts removed
 		}
 		if (rootRef.equals(mainRef)) {

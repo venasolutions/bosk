@@ -113,19 +113,19 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 					// Try to throw the downstream exception directly,
 					// as though we had called it without using a FutureTask
 					Throwable cause = exception.getCause();
-					if (cause instanceof IOException) {
-						throw (IOException) cause;
-					} else if (cause instanceof InvalidTypeException) {
-						throw (InvalidTypeException) cause;
-					} else if (cause instanceof InterruptedException) {
-						throw (InterruptedException) cause;
-					} else if (cause instanceof RuntimeException) {
-						throw (RuntimeException) cause;
+					if (cause instanceof IOException i) {
+						throw i;
+					} else if (cause instanceof InvalidTypeException i) {
+						throw i;
+					} else if (cause instanceof InterruptedException i) {
+						throw i;
+					} else if (cause instanceof RuntimeException r) {
+						throw r;
 					} else {
 						throw new AssertionError("Unexpected exception during initialRoot: " + e.getClass().getSimpleName(), e);
 					}
-				} else if (exception instanceof InitialRootFailureException) {
-					throw (InitialRootFailureException) exception;
+				} else if (exception instanceof InitialRootFailureException i) {
+					throw i;
 				} else {
 					throw new AssertionError("Exception from initialRoot was not wrapped in DownstreamInitialRootException: " + e.getClass().getSimpleName(), e);
 				}
@@ -388,8 +388,8 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 				return null;
 			} else  {
 				BsonValue value = documentKey.get("_id");
-				if (value instanceof BsonString) {
-					return value.asString().getValue();
+				if (value instanceof BsonString b) {
+					return b.getValue();
 				} else {
 					return value;
 				}
@@ -463,12 +463,12 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 				bsonPlugin,
 				new FlushLock(driverSettings, revisionAlreadySeen),
 				downstream);
-		} else if (format instanceof PandoFormat) {
+		} else if (format instanceof PandoFormat pandoFormat) {
 			return new PandoFormatDriver<>(
 				bosk,
 				collection,
 				driverSettings,
-				(PandoFormat) format,
+				pandoFormat,
 				bsonPlugin,
 				new FlushLock(driverSettings, revisionAlreadySeen),
 				downstream);

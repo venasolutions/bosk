@@ -11,10 +11,9 @@ import static java.util.Arrays.asList;
  * A scalable format  that stores the bosk state in multiple documents,
  * thereby overcoming MongoDB's 16MB document size limit.
  */
-@Value
-public class PandoFormat implements StateTreeNode, MongoDriverSettings.DatabaseFormat {
-	ListValue<String> separateCollections;
-
+public record PandoFormat(
+	ListValue<String> separateCollections
+) implements StateTreeNode, MongoDriverSettings.DatabaseFormat {
 	/**
 	 * Differs from Sequoia in that (1) the root document has a different ID, rendering the formats incompatible;
 	 * and (2) Sequoia is designed not to need multi-document transactions.

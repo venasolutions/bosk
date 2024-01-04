@@ -100,8 +100,7 @@ public class ListValue<T> extends AbstractList<T> {
 
 		if (this == o) {
 			return true;
-		} else if (o instanceof ListValue) {
-			ListValue<?> listValue = (ListValue<?>) o;
+		} else if (o instanceof ListValue<?> listValue) {
 			return Arrays.equals(entries, listValue.entries);
 		}
 

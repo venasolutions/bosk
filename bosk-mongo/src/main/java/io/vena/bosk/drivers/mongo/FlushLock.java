@@ -67,11 +67,10 @@ class FlushLock implements Closeable {
 		this.alreadySeen = revisionAlreadySeen;
 	}
 
-	@Value
-	private static class Waiter implements Comparable<Waiter> {
-		long revision;
-		Semaphore semaphore;
-
+	private record Waiter(
+		long revision,
+		Semaphore semaphore
+	) implements Comparable<Waiter> {
 		@Override
 		public int compareTo(Waiter other) {
 			return Long.compare(revision, other.revision);

@@ -2,8 +2,6 @@ package io.vena.bosk;
 
 import io.vena.bosk.exceptions.InvalidTypeException;
 import io.vena.bosk.util.Types;
-import java.lang.invoke.MethodHandle;
-import java.lang.invoke.MethodType;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -15,7 +13,6 @@ import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.stream.Stream;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -25,7 +22,6 @@ import lombok.experimental.Delegate;
 import static io.vena.bosk.util.ReflectionHelpers.setAccessible;
 import static java.lang.String.format;
 import static java.lang.reflect.Modifier.STATIC;
-import static java.util.Arrays.asList;
 import static java.util.stream.Collectors.toList;
 
 /**
@@ -44,7 +40,7 @@ public final class ReferenceUtils {
 	}
 
 	@RequiredArgsConstructor
-	@Value
+	@Value // Unusual equals and hashcode doesn't suit being a record
 	static class CatalogRef<E extends Entity> implements CatalogReference<E> {
 		@Delegate(excludes = CovariantOverrides.class)
 		Reference<Catalog<E>> ref;
@@ -76,7 +72,7 @@ public final class ReferenceUtils {
 		@Override public String toString() { return ref.toString(); }
 	}
 
-	@Value
+	@Value // Unusual equals and hashcode doesn't suit being a record
 	static class ListingRef<E extends Entity> implements ListingReference<E> {
 		@Delegate(excludes = {CovariantOverrides.class})
 		Reference<Listing<E>> ref;
@@ -226,45 +222,9 @@ C&lt;String> someField;
 		return ((ParameterizedType)parameterizedType).getActualTypeArguments()[index];
 	}
 
-	/**
-	 * Retains type information in the form of {@link Type} objects, rather
-	 * than the {@link Class} objects available via {@link MethodType},
-	 * because we need information about generic type parameters.
-	 *
-	 * @author pdoyle
-	 */
-	@Value
-	static class TypedHandle {
-		// The order of the fields here is supposed to remind you of a method declaration: ReturnType methodName(ArgType x, ArgType y)
-		Type returnType;
-		MethodHandle handle;
-		List<Type> argTypes;
-
-		public TypedHandle(Type returnType, MethodHandle handle, List<Type> argTypes) {
-			this.returnType = returnType;
-			this.handle = handle;
-			this.argTypes = argTypes;
-			if (!rawClass(returnType).isAssignableFrom(handle.type().returnType())) {
-				throw new IllegalArgumentException("Given return type doesn't match return type of " + handle + ": " + returnType);
-			}
-			for (int i = 0; i < argTypes.size(); i++) {
-				if (!rawClass(argTypes.get(i)).isAssignableFrom(handle.type().parameterType(i))) {
-					throw new IllegalArgumentException("Given type of parameter " + i + " doesn't match.\nHandle: " + handle.type().parameterList() + "\nArgTypes: " + argTypes);
-				}
-			}
-			if (handle.type().parameterCount() > argTypes.size()) {
-				throw new IllegalArgumentException("Given type has only " + argTypes.size() + " arguments; doesn't match handle " + handle);
-			}
-		}
-
-		public TypedHandle(Type returnType, MethodHandle handle, Type...argTypes) {
-			this(returnType, handle, asList(argTypes));
-		}
-	}
-
 	public static Class<?> rawClass(Type sourceType) {
-		if (sourceType instanceof ParameterizedType) {
-			return (Class<?>)((ParameterizedType) sourceType).getRawType();
+		if (sourceType instanceof ParameterizedType pt) {
+			return (Class<?>)pt.getRawType();
 		} else {
 			return (Class<?>)sourceType;
 		}

@@ -189,11 +189,11 @@ public class ServiceEndpoints {
 	}
 
 	private void checkForMismatchedID(Reference<Object> ref, Object newValue) throws InvalidTypeException {
-		if (newValue instanceof Entity && !ref.path().isEmpty()) {
+		if (newValue instanceof Entity e && !ref.path().isEmpty()) {
 			Reference<?> enclosingRef = ref.enclosingReference(Object.class);
 			if (EnumerableByIdentifier.class.isAssignableFrom(enclosingRef.targetClass())) {
 				Identifier pathID = Identifier.from(ref.path().lastSegment());
-				Identifier entityID = ((Entity) newValue).id();
+				Identifier entityID = e.id();
 				if (!pathID.equals(entityID)) {
 					throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ref.getClass().getSimpleName() + " ID \"" + entityID + "\" does not match path ID \"" + pathID + "\"");
 				}

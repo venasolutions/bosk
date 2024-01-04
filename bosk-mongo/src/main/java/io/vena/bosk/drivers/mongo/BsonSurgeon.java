@@ -176,7 +176,7 @@ class BsonSurgeon {
 	}
 
 	private static List<String> bsonPathSegments(BsonString bsonPath) {
-		assert bsonPath.getValue().startsWith("|");
+		assert bsonPath.getValue().startsWith("|"): "bsonPath \"" + bsonPath + "\" must start with vertical bar";
 		String bsonPathString = bsonPath.getValue().substring(1);
 		if (bsonPathString.isEmpty()) {
 			// String.split doesn't do the right thing in this case. We want an empty array,

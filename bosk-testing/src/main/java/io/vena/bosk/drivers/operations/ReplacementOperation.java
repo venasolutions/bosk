@@ -5,9 +5,9 @@ public interface ReplacementOperation<T> extends UpdateOperation {
 
 	@Override
 	default boolean matchesIfApplied(UpdateOperation other) {
-		if (other instanceof ReplacementOperation) {
+		if (other instanceof ReplacementOperation<?> r) {
 			return this.target().equals(other.target())
-				&& this.newValue().equals(((ReplacementOperation<?>) other).newValue());
+				&& this.newValue().equals(r.newValue());
 		} else {
 			return false;
 		}
