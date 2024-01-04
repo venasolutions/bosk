@@ -111,7 +111,7 @@ class ChangeReceiver implements Closeable {
 							}
 						} catch (UnprocessableEventException|UnexpectedEventProcessingException e) {
 							addContextToException(e);
-							LOGGER.warn("Unable to process MongoDB change event; reconnecting: {}", e, e);
+							LOGGER.warn("Unable to process MongoDB change event; reconnecting: {}", e.getMessage(), e);
 							listener.onDisconnect(e);
 							// Reconnection will skip this event, so it's safe to try it right away
 							continue;
