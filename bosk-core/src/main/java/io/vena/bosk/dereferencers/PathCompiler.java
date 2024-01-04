@@ -323,9 +323,9 @@ public final class PathCompiler {
 
 		@Override
 		protected void generate_without() {
-			if (lastStep() instanceof DeletableStep) {
+			if (lastStep() instanceof DeletableStep d) {
 				pushSegmentStack();
-				((DeletableStep) lastStep()).generate_without();
+				d.generate_without();
 				generateVineFoldingSequence();
 			} else {
 				pushSourceObject(rawClass(sourceType));

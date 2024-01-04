@@ -194,8 +194,8 @@ public abstract class AbstractRoundTripTest extends AbstractBoskTest {
 
 				private void pruneDocument(BsonValue value, Type nodeType, Set<BsonDocument> alreadyPruned) {
 					BsonDocument document;
-					if (value instanceof BsonDocument) {
-						document = (BsonDocument)value;
+					if (value instanceof BsonDocument b) {
+						document = b;
 					} else {
 						return;
 					}

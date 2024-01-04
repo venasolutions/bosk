@@ -14,12 +14,10 @@ public abstract class Types {
 
 			@Override
 			public boolean equals(Object obj) {
-				if ((obj instanceof ParameterizedType)) {
-					ParameterizedType other = (ParameterizedType) obj;
-					return
-							Objects.equals(this.getRawType(), other.getRawType())
-							&& Objects.equals(this.getOwnerType(), other.getOwnerType())
-							&& Arrays.equals(this.getActualTypeArguments(), other.getActualTypeArguments());
+				if ((obj instanceof ParameterizedType other)) {
+					return Objects.equals(this.getRawType(), other.getRawType())
+						&& Objects.equals(this.getOwnerType(), other.getOwnerType())
+						&& Arrays.equals(this.getActualTypeArguments(), other.getActualTypeArguments());
 				} else {
 					return false;
 				}

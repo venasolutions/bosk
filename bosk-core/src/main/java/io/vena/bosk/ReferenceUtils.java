@@ -223,8 +223,8 @@ C&lt;String> someField;
 	}
 
 	public static Class<?> rawClass(Type sourceType) {
-		if (sourceType instanceof ParameterizedType) {
-			return (Class<?>)((ParameterizedType) sourceType).getRawType();
+		if (sourceType instanceof ParameterizedType pt) {
+			return (Class<?>)pt.getRawType();
 		} else {
 			return (Class<?>)sourceType;
 		}

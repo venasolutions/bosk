@@ -502,9 +502,9 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 		collection.ensureTransactionStarted();
 		Reference<?> mainRef = mainRef(target);
 		BsonValue value = formatter.object2bsonValue(newValue, target.targetType());
-		if (value instanceof BsonDocument) {
+		if (value instanceof BsonDocument b) {
 			deletePartsUnder(target);
-			upsertAndRemoveSubParts(target, value.asDocument());
+			upsertAndRemoveSubParts(target, b);
 			// Note that value will now have the sub-parts removed
 		}
 		if (rootRef.equals(mainRef)) {
