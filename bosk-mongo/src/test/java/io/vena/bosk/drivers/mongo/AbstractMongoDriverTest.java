@@ -154,17 +154,10 @@ abstract class AbstractMongoDriverTest {
 	}
 
 	public interface Refs {
-		@ReferencePath("/catalog")
-		CatalogReference<TestEntity> catalog();
-
-		@ReferencePath("/listing")
-		ListingReference<TestEntity> listing();
-
-		@ReferencePath("/listing/-entity-")
-		Reference<ListingEntry> listingEntry(Identifier entity);
-
-		@ReferencePath("/catalog/-child-/catalog")
-		CatalogReference<TestEntity> childCatalog(Identifier child);
+		@ReferencePath("/catalog") CatalogReference<TestEntity> catalog();
+		@ReferencePath("/listing") ListingReference<TestEntity> listing();
+		@ReferencePath("/listing/-entity-") Reference<ListingEntry> listingEntry(Identifier entity);
+		@ReferencePath("/catalog/-child-/catalog") CatalogReference<TestEntity> childCatalog(Identifier child);
 	}
 
 	private static final AtomicBoolean ALREADY_WARNED = new AtomicBoolean(false);
