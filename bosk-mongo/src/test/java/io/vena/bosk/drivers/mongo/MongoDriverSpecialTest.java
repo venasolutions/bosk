@@ -13,6 +13,7 @@ import io.vena.bosk.ListingEntry;
 import io.vena.bosk.ListingReference;
 import io.vena.bosk.Reference;
 import io.vena.bosk.SideTable;
+import io.vena.bosk.annotations.Polyfill;
 import io.vena.bosk.drivers.BufferingDriver;
 import io.vena.bosk.drivers.mongo.Formatter.DocumentFields;
 import io.vena.bosk.drivers.mongo.TestParameters.EventTiming;
@@ -455,6 +456,13 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest {
 			createDriverFactory()
 		);
 
+		LOGGER.debug("Ensure polyfill returns the right value on read");
+		TestValues polyfill;
+		try (var __ = upgradeableBosk.readContext()) {
+			polyfill = upgradeableBosk.rootReference().value().values();
+		}
+		assertEquals(TestValues.blank(), polyfill);
+
 		LOGGER.debug("Check state before");
 		Optional<TestValues> before;
 		try (var __ = originalBosk.readContext()) {
@@ -613,7 +621,7 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest {
 
 	/**
 	 * A version of {@link TestEntity} where the {@link Optional} {@link TestEntity#values()}
-	 * field has a default (and some other fields have been deleted).
+	 * field has a polyfill (and some other fields have been deleted).
 	 */
 	public record UpgradeableEntity(
 		Identifier id,
@@ -621,12 +629,10 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest {
 		Catalog<TestEntity> catalog,
 		Listing<TestEntity> listing,
 		SideTable<TestEntity, TestEntity> sideTable,
-		Optional<TestValues> values
+		TestValues values
 	) implements Entity {
-		@Override
-		public Optional<TestValues> values() {
-			return Optional.of(values.orElse(TestValues.blank()));
-		}
+		@Polyfill("values")
+		static final TestValues DEFAULT_VALUES = TestValues.blank();
 	}
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(MongoDriverSpecialTest.class);
