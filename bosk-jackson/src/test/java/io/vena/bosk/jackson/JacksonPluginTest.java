@@ -9,7 +9,6 @@ import com.fasterxml.jackson.databind.type.TypeFactory;
 import io.vena.bosk.AbstractBoskTest;
 import io.vena.bosk.BindingEnvironment;
 import io.vena.bosk.Bosk;
-import io.vena.bosk.Bosk.ReadContext;
 import io.vena.bosk.Catalog;
 import io.vena.bosk.CatalogReference;
 import io.vena.bosk.Identifier;
@@ -20,7 +19,6 @@ import io.vena.bosk.MapValue;
 import io.vena.bosk.Path;
 import io.vena.bosk.Reference;
 import io.vena.bosk.ReflectiveEntity;
-import io.vena.bosk.SerializationPlugin.DeserializationScope;
 import io.vena.bosk.SideTable;
 import io.vena.bosk.StateTreeNode;
 import io.vena.bosk.TestEntityBuilder;
@@ -41,8 +39,6 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 import lombok.Getter;
-import lombok.RequiredArgsConstructor;
-import lombok.Value;
 import lombok.experimental.FieldNameConstants;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -62,21 +58,22 @@ import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class JacksonPluginTest extends AbstractBoskTest {
 	private Bosk<TestRoot> bosk;
 	private TestEntityBuilder teb;
 	private JacksonPlugin jacksonPlugin;
 	private ObjectMapper boskMapper;
-	private CatalogReference<TestEntity> entitiesRef;
-	private Reference<TestEntity> parentRef;
 	private Refs refs;
 
 	public interface Refs {
+		@ReferencePath("/entities") CatalogReference<TestEntity> entities();
 		@ReferencePath("/entities/-entity-") Reference<TestEntity> entity(Identifier entity);
-		@ReferencePath("/entities/-entity-/implicitRefs") Reference<ImplicitRefs> implicitRefs(Identifier entity);
+		@ReferencePath("/entities/-entity-/children") CatalogReference<TestChild> children(Identifier entity);
+		@ReferencePath("/entities/parent/implicitRefs") Reference<ImplicitRefs> parentImplicitRefs();
+		@ReferencePath("/entities/-entity-/implicitRefs") Reference<ImplicitRefs> implicitRefs(Identifier id);
 	}
 
 	/**
@@ -88,8 +85,7 @@ class JacksonPluginTest extends AbstractBoskTest {
 	void setUpJackson() throws Exception {
 		bosk = setUpBosk(Bosk::simpleDriver);
 		teb = new TestEntityBuilder(bosk);
-		entitiesRef = bosk.rootReference().thenCatalog(TestEntity.class, Path.just(TestRoot.Fields.entities));
-		parentRef = entitiesRef.then(Identifier.from("parent"));
+		refs = bosk.buildReferences(Refs.class);
 
 		plainMapper = new ObjectMapper()
 			.enable(INDENT_OUTPUT);
@@ -98,7 +94,6 @@ class JacksonPluginTest extends AbstractBoskTest {
 		boskMapper = new ObjectMapper()
 			.registerModule(jacksonPlugin.moduleFor(bosk))
 			.enable(INDENT_OUTPUT);
-		refs = bosk.buildReferences(Refs.class);
 	}
 
 	@Test
@@ -140,11 +135,11 @@ class JacksonPluginTest extends AbstractBoskTest {
 	@ParameterizedTest
 	@MethodSource("listingArguments")
 	void listing_works(List<String> strings, List<Identifier> ids) {
-		Listing<TestEntity> listing = Listing.of(entitiesRef, ids);
+		Listing<TestEntity> listing = Listing.of(refs.entities(), ids);
 
 		Map<String, Object> expected = new LinkedHashMap<>();
 		expected.put("ids", strings);
-		expected.put("domain", entitiesRef.pathString());
+		expected.put("domain", refs.entities().pathString());
 
 		assertJacksonWorks(expected, listing, new TypeReference<Listing<TestEntity>>() {}, Path.just("doesn't matter"));
 	}
@@ -169,14 +164,14 @@ class JacksonPluginTest extends AbstractBoskTest {
 	@ParameterizedTest
 	@MethodSource("sideTableArguments")
 	void sideTable_works(List<String> keys, Map<String,String> valuesByString, Map<Identifier, String> valuesById) {
-		SideTable<TestEntity, String> sideTable = SideTable.fromOrderedMap(entitiesRef, valuesById);
+		SideTable<TestEntity, String> sideTable = SideTable.fromOrderedMap(refs.entities(), valuesById);
 
 		List<Map<String, Object>> expectedList = new ArrayList<>();
 		valuesByString.forEach((key, value) -> expectedList.add(singletonMap(key, value)));
 
 		Map<String, Object> expected = new LinkedHashMap<>();
 		expected.put("valuesById", expectedList);
-		expected.put("domain", entitiesRef.pathString());
+		expected.put("domain", refs.entities().pathString());
 
 		assertJacksonWorks(
 			expected,
@@ -210,21 +205,21 @@ class JacksonPluginTest extends AbstractBoskTest {
 	}
 
 	@Test
-	void phantom_isOmitted() throws InvalidTypeException, JsonProcessingException {
+	void phantom_isOmitted() throws JsonProcessingException {
 		TestEntity entity = makeEntityWithOptionalString(Optional.empty());
 		String json = boskMapper.writeValueAsString(entity);
 		assertThat(json, not(containsString(Phantoms.Fields.phantomString)));
 	}
 
 	@Test
-	void optional_isOmitted() throws InvalidTypeException, JsonProcessingException {
+	void optional_isOmitted() throws JsonProcessingException {
 		TestEntity entity = makeEntityWithOptionalString(Optional.empty());
 		String json = boskMapper.writeValueAsString(entity);
 		assertThat(json, not(containsString(Optionals.Fields.optionalString)));
 	}
 
 	@Test
-	void optional_isIncluded() throws InvalidTypeException, JsonProcessingException {
+	void optional_isIncluded() throws JsonProcessingException {
 		String contents = "OPTIONAL STRING CONTENTS";
 		TestEntity entity = makeEntityWithOptionalString(Optional.of(contents));
 		String json = boskMapper.writeValueAsString(entity);
@@ -253,7 +248,7 @@ class JacksonPluginTest extends AbstractBoskTest {
 		String json = plainMapper.writeValueAsString(list);
 		Object actual = boskMapper.readerFor(type).readValue(json);
 		assertEquals(expected, actual);
-		assertTrue(actual instanceof ListValue);
+		assertInstanceOf(ListValue.class, actual);
 	}
 
 	private static Stream<Arguments> listValueArguments() {
@@ -294,11 +289,10 @@ class JacksonPluginTest extends AbstractBoskTest {
 			Path.empty());
 	}
 
-	@Value
-	public static class NodeWithGenerics<A,B> implements StateTreeNode {
-		ListValue<A> listOfA;
-		ListValue<B> listOfB;
-	}
+	public record NodeWithGenerics<A, B>(
+		ListValue<A> listOfA,
+		ListValue<B> listOfB
+	) implements StateTreeNode { }
 
 	@ParameterizedTest
 	@MethodSource("mapValueArguments")
@@ -315,7 +309,7 @@ class JacksonPluginTest extends AbstractBoskTest {
 		String json = plainMapper.writeValueAsString(map);
 		Object actual = boskMapper.readerFor(type).readValue(json);
 		assertEquals(expected, actual);
-		assertTrue(actual instanceof MapValue);
+		assertInstanceOf(MapValue.class, actual);
 	}
 
 	private static Stream<Arguments> mapValueArguments() {
@@ -341,7 +335,7 @@ class JacksonPluginTest extends AbstractBoskTest {
 	}
 
 	@Test
-	void implicitRefs_omitted() throws InvalidTypeException, JsonProcessingException {
+	void implicitRefs_omitted() throws JsonProcessingException {
 		TestEntity entity = makeEntityWithOptionalString(Optional.empty());
 		String json = boskMapper.writeValueAsString(entity);
 		assertThat(json, not(containsString(ImplicitRefs.Fields.reference)));
@@ -349,7 +343,7 @@ class JacksonPluginTest extends AbstractBoskTest {
 	}
 
 	@Test
-	void idsOmitted_filledInFromContext() throws InvalidTypeException {
+	void idsOmitted_filledInFromContext() {
 		Identifier child1ID = Identifier.from("child1");
 		TestEntity expected = makeEntityWith(
 			Optional.empty(),
@@ -367,17 +361,16 @@ class JacksonPluginTest extends AbstractBoskTest {
 	}
 
 	@Test
-	void derivedRecord_basic_works() throws InvalidTypeException, JsonProcessingException {
-		Reference<ImplicitRefs> iref = parentRef.then(ImplicitRefs.class, TestEntity.Fields.implicitRefs);
+	void derivedRecord_basic_works() throws JsonProcessingException {
 		ImplicitRefs reflectiveEntity;
-		try (ReadContext context = bosk.readContext()) {
-			reflectiveEntity = iref.value();
+		try (var __ = bosk.readContext()) {
+			reflectiveEntity = refs.parentImplicitRefs().value();
 		}
 
 		String expectedJSON = boskMapper.writeValueAsString(new ExpectedBasic(
-			iref,
+			refs.parentImplicitRefs(),
 			"stringValue",
-			iref,
+			refs.parentImplicitRefs(),
 			"stringValue"
 		));
 		String actualJSON = boskMapper.writeValueAsString(new ActualBasic(
@@ -392,7 +385,7 @@ class JacksonPluginTest extends AbstractBoskTest {
 		assertEquals(expectedJSON, actualJSON);
 
 		ActualBasic deserialized;
-		try (ReadContext context = bosk.readContext()) {
+		try (var __ = bosk.readContext()) {
 			deserialized = boskMapper.readerFor(ActualBasic.class).readValue(expectedJSON);
 		}
 
@@ -402,40 +395,37 @@ class JacksonPluginTest extends AbstractBoskTest {
 	/**
 	 * Should be serialized the same as {@link ActualBasic}.
 	 */
-	@RequiredArgsConstructor @Getter
-	public static class ExpectedBasic implements StateTreeNode {
-		final Reference<ImplicitRefs> entity;
-		final String nonEntity;
-		final Reference<ImplicitRefs> optionalEntity;
-		final String optionalNonEntity;
-	}
+	public record ExpectedBasic(
+		Reference<ImplicitRefs> entity,
+		String nonEntity,
+		Reference<ImplicitRefs> optionalEntity,
+		String optionalNonEntity
+	) implements StateTreeNode { }
 
-	@RequiredArgsConstructor @Getter
 	@DerivedRecord
-	public static class ActualBasic {
-		final ImplicitRefs entity;
-		final String nonEntity;
-		final Optional<ImplicitRefs> optionalEntity;
-		final Optional<String> optionalNonEntity;
-		final Optional<ImplicitRefs> emptyEntity;
-		final Optional<String> emptyNonEntity;
-	}
+	public record ActualBasic(
+		ImplicitRefs entity,
+		String nonEntity,
+		Optional<ImplicitRefs> optionalEntity,
+		Optional<String> optionalNonEntity,
+		Optional<ImplicitRefs> emptyEntity,
+		Optional<String> emptyNonEntity
+	) { }
 
 	@Test
-	void derivedRecord_list_works() throws InvalidTypeException, JsonProcessingException {
-		Reference<ImplicitRefs> iref = parentRef.then(ImplicitRefs.class, TestEntity.Fields.implicitRefs);
+	void derivedRecord_list_works() throws JsonProcessingException {
 		ImplicitRefs reflectiveEntity;
-		try (ReadContext context = bosk.readContext()) {
-			reflectiveEntity = iref.value();
+		try (var __ = bosk.readContext()) {
+			reflectiveEntity = refs.parentImplicitRefs().value();
 		}
 
-		String expectedJSON = boskMapper.writeValueAsString(singletonList(iref.path().urlEncoded()));
+		String expectedJSON = boskMapper.writeValueAsString(singletonList(refs.parentImplicitRefs().path().urlEncoded()));
 		String actualJSON = boskMapper.writeValueAsString(new ActualList(reflectiveEntity));
 
 		assertEquals(expectedJSON, actualJSON);
 
 		ActualList deserialized;
-		try (ReadContext context = bosk.readContext()) {
+		try (var __ = bosk.readContext()) {
 			deserialized = boskMapper.readerFor(ActualList.class).readValue(expectedJSON);
 		}
 
@@ -453,14 +443,13 @@ class JacksonPluginTest extends AbstractBoskTest {
 
 	@Test
 	void deserializationPath_works() throws InvalidTypeException {
-		Reference<ImplicitRefs> anyImplicitRefs = bosk.rootReference().then(ImplicitRefs.class, Path.of(TestRoot.Fields.entities, "-entity-", TestEntity.Fields.implicitRefs));
-		Reference<ImplicitRefs> ref1 = anyImplicitRefs.boundTo(Identifier.from("123"));
+		Reference<ImplicitRefs> ref1 = refs.implicitRefs(Identifier.from("123"));
 		ImplicitRefs firstObject = new ImplicitRefs(
 			Identifier.from("firstObject"),
 			ref1, ref1.enclosingReference(TestEntity.class),
 			ref1, ref1.enclosingReference(TestEntity.class)
 			);
-		Reference<ImplicitRefs> ref2 = anyImplicitRefs.boundTo(Identifier.from("456"));
+		Reference<ImplicitRefs> ref2 = refs.implicitRefs(Identifier.from("456"));
 		ImplicitRefs secondObject = new ImplicitRefs(
 			Identifier.from("secondObject"),
 			ref2, ref2.enclosingReference(TestEntity.class),
@@ -477,23 +466,19 @@ class JacksonPluginTest extends AbstractBoskTest {
 			.bind("entity1", Identifier.from("123"))
 			.bind("entity2", Identifier.from("456"))
 			.build();
-		try (DeserializationScope scope = jacksonPlugin.overlayScope(env)) {
+		try (var __ = jacksonPlugin.overlayScope(env)) {
 			assertJacksonWorks(plainObject, boskObject, new TypeReference<DeserializationPathContainer>() {}, Path.empty());
 		}
 	}
 
-	@Value
 	@FieldNameConstants
-	public static class DeserializationPathContainer implements StateTreeNode {
-		@DeserializationPath("/entities/-entity1-/implicitRefs")
-		ImplicitRefs firstField;
-
-		@DeserializationPath("/entities/-entity2-/implicitRefs")
-		ImplicitRefs secondField;
-	}
+	public record DeserializationPathContainer(
+		@DeserializationPath("/entities/-entity1-/implicitRefs") ImplicitRefs firstField,
+		@DeserializationPath("/entities/-entity2-/implicitRefs") ImplicitRefs secondField
+	) implements StateTreeNode { }
 
 	@Test
-	void deserializationPathMissingID_filledInFromContext() throws InvalidTypeException, JsonProcessingException {
+	void deserializationPathMissingID_filledInFromContext() {
 		DeserializationPathMissingID expected = new DeserializationPathMissingID(
 			makeEntityWithOptionalString(Optional.empty()));
 
@@ -506,32 +491,29 @@ class JacksonPluginTest extends AbstractBoskTest {
 		BindingEnvironment env = BindingEnvironment.empty().builder()
 			.bind("entity", expected.entity.id())
 			.build();
-		try (DeserializationScope scope = jacksonPlugin.overlayScope(env)) {
+		try (var __ = jacksonPlugin.overlayScope(env)) {
 			Object actual = boskObjectFor(plainObject, new TypeReference<DeserializationPathMissingID>() {}, Path.empty());
 			assertEquals(expected, actual, "Object should deserialize without \"id\" field");
 		}
 	}
 
-	@Value
 	@FieldNameConstants
-	public static class DeserializationPathMissingID implements StateTreeNode {
-		@DeserializationPath("/entities/-entity-")
-		TestEntity entity;
-	}
+	public record DeserializationPathMissingID(
+		@DeserializationPath("/entities/-entity-") TestEntity entity
+	) implements StateTreeNode { }
 
-	private TestEntity makeEntityWith(Optional<String> optionalString, Catalog<TestChild> children) throws InvalidTypeException {
-		CatalogReference<TestEntity> catalogRef = entitiesRef;
+	private TestEntity makeEntityWith(Optional<String> optionalString, Catalog<TestChild> children) {
 		Identifier entityID = Identifier.unique("testOptional");
-		Reference<TestEntity> entityRef = catalogRef.then(entityID);
-		CatalogReference<TestChild> childrenRef = entityRef.thenCatalog(TestChild.class, TestEntity.Fields.children);
-		Reference<ImplicitRefs> implicitRefsRef = entityRef.then(ImplicitRefs.class, "implicitRefs");
+		Reference<TestEntity> entityRef = refs.entity(entityID);
+		CatalogReference<TestChild> childrenRef = refs.children(entityID);
+		Reference<ImplicitRefs> implicitRefsRef = refs.implicitRefs(entityID);
 		return new TestEntity(entityID, entityID.toString(), OK, children, Listing.empty(childrenRef), SideTable.empty(childrenRef),
 			Phantoms.empty(Identifier.unique("phantoms")),
 			new Optionals(Identifier.unique("optionals"), optionalString, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()),
 			new ImplicitRefs(Identifier.unique("implicitRefs"), implicitRefsRef, entityRef, implicitRefsRef, entityRef));
 	}
 
-	private TestEntity makeEntityWithOptionalString(Optional<String> optionalString) throws InvalidTypeException {
+	private TestEntity makeEntityWithOptionalString(Optional<String> optionalString) {
 		return makeEntityWith(optionalString, Catalog.empty());
 	}
 
@@ -585,7 +567,7 @@ class JacksonPluginTest extends AbstractBoskTest {
 			JavaType boskJavaType = TypeFactory.defaultInstance().constructType(boskObjectTypeRef);
 			JavaType mapJavaType = TypeFactory.defaultInstance().constructParametricType(Map.class, String.class, Object.class);
 			String json = plainMapper.writerFor(mapJavaType).writeValueAsString(plainObject);
-			try (DeserializationScope scope = jacksonPlugin.newDeserializationScope(path)) {
+			try (var __ = jacksonPlugin.newDeserializationScope(path)) {
 				return boskMapper.readerFor(boskJavaType).readValue(json);
 			}
 		} catch (JsonProcessingException e) {
@@ -598,7 +580,7 @@ class JacksonPluginTest extends AbstractBoskTest {
 			JavaType boskJavaType = TypeFactory.defaultInstance().constructType(boskListType);
 			JavaType listJavaType = TypeFactory.defaultInstance().constructParametricType(List.class, Object.class);
 			String json = plainMapper.writerFor(listJavaType).writeValueAsString(plainList);
-			try (DeserializationScope scope = jacksonPlugin.newDeserializationScope(path)) {
+			try (var __ = jacksonPlugin.newDeserializationScope(path)) {
 				return boskMapper.readerFor(boskJavaType).readValue(json);
 			}
 		} catch (JsonProcessingException e) {
@@ -697,11 +679,9 @@ class JacksonPluginTest extends AbstractBoskTest {
 		});
 	}
 
-	@Value
-	public static class WrongType implements StateTreeNode {
-		@DeserializationPath("/entities/123/string")
-		ImplicitRefs notAString;
-	}
+	public record WrongType(
+		@DeserializationPath("/entities/123/string") ImplicitRefs notAString
+	) implements StateTreeNode { }
 
 	@Test
 	void deserializationPath_parameterUnbound_throws() {
@@ -710,11 +690,9 @@ class JacksonPluginTest extends AbstractBoskTest {
 		});
 	}
 
-	@Value
-	public static class EntityParameter implements StateTreeNode {
-		@DeserializationPath("/entities/-entity-")
-		ImplicitRefs field;
-	}
+	public record EntityParameter(
+		@DeserializationPath("/entities/-entity-") ImplicitRefs field
+	) implements StateTreeNode { }
 
 	@Test
 	void deserializationPath_malformedPath() {
@@ -723,11 +701,9 @@ class JacksonPluginTest extends AbstractBoskTest {
 		});
 	}
 
-	@Value
-	public static class MalformedPath implements StateTreeNode {
-		@DeserializationPath("/malformed////path")
-		ImplicitRefs field;
-	}
+	public record MalformedPath(
+		@DeserializationPath("/malformed////path") ImplicitRefs field
+	) implements StateTreeNode { }
 
 	@Test
 	void deserializationPath_nonexistentPath_throws() {
@@ -736,9 +712,7 @@ class JacksonPluginTest extends AbstractBoskTest {
 		});
 	}
 
-	@Value
-	public static class NonexistentPath implements StateTreeNode {
-		@DeserializationPath("/nonexistent/path")
-		ImplicitRefs field;
-	}
+	public record NonexistentPath(
+		@DeserializationPath("/nonexistent/path") ImplicitRefs field
+	) implements StateTreeNode { }
 }
