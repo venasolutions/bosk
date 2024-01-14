@@ -24,6 +24,7 @@ import io.vena.bosk.StateTreeNode;
 import io.vena.bosk.TestEntityBuilder;
 import io.vena.bosk.annotations.DerivedRecord;
 import io.vena.bosk.annotations.DeserializationPath;
+import io.vena.bosk.annotations.Polyfill;
 import io.vena.bosk.annotations.ReferencePath;
 import io.vena.bosk.exceptions.InvalidTypeException;
 import io.vena.bosk.exceptions.MalformedPathException;
@@ -51,6 +52,7 @@ import static com.fasterxml.jackson.databind.SerializationFeature.INDENT_OUTPUT;
 import static io.vena.bosk.AbstractBoskTest.TestEnum.OK;
 import static io.vena.bosk.ListingEntry.LISTING_ENTRY;
 import static java.util.Arrays.asList;
+import static java.util.Collections.emptyMap;
 import static java.util.Collections.singletonList;
 import static java.util.Collections.singletonMap;
 import static java.util.stream.Collectors.toList;
@@ -562,7 +564,7 @@ class JacksonPluginTest extends AbstractBoskTest {
 		}
 	}
 
-	private Object boskObjectFor(Map<String, ?> plainObject, TypeReference<?> boskObjectTypeRef, Path path) {
+	private <T> T boskObjectFor(Map<String, ?> plainObject, TypeReference<T> boskObjectTypeRef, Path path) {
 		try {
 			JavaType boskJavaType = TypeFactory.defaultInstance().constructType(boskObjectTypeRef);
 			JavaType mapJavaType = TypeFactory.defaultInstance().constructParametricType(Map.class, String.class, Object.class);
@@ -586,6 +588,21 @@ class JacksonPluginTest extends AbstractBoskTest {
 		} catch (JsonProcessingException e) {
 			throw new AssertionError(e);
 		}
+	}
+
+	@Test
+	void polyfill_works() {
+		HasPolyfill deserialized = boskObjectFor(emptyMap(), new TypeReference<>(){}, Path.empty());
+		assertEquals(HasPolyfill.DEFAULT_STRING_FIELD_VALUE, deserialized.stringField1());
+		assertEquals(HasPolyfill.DEFAULT_STRING_FIELD_VALUE, deserialized.stringField2());
+	}
+
+	public record HasPolyfill(
+		String stringField1,
+		String stringField2
+	) implements StateTreeNode {
+		@Polyfill({"stringField1","stringField2"})
+		public static final String DEFAULT_STRING_FIELD_VALUE = "defaultValue";
 	}
 
 	// Sad paths
@@ -715,4 +732,5 @@ class JacksonPluginTest extends AbstractBoskTest {
 	public record NonexistentPath(
 		@DeserializationPath("/nonexistent/path") ImplicitRefs field
 	) implements StateTreeNode { }
+
 }
