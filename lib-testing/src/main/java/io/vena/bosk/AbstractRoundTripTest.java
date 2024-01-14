@@ -5,12 +5,9 @@ import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.databind.Module;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.type.TypeFactory;
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import io.vena.bosk.SerializationPlugin.DeserializationScope;
 import io.vena.bosk.drivers.mongo.BsonPlugin;
 import io.vena.bosk.exceptions.InvalidTypeException;
-import io.vena.bosk.gson.GsonPlugin;
 import io.vena.bosk.jackson.JacksonPlugin;
 import java.io.IOException;
 import java.lang.reflect.Parameter;
@@ -22,7 +19,6 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.UnaryOperator;
 import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
 import org.bson.BsonDocument;
@@ -52,11 +48,6 @@ public abstract class AbstractRoundTripTest extends AbstractBoskTest {
 				factoryThatMakesAReference(),
 
 				jacksonRoundTripFactory(),
-
-				// Variety of Gson configurations
-				gsonRoundTripFactory(b->b),
-				gsonRoundTripFactory(GsonBuilder::setPrettyPrinting),
-				gsonRoundTripFactory(GsonBuilder::excludeFieldsWithoutExposeAnnotation),
 
 				bsonRoundTripFactory()
 		);
@@ -105,39 +96,6 @@ public abstract class AbstractRoundTripTest extends AbstractBoskTest {
 				private JavaType javaType(Type type) {
 					return TypeFactory.defaultInstance().constructType(type);
 				}
-			};
-		}
-
-		@Override
-		public String toString() {
-			return getClass().getSimpleName() + identityHashCode(this);
-		}
-	}
-
-	public static <R extends Entity> DriverFactory<R> gsonRoundTripFactory(UnaryOperator<GsonBuilder> customizer) {
-		return new GsonRoundTripDriverFactory<>(customizer);
-	}
-
-	@RequiredArgsConstructor
-	private static class GsonRoundTripDriverFactory<R extends Entity> implements DriverFactory<R> {
-		private final GsonPlugin gp = new GsonPlugin();
-		private final UnaryOperator<GsonBuilder> customizer;
-
-		@Override
-		public BoskDriver<R> build(Bosk<R> bosk, BoskDriver<R> driver) {
-			return new PreprocessingDriver<R>(driver) {
-				final GsonBuilder builder = new GsonBuilder().registerTypeAdapterFactory(gp.adaptersFor(bosk));
-				final Gson gson = customizer.apply(builder).create();
-
-				@Override
-				<T> T preprocess(Reference<T> reference, T newValue) {
-					Type targetType = reference.targetType();
-					String json = gson.toJson(newValue, targetType);
-					try (DeserializationScope scope = gp.newDeserializationScope(reference)) {
-						return gson.fromJson(json, targetType);
-					}
-				}
-
 			};
 		}
 
