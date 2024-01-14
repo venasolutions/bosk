@@ -295,7 +295,7 @@ public abstract class SerializationPlugin {
 		// like Lombok or Java 14's Records that derive constructors from fields.
 
 		for (Class<?> c = nodeClassArg; c != Object.class; c = c.getSuperclass()) {
-			for (Field field: nodeClassArg.getDeclaredFields()) {
+			for (Field field: c.getDeclaredFields()) {
 				scanForInfo(field, field.getName(),
 					selfParameters, enclosingParameters, deserializationPathParameters);
 			}
