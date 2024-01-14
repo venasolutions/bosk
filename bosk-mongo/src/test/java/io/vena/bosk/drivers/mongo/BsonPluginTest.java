@@ -1,7 +1,6 @@
 package io.vena.bosk.drivers.mongo;
 
 import io.vena.bosk.Bosk;
-import io.vena.bosk.Bosk.ReadContext;
 import io.vena.bosk.Catalog;
 import io.vena.bosk.CatalogReference;
 import io.vena.bosk.Entity;
@@ -10,8 +9,6 @@ import io.vena.bosk.Path;
 import io.vena.bosk.SideTable;
 import io.vena.bosk.StateTreeNode;
 import io.vena.bosk.exceptions.InvalidTypeException;
-import lombok.EqualsAndHashCode;
-import lombok.Value;
 import lombok.experimental.FieldNameConstants;
 import org.bson.BsonDocument;
 import org.bson.BsonDocumentReader;
@@ -34,7 +31,7 @@ class BsonPluginTest {
 		Bosk<Root> bosk = new Bosk<Root>("Test bosk", Root.class, this::defaultRoot, Bosk::simpleDriver);
 		CodecRegistry registry = CodecRegistries.fromProviders(bp.codecProviderFor(bosk), new ValueCodecProvider());
 		Codec<Root> codec = registry.get(Root.class);
-		try (ReadContext context = bosk.readContext()) {
+		try (var __ = bosk.readContext()) {
 			BsonDocument document = new BsonDocument();
 			Root original = bosk.rootReference().value();
 			codec.encode(new BsonDocumentWriter(document), original, EncoderContext.builder().build());
@@ -48,17 +45,14 @@ class BsonPluginTest {
 		return new Root(Catalog.empty(), SideTable.empty(catalogRef));
 	}
 
-	@Value @FieldNameConstants
-	@EqualsAndHashCode(callSuper = false)
-	public static class Root implements StateTreeNode {
-		Catalog<Item> items;
-		SideTable<Item, SideTable<Item, String>> nestedSideTable;
-	}
+	@FieldNameConstants
+	public record Root(
+		Catalog<Item> items,
+		SideTable<Item, SideTable<Item, String>> nestedSideTable
+	) implements StateTreeNode { }
 
-	@Value @FieldNameConstants
-	@EqualsAndHashCode(callSuper = false)
-	public static class Item implements Entity {
-		Identifier id;
-	}
+	public record Item(
+		Identifier id
+	) implements Entity { }
 
 }
