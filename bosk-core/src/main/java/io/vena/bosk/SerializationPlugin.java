@@ -24,6 +24,8 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import lombok.EqualsAndHashCode;
 import lombok.Value;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import static io.vena.bosk.ReferenceUtils.parameterType;
 import static io.vena.bosk.ReferenceUtils.rawClass;
@@ -217,6 +219,7 @@ public abstract class SerializationPlugin {
 					}
 				}
 			} else if (implicitReference == null) {
+				LOGGER.info("{} used polyfill value for {}.{}", getClass().getSimpleName(), nodeClass.getSimpleName(), name);
 				parameterValues.add(value);
 			} else {
 				throw new DeserializationException("Unexpected field \"" + name + "\" for implicit reference");
@@ -354,4 +357,5 @@ public abstract class SerializationPlugin {
 
 	private static final Map<Class<?>, ParameterInfo> PARAMETER_INFO_MAP = new ConcurrentHashMap<>();
 
+	private static final Logger LOGGER = LoggerFactory.getLogger(SerializationPlugin.class);
 }
