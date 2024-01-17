@@ -1,6 +1,5 @@
 package io.vena.bosk.util;
 
-import com.google.gson.reflect.TypeToken;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.List;
@@ -123,5 +122,11 @@ class TypesTest {
 			@Override public Type getOwnerType() { return ownerType; }
 			@Override public Type[] getActualTypeArguments() { return actualTypeArguments; }
 		};
+	}
+
+	private abstract static class TypeToken<T> {
+		public Type getType() {
+			return ((ParameterizedType)getClass().getGenericSuperclass()).getActualTypeArguments()[0];
+		}
 	}
 }

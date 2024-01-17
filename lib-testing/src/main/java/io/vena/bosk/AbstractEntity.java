@@ -8,6 +8,7 @@ package io.vena.bosk;
  * were discouraged, but this is no longer the case. There's no reason newly
  * written Entities should inherit this.
  */
+@Deprecated
 public abstract class AbstractEntity implements Entity {
 
 	@Override
