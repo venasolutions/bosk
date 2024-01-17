@@ -2,6 +2,7 @@ package io.vena.bosk;
 
 import io.vena.bosk.annotations.DeserializationPath;
 import io.vena.bosk.annotations.Enclosing;
+import io.vena.bosk.annotations.Polyfill;
 import io.vena.bosk.annotations.Self;
 import io.vena.bosk.exceptions.DeserializationException;
 import io.vena.bosk.exceptions.InvalidTypeException;
@@ -27,6 +28,8 @@ import lombok.Value;
 import static io.vena.bosk.ReferenceUtils.parameterType;
 import static io.vena.bosk.ReferenceUtils.rawClass;
 import static io.vena.bosk.ReferenceUtils.theOnlyConstructorFor;
+import static java.lang.reflect.Modifier.isPrivate;
+import static java.lang.reflect.Modifier.isStatic;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -192,6 +195,7 @@ public abstract class SerializationPlugin {
 				} else if (Phantom.class.equals(type)) {
 					parameterValues.add(Phantom.empty());
 				} else {
+					Object polyfillIfAny = infoFor(nodeClass).polyfills().get(name);
 					Path path = currentScope.get().path();
 					if ("id".equals(name) && !path.isEmpty()) {
 						// If the object is an entry in a Catalog or a key in a SideTable, we can determine its ID
@@ -206,6 +210,8 @@ public abstract class SerializationPlugin {
 						} else {
 							throw new DeserializationException("Missing id field for object at " + path);
 						}
+					} else if (polyfillIfAny != null) {
+						parameterValues.add(polyfillIfAny);
 					} else {
 						throw new DeserializationException("Missing field \"" + name + "\" at " + path);
 					}
@@ -283,41 +289,68 @@ public abstract class SerializationPlugin {
 		Set<String> selfParameters = new HashSet<>();
 		Set<String> enclosingParameters = new HashSet<>();
 		Map<String, DeserializationPath> deserializationPathParameters = new HashMap<>();
+		Map<String, Object> polyfills = new HashMap<>();
 		for (Parameter parameter: theOnlyConstructorFor(nodeClassArg).getParameters()) {
 			scanForInfo(parameter, parameter.getName(),
-				selfParameters, enclosingParameters, deserializationPathParameters);
+				selfParameters, enclosingParameters, deserializationPathParameters, polyfills);
 		}
 
 		// Bosk generally ignores an object's fields, looking only at its
 		// constructor arguments and its getters. However, we make an exception
 		// for convenience: Bosk annotations that go on constructor parameters
 		// can also go on fields with the same name. This accommodates systems
-		// like Lombok or Java 14's Records that derive constructors from fields.
+		// like Lombok that derive constructors from fields.
 
 		for (Class<?> c = nodeClassArg; c != Object.class; c = c.getSuperclass()) {
-			for (Field field: nodeClassArg.getDeclaredFields()) {
+			for (Field field: c.getDeclaredFields()) {
 				scanForInfo(field, field.getName(),
-					selfParameters, enclosingParameters, deserializationPathParameters);
+					selfParameters, enclosingParameters, deserializationPathParameters, polyfills);
 			}
 		}
-		return new ParameterInfo(selfParameters, enclosingParameters, deserializationPathParameters);
+		return new ParameterInfo(selfParameters, enclosingParameters, deserializationPathParameters, polyfills);
 	}
 
-	private static void scanForInfo(AnnotatedElement thing, String name, Set<String> selfParameters, Set<String> enclosingParameters, Map<String, DeserializationPath> deserializationPathParameters) {
+	private static void scanForInfo(AnnotatedElement thing, String name, Set<String> selfParameters, Set<String> enclosingParameters, Map<String, DeserializationPath> deserializationPathParameters, Map<String, Object> polyfills) {
 		if (thing.isAnnotationPresent(Self.class)) {
 			selfParameters.add(name);
 		} else if (thing.isAnnotationPresent(Enclosing.class)) {
 			enclosingParameters.add(name);
 		} else if (thing.isAnnotationPresent(DeserializationPath.class)) {
 			deserializationPathParameters.put(name, thing.getAnnotation(DeserializationPath.class));
+		} else if (thing.isAnnotationPresent(Polyfill.class)) {
+			if (thing instanceof Field f && isStatic(f.getModifiers()) && !isPrivate(f.getModifiers())) {
+				f.setAccessible(true);
+				for (Polyfill polyfill : thing.getAnnotationsByType(Polyfill.class)) {
+					Object value;
+					try {
+						value = f.get(null);
+					} catch (IllegalAccessException e) {
+						throw new AssertionError("Field should not be inaccessible: " + f, e);
+					}
+					if (value == null) {
+						throw new NullPointerException("Polyfill value cannot be null: " + f);
+					}
+					for (String fieldName: polyfill.value()) {
+						Object previous = polyfills.put(fieldName, value);
+						if (previous != null) {
+							throw new IllegalStateException("Multiple polyfills for the same field \"" + fieldName + "\": " + f);
+						}
+					}
+					// TODO: Polyfills can't be used for implicit refs, Optionals, Phantoms
+					// Also can't be used for Entity.id
+				}
+			} else {
+				throw new IllegalStateException("@Polyfill annotation is only valid on non-private static fields; found on " + thing);
+			}
 		}
 	}
 
 	private record ParameterInfo(
-		Set<String> annotatedParameters_Self, Set<String> annotatedParameters_Enclosing,
-		Map<String, DeserializationPath> annotatedParameters_DeserializationPath
-	) {
-	}
+		Set<String> annotatedParameters_Self,
+		Set<String> annotatedParameters_Enclosing,
+		Map<String, DeserializationPath> annotatedParameters_DeserializationPath,
+		Map<String, Object> polyfills
+	) { }
 
 	private static final Map<Class<?>, ParameterInfo> PARAMETER_INFO_MAP = new ConcurrentHashMap<>();
 

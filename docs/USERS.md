@@ -688,37 +688,46 @@ and that describe where the document fits within the overall BSON structure.
 ##### Schema evolution: how to add a new field
 
 In general, bosk does not support `null` field values.
-This means if you add a new field to your state tree node classes, they become incompatible with the existing database contents (which do not have that field).
+If you add a new field to your state tree node classes, they become incompatible with the existing database contents (which do not have that field).
+This means that new fields must, at least initially, support being absent.
 
-This means that new fields must, at least initially, be declared as `Optional`.
-If your application code is ok with the field being `Optional`, and can cope with that field's absence, you can stop here.
-Otherwise, you must add your field in multiple steps.
-
-In the first step, you declare the new constructor argument to be `Optional` and supply a default value to make it behave as though the field were present in the database:
+The first step is to use the `@Polyfill` annotation to indicate a default value:
 
 ``` java
-ExampleNode(Optional<ExampleValue> newField) {
-	if (newField.isPresent()) {
-		this.newField = newField;
-	} else {
-		this.newField = Optional.of(ExampleValue.DEFAULT_VALUE);
-	}
+record ExampleNode(ExampleValue newField) {
+	@Polyfill("newField")
+	static final ExampleValue NEW_FIELD_DEFAULT = ExampleValue.DEFAULT_VALUE;
 }
 ```
 
-This way, any updates written to MongoDB will include the new field, so the state will be gradually upgraded to include the new field.
+This will allow operations that deserialize `ExampleNode` objects (from JSON, from databases, etc.)
+to tolerate the absence of `newField` temporarily by providing the given default value.
+With the `@Polyfill` in place, any updates written to MongoDB will include the new field,
+so the database state will be gradually upgraded to include the new field.
 Because `MongoDriver` ignores any fields in the database it doesn't recognize,
-this new version of the code can coexist with older versions that don't know about this field.
+this new version of the code can coexist with older versions that don't know about the new field.
 
 The second step is to ensure that any older versions of the server are shut down.
 This will prevent _new_ objects from being created without the new field.
 
-The third step is to call `MongoDriver.refurbish()`.
+The third step is to change external systems so they always supply the new field;
+for `MongoDriver`, this is accomplished by calling `MongoDriver.refurbish()`.
 This method rewrites the entire bosk state in the new format, which has the effect of adding the new field to all existing objects.
 
-Finally, you can make your new field non-optional.
-For example, you can change it from `Optional<ExampleValue>` to just `ExampleValue`,
-secure in the knowledge that there are no objects in the database that don't have this field.
+Finally, you can remove the `@Polyfill` field,
+secure in the knowledge that there are no objects in the database that don't have the new field.
+
+Note that `@Polyfill` is not meant as a general way to supply default values for optional fields,
+but rather to allow rollout of new required fields with no downtime.
+For optional fields, just use `Optional`.
+
+Also note that `@Polyfill` does not yet provide a perfect illusion that the field exists;
+specifically, updates _inside_ nonexistent state tree nodes will still be ignored,
+even if they have a polyfill.
+That is, if you provide a polyfill for a node at `/a/b`, but that node does not actually exist in the database,
+then a read from `/a/b` will return the polyfill node,
+but a write to `/a/b/c` will be ignored, which could be confusing.
+We hope to overcome this shortcoming in the near future.
 
 #### Compliance rules
 
