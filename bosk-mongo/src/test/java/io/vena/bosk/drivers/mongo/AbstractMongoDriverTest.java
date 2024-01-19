@@ -155,9 +155,10 @@ abstract class AbstractMongoDriverTest {
 
 	public interface Refs {
 		@ReferencePath("/catalog") CatalogReference<TestEntity> catalog();
+		@ReferencePath("/catalog/-child-/catalog") CatalogReference<TestEntity> childCatalog(Identifier child);
 		@ReferencePath("/listing") ListingReference<TestEntity> listing();
 		@ReferencePath("/listing/-entity-") Reference<ListingEntry> listingEntry(Identifier entity);
-		@ReferencePath("/catalog/-child-/catalog") CatalogReference<TestEntity> childCatalog(Identifier child);
+		@ReferencePath("/values/string") Reference<String> valuesString();
 	}
 
 	private static final AtomicBoolean ALREADY_WARNED = new AtomicBoolean(false);

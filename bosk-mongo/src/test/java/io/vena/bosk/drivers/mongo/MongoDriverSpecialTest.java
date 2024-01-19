@@ -366,6 +366,53 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest {
 
 	@ParametersByName
 	@UsesMongoService
+	void updateInsidePolyfill_works() throws IOException, InterruptedException, InvalidTypeException {
+		// We'll use this as an honest observer of the actual state
+		LOGGER.debug("Create Original bosk");
+		Bosk<TestEntity> originalBosk = new Bosk<TestEntity>(
+			"Original",
+			TestEntity.class,
+			this::initialRoot,
+			createDriverFactory()
+		);
+
+		LOGGER.debug("Create Upgradeable bosk");
+		Bosk<UpgradeableEntity> upgradeableBosk = new Bosk<UpgradeableEntity>(
+			"Upgradeable",
+			UpgradeableEntity.class,
+			(b) -> { throw new AssertionError("upgradeableBosk should use the state from MongoDB"); },
+			createDriverFactory()
+		);
+
+		LOGGER.debug("Ensure polyfill returns the right value on read");
+		TestValues polyfill;
+		try (var __ = upgradeableBosk.readContext()) {
+			polyfill = upgradeableBosk.rootReference().value().values();
+		}
+		assertEquals(TestValues.blank(), polyfill);
+
+		LOGGER.debug("Check state before");
+		Optional<TestValues> before;
+		try (var __ = originalBosk.readContext()) {
+			before = originalBosk.rootReference().value().values();
+		}
+		assertEquals(Optional.empty(), before); // Not there yet
+
+		LOGGER.debug("Perform update inside polyfill");
+		Refs refs = upgradeableBosk.buildReferences(Refs.class);
+		upgradeableBosk.driver().submitReplacement(refs.valuesString(), "new value");
+		originalBosk.driver().flush(); // Not the bosk that did the update!
+
+		LOGGER.debug("Check state after");
+		String after;
+		try (var __ = originalBosk.readContext()) {
+			after = originalBosk.rootReference().value().values().get().string();
+		}
+		assertEquals("new value", after); // Now it's there
+	}
+
+	@ParametersByName
+	@UsesMongoService
 	void deleteNonexistentField_ignored() throws InvalidTypeException, IOException, InterruptedException {
 		Bosk<TestEntity> bosk = new Bosk<TestEntity>("Newer", TestEntity.class, this::initialRootWithEmptyCatalog, driverFactory);
 		Bosk<OldEntity> prevBosk = new Bosk<OldEntity>(
@@ -455,13 +502,6 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest {
 			(b) -> { throw new AssertionError("upgradeableBosk should use the state from MongoDB"); },
 			createDriverFactory()
 		);
-
-		LOGGER.debug("Ensure polyfill returns the right value on read");
-		TestValues polyfill;
-		try (var __ = upgradeableBosk.readContext()) {
-			polyfill = upgradeableBosk.rootReference().value().values();
-		}
-		assertEquals(TestValues.blank(), polyfill);
 
 		LOGGER.debug("Check state before");
 		Optional<TestValues> before;

@@ -20,6 +20,11 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
  * Rather, this is meant to be used <em>temporarily</em> with newly added fields
  * to support systems that are not yet aware of those fields.
  *
+ * <p>
+ * The existence of this annotation anywhere in a bosk state tree could add overhead
+ * to all bosk updates, even for unrelated parts of the state tree, so it's best to
+ * remove this once it's no longer needed.
+ *
  * @author Patrick Doyle
  */
 @Retention(RUNTIME)
