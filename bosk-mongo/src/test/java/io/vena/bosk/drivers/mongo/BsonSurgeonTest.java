@@ -11,6 +11,7 @@ import io.vena.bosk.annotations.ReferencePath;
 import io.vena.bosk.drivers.AbstractDriverTest;
 import io.vena.bosk.drivers.state.TestEntity;
 import io.vena.bosk.exceptions.InvalidTypeException;
+import java.io.IOException;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -48,7 +49,7 @@ public class BsonSurgeonTest extends AbstractDriverTest {
 	}
 
 	@BeforeEach
-	void setup() throws InvalidTypeException {
+	void setup() throws InvalidTypeException, IOException, InterruptedException {
 		setupBosksAndReferences(Bosk::simpleDriver);
 		bsonPlugin = new BsonPlugin();
 		formatter = new Formatter(bosk, bsonPlugin);
@@ -69,6 +70,7 @@ public class BsonSurgeonTest extends AbstractDriverTest {
 		makeCatalog(refs.doubleNestedCatalog().boundTo(Identifier.from("entity1"), Identifier.from("child1")));
 		driver.submitReplacement(sideTableRef.then(Identifier.from("child1")),
 			TestEntity.empty(Identifier.from("sideTableValue"), catalogRef));
+		driver.flush();
 		surgeon = new BsonSurgeon(graftPoints);
 	}
 

@@ -63,6 +63,7 @@ public class DriverStateVerifier<R extends StateTreeNode> {
 			DiagnosticScopeDriver.factory(dc -> dc.withAttribute(THREAD_NAME, currentThread().getName())),
 			ReportingDriver.factory(verifier::incomingUpdate, verifier::incomingFlush),
 			subject,
+			BufferingDriver.factory(), // This catches missing flush operations
 			ReportingDriver.factory(verifier::outgoingUpdate, verifier::outgoingFlush)
 		);
 	}
