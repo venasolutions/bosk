@@ -22,6 +22,7 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.EqualsAndHashCode;
 import lombok.Value;
 import org.slf4j.Logger;
@@ -243,6 +244,47 @@ public abstract class SerializationPlugin {
 		return infoFor(nodeClass).annotatedParameters_DeserializationPath().containsKey(parameter.getName());
 	}
 
+	public <R extends StateTreeNode> void initializeEnclosingPolyfills(Reference<?> target, BoskDriver<R> formatDriver) {
+		if (!ANY_POLYFILLS.get()) {
+			return;
+		}
+		/*
+		Evolution note: we should be able to make this more efficient.
+		For the bosk state tree, we recursively analyze all the node types upfront.
+		When that process is finished, a dataflow analysis over the ParameterInfo graph
+		could determine, for any given type, whether that type ever occurs inside a polyfill.
+		The common case is likely "no", and we could quickly dispense with all polyfill concerns
+		for all references to that type. In particular, when there are no polyfills at all,
+		we could quickly determine that there's nothing to do. In the absence of recursive
+		datatypes, a reverse postorder walk over the ParameterInfo objects should converge in a single pass.
+		 */
+		if (!target.path().isEmpty()) {
+			try {
+				initializePolyfills(target.enclosingReference(Object.class), formatDriver);
+			} catch (InvalidTypeException e) {
+				throw new AssertionError("Every non-root reference has an enclosing reference: " + target);
+			}
+		}
+	}
+
+	private <R extends StateTreeNode, T> void initializePolyfills(Reference<T> ref, BoskDriver<R> formatDriver) {
+		initializeEnclosingPolyfills(ref, formatDriver);
+		if (!ref.path().isEmpty()) {
+			Class<?> enclosing;
+			try {
+				enclosing = ref.enclosingReference(Object.class).targetClass();
+			} catch (InvalidTypeException e) {
+				throw new AssertionError("Every non-root reference must have an enclosing reference: " + ref);
+			}
+			if (StateTreeNode.class.isAssignableFrom(enclosing)) {
+				Object result = infoFor(enclosing).polyfills().get(ref.path().lastSegment());
+				if (result != null) {
+					formatDriver.submitInitialization(ref, ref.targetClass().cast(result));
+				}
+			}
+		}
+	}
+
 	private Reference<?> findImplicitReferenceIfAny(Class<?> nodeClass, Parameter parameter, Bosk<?> bosk) {
 		if (isSelfReference(nodeClass, parameter)) {
 			Class<?> targetClass = rawClass(parameterType(parameter.getParameterizedType(), Reference.class, 0));
@@ -333,6 +375,7 @@ public abstract class SerializationPlugin {
 					if (value == null) {
 						throw new NullPointerException("Polyfill value cannot be null: " + f);
 					}
+					ANY_POLYFILLS.set(true);
 					for (String fieldName: polyfill.value()) {
 						Object previous = polyfills.put(fieldName, value);
 						if (previous != null) {
@@ -356,6 +399,7 @@ public abstract class SerializationPlugin {
 	) { }
 
 	private static final Map<Class<?>, ParameterInfo> PARAMETER_INFO_MAP = new ConcurrentHashMap<>();
+	private static final AtomicBoolean ANY_POLYFILLS = new AtomicBoolean(false);
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(SerializationPlugin.class);
 }

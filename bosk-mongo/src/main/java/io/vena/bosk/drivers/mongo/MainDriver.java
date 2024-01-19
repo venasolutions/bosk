@@ -228,6 +228,7 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 	@Override
 	public <T> void submitReplacement(Reference<T> target, T newValue) {
 		doRetryableDriverOperation(()->{
+			bsonPlugin.initializeEnclosingPolyfills(target, formatDriver);
 			formatDriver.submitReplacement(target, newValue);
 		}, "submitReplacement({})", target);
 	}
@@ -235,6 +236,7 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 	@Override
 	public <T> void submitConditionalReplacement(Reference<T> target, T newValue, Reference<Identifier> precondition, Identifier requiredValue) {
 		doRetryableDriverOperation(()->{
+			bsonPlugin.initializeEnclosingPolyfills(target, formatDriver);
 			formatDriver.submitConditionalReplacement(target, newValue, precondition, requiredValue);
 		}, "submitConditionalReplacement({}, {}={})", target, precondition, requiredValue);
 	}
@@ -242,6 +244,7 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 	@Override
 	public <T> void submitInitialization(Reference<T> target, T newValue) {
 		doRetryableDriverOperation(()->{
+			bsonPlugin.initializeEnclosingPolyfills(target, formatDriver);
 			formatDriver.submitInitialization(target, newValue);
 		}, "submitInitialization({})", target);
 	}
@@ -249,6 +252,7 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 	@Override
 	public <T> void submitDeletion(Reference<T> target) {
 		doRetryableDriverOperation(()->{
+			bsonPlugin.initializeEnclosingPolyfills(target, formatDriver);
 			formatDriver.submitDeletion(target);
 		}, "submitDeletion({})", target);
 	}
@@ -256,6 +260,7 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 	@Override
 	public <T> void submitConditionalDeletion(Reference<T> target, Reference<Identifier> precondition, Identifier requiredValue) {
 		doRetryableDriverOperation(() -> {
+			bsonPlugin.initializeEnclosingPolyfills(target, formatDriver);
 			formatDriver.submitConditionalDeletion(target, precondition, requiredValue);
 		}, "submitConditionalDeletion({}, {}={})", target, precondition, requiredValue);
 	}
