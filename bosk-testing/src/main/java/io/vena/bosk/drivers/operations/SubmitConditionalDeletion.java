@@ -5,14 +5,13 @@ import io.vena.bosk.Identifier;
 import io.vena.bosk.MapValue;
 import io.vena.bosk.Reference;
 import java.util.Collection;
-import lombok.Value;
 
-@Value
-public class SubmitConditionalDeletion<T> implements DeletionOperation<T>, ConditionalOperation {
-	Reference<T> target;
-	Reference<Identifier> precondition;
-	Identifier requiredValue;
-	MapValue<String> diagnosticAttributes;
+public record SubmitConditionalDeletion<T>(
+	Reference<T> target,
+	Reference<Identifier> precondition,
+	Identifier requiredValue,
+	MapValue<String> diagnosticAttributes
+) implements DeletionOperation<T>, ConditionalOperation {
 
 	@Override
 	public SubmitDeletion<T> unconditional() {
@@ -28,4 +27,5 @@ public class SubmitConditionalDeletion<T> implements DeletionOperation<T>, Condi
 	public void submitTo(BoskDriver<?> driver) {
 		driver.submitConditionalDeletion(target, precondition, requiredValue);
 	}
+
 }

@@ -1,6 +1,9 @@
 package io.vena.bosk.drivers.operations;
 
-public interface DeletionOperation<T> extends UpdateOperation {
+public sealed interface DeletionOperation<T> extends UpdateOperation permits
+	SubmitConditionalDeletion,
+	SubmitDeletion
+{
 	@Override
 	default boolean matchesIfApplied(UpdateOperation other) {
 		if (other instanceof DeletionOperation) {

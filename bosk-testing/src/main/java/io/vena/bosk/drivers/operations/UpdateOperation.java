@@ -5,7 +5,11 @@ import io.vena.bosk.MapValue;
 import io.vena.bosk.Reference;
 import java.util.Collection;
 
-public interface UpdateOperation {
+public sealed interface UpdateOperation permits
+	ConditionalOperation,
+	DeletionOperation,
+	ReplacementOperation
+{
 	Reference<?> target();
 	MapValue<String> diagnosticAttributes();
 
