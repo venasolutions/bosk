@@ -55,7 +55,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Tests for MongoDB-specific functionality
+ * Tests {@link MongoDriver}-specific functionality not covered by {@link MongoDriverConformanceTest}.
  */
 class MongoDriverSpecialTest extends AbstractMongoDriverTest {
 	@ParametersByName
@@ -545,6 +545,7 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest {
 			new BsonDocument("_id", new BsonString("manifest")),
 			new BsonDocument("$inc", new BsonDocument("version", new BsonInt32(1)))
 		);
+		// Must also bump the revision number or else flush rightly does nothing
 		collection.updateOne(
 			new BsonDocument("_id", rootDocumentID()),
 			new BsonDocument("$inc", new BsonDocument("revision", new BsonInt64(1)))

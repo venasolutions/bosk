@@ -10,6 +10,10 @@ import static ch.qos.logback.classic.Level.ERROR;
 import static io.vena.bosk.drivers.mongo.MongoDriverSettings.InitialDatabaseUnavailableMode.FAIL;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+/**
+ * Tests the functionality of {@link io.vena.bosk.drivers.mongo.MongoDriverSettings.InitialDatabaseUnavailableMode#FAIL FAIL} mode.
+ * The other tests in {@link MongoDriverRecoveryTest} exercise {@link io.vena.bosk.drivers.mongo.MongoDriverSettings.InitialDatabaseUnavailableMode#DISCONNECT DISCONNECT} mode.
+ */
 public class MongoDriverInitializationFailureTest extends AbstractMongoDriverTest {
 	public MongoDriverInitializationFailureTest() {
 		super(MongoDriverSettings.builder()
