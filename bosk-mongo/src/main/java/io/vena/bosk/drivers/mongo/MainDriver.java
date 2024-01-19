@@ -155,8 +155,8 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 		try (var __ = collection.newReadOnlySession()){
 			FormatDriver<R> detectedDriver = detectFormat();
 			StateAndMetadata<R> loadedState = detectedDriver.loadAllState();
-			root = loadedState.state;
-			detectedDriver.onRevisionToSkip(loadedState.revision);
+			root = loadedState.state();
+			detectedDriver.onRevisionToSkip(loadedState.revision());
 			publishFormatDriver(detectedDriver);
 		} catch (UninitializedCollectionException e) {
 			LOGGER.debug("Database collection is uninitialized; will initialize using downstream.initialRoot");
@@ -351,15 +351,15 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 				// before ours (below) because this code runs on the ChangeReceiver thread, which is
 				// the only thread that submits updates downstream.
 
-				newDriver.onRevisionToSkip(loadedState.revision);
+				newDriver.onRevisionToSkip(loadedState.revision());
 				publishFormatDriver(newDriver);
 
 				// TODO: It's not clear we actually want loadedState.diagnosticAttributes here.
 				// This causes downstream.submitReplacement to be associated with the last update to the state,
 				// which is of dubious relevance. We might just want to use the context from the current thread,
 				// which is probably empty because this runs on the ChangeReceiver thread.
-				try (var ___ = bosk.rootReference().diagnosticContext().withOnly(loadedState.diagnosticAttributes)) {
-					downstream.submitReplacement(bosk.rootReference(), loadedState.state);
+				try (var ___ = bosk.rootReference().diagnosticContext().withOnly(loadedState.diagnosticAttributes())) {
+					downstream.submitReplacement(bosk.rootReference(), loadedState.state());
 				}
 			} else {
 				LOGGER.debug("Running initialRoot action");
