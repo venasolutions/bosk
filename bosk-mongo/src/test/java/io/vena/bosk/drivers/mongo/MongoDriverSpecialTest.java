@@ -262,7 +262,11 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest {
 		LOGGER.debug("Register hook");
 		bosk.registerHook("populateListing", refs.catalog(), ref -> {
 			LOGGER.debug("Hook populating listing with all ids from catalog");
-			bosk.driver().submitReplacement(refs.listing(), Listing.of(refs.catalog(), ref.value().ids()));
+			try {
+				bosk.driver().submitReplacement(refs.listing(), Listing.of(refs.catalog(), ref.value().ids()));
+			} catch (DisconnectedException e) {
+				LOGGER.debug("Driver is disconnected. We're expecting this to happen at least once.", e);
+			}
 		});
 
 		LOGGER.debug("Reestablish connection");
