@@ -53,7 +53,7 @@ public class MongoDriverRecoveryTest extends AbstractMongoDriverTest {
 	static Stream<TestParameters.ParameterSet> parameters() {
 		return TestParameters.driverSettings(
 			Stream.of(
-				PandoFormat.withSeparateCollections("/catalog", "/sideTable"),
+				PandoFormat.withGraftPoints("/catalog", "/sideTable"),
 				SEQUOIA
 			),
 			Stream.of(EventTiming.NORMAL)

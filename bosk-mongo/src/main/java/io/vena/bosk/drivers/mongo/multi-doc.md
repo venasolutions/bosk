@@ -62,7 +62,7 @@ Fields:
 the conventions for the manifest document itself
 - Variants: only one of the following fields is permitted:
 - `sequoia`: an empty document signifying that the database contents are stored in accordance with the Sequoia format
-- `pando`: a document containing a `separateCollections` field which describes how the state tree is to be carved up into documents
+- `pando`: a document containing a `graftPoints` field which describes how the state tree is to be carved up into documents
 
 #### Document `|`
 
@@ -72,7 +72,7 @@ Fields:
 
 - `_id`: always `|`
 - `state`: the bosk state
-- Any separate collections (Catalogs or SideTables) map IDs to the value `true` (rather than containing the actual tree node)
+- Any graft points (Catalogs or SideTables) map IDs to the value `true` (rather than containing the actual tree node)
 - `revision`: the revision number for the entire collection; used to implement flush
 
 #### Sub-part documents

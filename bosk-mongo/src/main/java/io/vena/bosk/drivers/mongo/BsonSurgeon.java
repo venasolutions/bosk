@@ -12,7 +12,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import lombok.Getter;
 import org.bson.BsonBoolean;
 import org.bson.BsonDocument;
 import org.bson.BsonInvalidOperationException;
@@ -66,9 +65,9 @@ class BsonSurgeon {
 
 	private static final String STATE_FIELD = Formatter.DocumentFields.state.name();
 
-	BsonSurgeon(List<Reference<? extends EnumerableByIdentifier<?>>> separateCollections) {
-		this.graftPoints = new ArrayList<>(separateCollections.size());
-		separateCollections.stream()
+	BsonSurgeon(List<Reference<? extends EnumerableByIdentifier<?>>> graftPoints) {
+		this.graftPoints = new ArrayList<>(graftPoints.size());
+		graftPoints.stream()
 			// Scatter bottom-up so we don't have to worry about scattering already-scattered documents
 			.sorted(comparing((Reference<?> ref) -> ref.path().length()).reversed())
 			.forEachOrdered(containerRef -> this.graftPoints.add(

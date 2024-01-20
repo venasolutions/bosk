@@ -69,7 +69,7 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest {
 			Stream.of(
 				SEQUOIA,
 //				PandoFormat.oneBigDocument(),
-				PandoFormat.withSeparateCollections("/catalog", "/sideTable")
+				PandoFormat.withGraftPoints("/catalog", "/sideTable")
 			),
 			Stream.of(EventTiming.NORMAL)
 		);

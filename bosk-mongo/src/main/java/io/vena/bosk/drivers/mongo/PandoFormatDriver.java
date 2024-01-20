@@ -103,7 +103,7 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 		this.flushLock = flushLock;
 
 		this.bsonSurgeon = new BsonSurgeon(
-			format.separateCollections().stream()
+			format.graftPoints().stream()
 			.map(s -> referenceTo(s, rootRef))
 			.sorted(comparing((Reference<?> ref) -> ref.path().length()).reversed())
 			.collect(toList()));
@@ -616,7 +616,7 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 		}
 
 		// The main reference is the "deepest" one that matches the target reference.
-		// separateCollections is in descending order of depth.
+		// graftPoints is in descending order of depth.
 		// TODO: This could be done more efficiently, perhaps using a trie
 		int targetPathLength = target.path().length();
 		for (GraftPoint graftPoint: bsonSurgeon.graftPoints) {

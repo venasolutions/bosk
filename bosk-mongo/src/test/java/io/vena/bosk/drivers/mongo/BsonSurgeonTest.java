@@ -32,7 +32,7 @@ public class BsonSurgeonTest extends AbstractDriverTest {
 	BsonSurgeon surgeon;
 	BsonPlugin bsonPlugin;
 	Formatter formatter;
-	private List<Reference<? extends EnumerableByIdentifier<?>>> separateCollections;
+	private List<Reference<? extends EnumerableByIdentifier<?>>> graftPoints;
 
 	Refs refs;
 
@@ -58,7 +58,7 @@ public class BsonSurgeonTest extends AbstractDriverTest {
 		CatalogReference<TestEntity> catalogRef = refs.catalog();
 		SideTableReference<TestEntity, TestEntity> sideTableRef = refs.sideTable();
 		CatalogReference<TestEntity> nestedCatalogRef = refs.anyNestedCatalog();
-		separateCollections = asList(
+		graftPoints = asList(
 			catalogRef,
 			sideTableRef,
 			nestedCatalogRef
@@ -69,7 +69,7 @@ public class BsonSurgeonTest extends AbstractDriverTest {
 		makeCatalog(refs.doubleNestedCatalog().boundTo(Identifier.from("entity1"), Identifier.from("child1")));
 		driver.submitReplacement(sideTableRef.then(Identifier.from("child1")),
 			TestEntity.empty(Identifier.from("sideTableValue"), catalogRef));
-		surgeon = new BsonSurgeon(separateCollections);
+		surgeon = new BsonSurgeon(graftPoints);
 	}
 
 	@Test
