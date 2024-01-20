@@ -417,8 +417,12 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 			if (initialRootAction == null) {
 				LOGGER.debug("Nothing to do");
 			} else {
-				LOGGER.debug("Running initialRoot action");
-				runInitialRootAction(initialRootAction);
+				LOGGER.debug("Running doomed initialRootAction because the main thread is waiting");
+				try {
+					runInitialRootAction(initialRootAction);
+				} catch (InitialRootActionException e2) {
+					LOGGER.debug("Predictably, initialRootAction failed", e2);
+				}
 			}
 		}
 
