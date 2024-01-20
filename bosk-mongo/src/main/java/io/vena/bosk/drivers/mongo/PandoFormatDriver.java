@@ -461,25 +461,40 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 		if (event == null) {
 			return false;
 		}
-		UpdateDescription updateDescription = event.getUpdateDescription();
-		if (updateDescription == null) {
+
+		BsonDocument updatedFields;
+		switch (event.getOperationType()) {
+			case UPDATE -> {
+				UpdateDescription updateDescription = event.getUpdateDescription();
+				if (updateDescription == null) {
+					return false;
+				}
+				updatedFields = updateDescription.getUpdatedFields();
+
+				// This catches the case of somebody deleting the field manually
+				List<String> removedFields = updateDescription.getRemovedFields();
+				if (removedFields != null) {
+					if (removedFields.stream().anyMatch(k -> k.startsWith(field.name()))) {
+						return true;
+					}
+				}
+			}
+			case INSERT -> {
+				// A change that was submitted as an "update" but was actually an upsert
+				// will transmute into an insert if the document didn't exist, so we need
+				// to handle those too.
+				updatedFields = event.getFullDocument();
+			}
+			default -> {
+				return false;
+			}
+		}
+
+		if (updatedFields == null) {
 			return false;
 		}
 
-		BsonDocument updatedFields = updateDescription.getUpdatedFields();
-		if (updatedFields != null) {
-			if (updatedFields.keySet().stream().anyMatch(k -> k.startsWith(field.name()))) {
-				return true;
-			}
-		}
-		List<String> removedFields = updateDescription.getRemovedFields();
-		if (removedFields != null) {
-			if (removedFields.stream().anyMatch(k -> k.startsWith(field.name()))) {
-				return true;
-			}
-		}
-
-		return false;
+		return updatedFields.keySet().stream().anyMatch(k -> k.startsWith(field.name()));
 	}
 
 	//
