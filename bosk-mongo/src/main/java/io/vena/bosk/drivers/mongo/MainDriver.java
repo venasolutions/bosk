@@ -216,7 +216,14 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 			// That system needs to cope with a refurbish operations without any help.
 			StateAndMetadata<R> result = formatDriver.loadAllState();
 			FormatDriver<R> newFormatDriver = newPreferredFormatDriver();
-			collection.deleteMany(new BsonDocument());
+
+			// initializeCollection is required to overwrite the manifest anyway,
+			// so deleting it has no value; and if we do delete it, then every
+			// FormatDriver must cope with deletions of the manifest document,
+			// which is a burden. Let's just not.
+			BsonDocument everythingExceptManifest = new BsonDocument("_id", new BsonDocument("$ne", MANIFEST_ID));
+			collection.deleteMany(everythingExceptManifest);
+
 			newFormatDriver.initializeCollection(result);
 			collection.commitTransaction();
 			publishFormatDriver(newFormatDriver);
@@ -404,6 +411,8 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 		@Override
 		public void onConnectionFailed(Exception e) throws InterruptedException, InitialRootActionException, TimeoutException {
 			LOGGER.debug("onConnectionFailed");
+			// If there's an initialRootAction, the main thread is waiting for us.
+			// Execute the initialRootAction just to communicate the failure.
 			FutureTask<R> initialRootAction = this.taskRef.get();
 			if (initialRootAction == null) {
 				LOGGER.debug("Nothing to do");
@@ -411,7 +420,6 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 				LOGGER.debug("Running initialRoot action");
 				runInitialRootAction(initialRootAction);
 			}
-
 		}
 
 		@Override
