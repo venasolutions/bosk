@@ -193,7 +193,8 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest {
 	@ParametersByName
 	@DisruptsMongoService
 	void networkOutage_boskRecovers() throws InvalidTypeException, InterruptedException, IOException {
-		setLogging(ERROR, MongoDriver.class.getPackage()); // We're expecting some warnings here
+		setLogging(ERROR, MainDriver.class, ChangeReceiver.class);
+
 		Bosk<TestEntity> bosk = new Bosk<TestEntity>("Main", TestEntity.class, this::initialRoot, driverFactory);
 		Refs refs = bosk.buildReferences(Refs.class);
 		BoskDriver<TestEntity> driver = bosk.driver();
@@ -238,7 +239,8 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest {
 	@ParametersByName
 	@DisruptsMongoService
 	void hookRegisteredDuringNetworkOutage_works() throws InvalidTypeException, InterruptedException, IOException {
-		setLogging(ERROR, MongoDriver.class.getPackage()); // We're expecting some warnings here
+		setLogging(ERROR, MainDriver.class, ChangeReceiver.class);
+
 		Bosk<TestEntity> bosk = new Bosk<TestEntity>("Main", TestEntity.class, this::initialRoot, driverFactory);
 		Refs refs = bosk.buildReferences(Refs.class);
 		BoskDriver<TestEntity> driver = bosk.driver();
@@ -293,6 +295,8 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest {
 	@ParametersByName
 	@UsesMongoService
 	void initialStateHasNonexistentFields_ignored() throws InvalidTypeException {
+		setLogging(ERROR, BsonPlugin.class);
+
 		// Upon creating bosk, the initial value will be saved to MongoDB
 		new Bosk<TestEntity>("Newer", TestEntity.class, this::initialRootWithEmptyCatalog, driverFactory);
 
@@ -315,6 +319,8 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest {
 	@ParametersByName
 	@UsesMongoService
 	void updateHasNonexistentFields_ignored() throws InvalidTypeException, IOException, InterruptedException {
+		setLogging(ERROR, BsonPlugin.class);
+
 		Bosk<TestEntity> bosk = new Bosk<TestEntity>("Newer", TestEntity.class, this::initialRootWithEmptyCatalog, driverFactory);
 		Bosk<OldEntity> prevBosk = new Bosk<OldEntity>(
 			"Prev",
@@ -343,6 +349,8 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest {
 	@ParametersByName
 	@UsesMongoService
 	void updateNonexistentField_ignored() throws InvalidTypeException, IOException, InterruptedException {
+		setLogging(ERROR, MainDriver.class.getPackage()); // Need a big hammer because FormatDrivers complain
+
 		Bosk<TestEntity> bosk = new Bosk<TestEntity>("Newer", TestEntity.class, this::initialRootWithEmptyCatalog, driverFactory);
 		Bosk<OldEntity> prevBosk = new Bosk<OldEntity>(
 			"Prev",
@@ -418,6 +426,8 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest {
 	@ParametersByName
 	@UsesMongoService
 	void deleteNonexistentField_ignored() throws InvalidTypeException, IOException, InterruptedException {
+		setLogging(ERROR, MainDriver.class.getPackage()); // Need a big hammer because FormatDrivers complain
+
 		Bosk<TestEntity> bosk = new Bosk<TestEntity>("Newer", TestEntity.class, this::initialRootWithEmptyCatalog, driverFactory);
 		Bosk<OldEntity> prevBosk = new Bosk<OldEntity>(
 			"Prev",
@@ -529,7 +539,7 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest {
 	@ParametersByName
 	@UsesMongoService
 	void manifestVersionBump_disconnects() throws IOException, InterruptedException {
-		setLogging(ERROR, MongoDriver.class.getPackage()); // We're expecting some warnings here
+		setLogging(ERROR, MainDriver.class, ChangeReceiver.class);
 
 		Bosk<TestEntity> bosk = new Bosk<TestEntity>(
 			"bosk",

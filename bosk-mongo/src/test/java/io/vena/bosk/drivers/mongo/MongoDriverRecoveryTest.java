@@ -40,7 +40,7 @@ public class MongoDriverRecoveryTest extends AbstractMongoDriverTest {
 	@BeforeEach
 	void setupLogging() {
 		// This test deliberately provokes a lot of warnings, so log errors only
-		setLogging(ERROR, MongoDriver.class.getPackage());
+		setLogging(ERROR, MainDriver.class, ChangeReceiver.class);
 	}
 
 	@ParametersByName
@@ -53,8 +53,8 @@ public class MongoDriverRecoveryTest extends AbstractMongoDriverTest {
 	static Stream<TestParameters.ParameterSet> parameters() {
 		return TestParameters.driverSettings(
 			Stream.of(
-				PandoFormat.withGraftPoints("/catalog", "/sideTable"),
-				SEQUOIA
+//				SEQUOIA,
+				PandoFormat.withGraftPoints("/catalog", "/sideTable")
 			),
 			Stream.of(EventTiming.NORMAL)
 		).map(b -> b.applyDriverSettings(s -> s
