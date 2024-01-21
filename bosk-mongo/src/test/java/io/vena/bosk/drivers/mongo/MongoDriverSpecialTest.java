@@ -55,7 +55,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Tests for MongoDB-specific functionality
+ * Tests {@link MongoDriver}-specific functionality not covered by {@link MongoDriverConformanceTest}.
  */
 class MongoDriverSpecialTest extends AbstractMongoDriverTest {
 	@ParametersByName
@@ -69,7 +69,7 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest {
 			Stream.of(
 				SEQUOIA,
 //				PandoFormat.oneBigDocument(),
-				PandoFormat.withSeparateCollections("/catalog", "/sideTable")
+				PandoFormat.withGraftPoints("/catalog", "/sideTable")
 			),
 			Stream.of(EventTiming.NORMAL)
 		);
@@ -193,7 +193,8 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest {
 	@ParametersByName
 	@DisruptsMongoService
 	void networkOutage_boskRecovers() throws InvalidTypeException, InterruptedException, IOException {
-		setLogging(ERROR, MongoDriver.class.getPackage()); // We're expecting some warnings here
+		setLogging(ERROR, MainDriver.class, ChangeReceiver.class);
+
 		Bosk<TestEntity> bosk = new Bosk<TestEntity>("Main", TestEntity.class, this::initialRoot, driverFactory);
 		Refs refs = bosk.buildReferences(Refs.class);
 		BoskDriver<TestEntity> driver = bosk.driver();
@@ -238,7 +239,8 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest {
 	@ParametersByName
 	@DisruptsMongoService
 	void hookRegisteredDuringNetworkOutage_works() throws InvalidTypeException, InterruptedException, IOException {
-		setLogging(ERROR, MongoDriver.class.getPackage()); // We're expecting some warnings here
+		setLogging(ERROR, MainDriver.class, ChangeReceiver.class);
+
 		Bosk<TestEntity> bosk = new Bosk<TestEntity>("Main", TestEntity.class, this::initialRoot, driverFactory);
 		Refs refs = bosk.buildReferences(Refs.class);
 		BoskDriver<TestEntity> driver = bosk.driver();
@@ -262,7 +264,11 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest {
 		LOGGER.debug("Register hook");
 		bosk.registerHook("populateListing", refs.catalog(), ref -> {
 			LOGGER.debug("Hook populating listing with all ids from catalog");
-			bosk.driver().submitReplacement(refs.listing(), Listing.of(refs.catalog(), ref.value().ids()));
+			try {
+				bosk.driver().submitReplacement(refs.listing(), Listing.of(refs.catalog(), ref.value().ids()));
+			} catch (DisconnectedException e) {
+				LOGGER.debug("Driver is disconnected. We're expecting this to happen at least once.", e);
+			}
 		});
 
 		LOGGER.debug("Reestablish connection");
@@ -289,6 +295,8 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest {
 	@ParametersByName
 	@UsesMongoService
 	void initialStateHasNonexistentFields_ignored() throws InvalidTypeException {
+		setLogging(ERROR, BsonPlugin.class);
+
 		// Upon creating bosk, the initial value will be saved to MongoDB
 		new Bosk<TestEntity>("Newer", TestEntity.class, this::initialRootWithEmptyCatalog, driverFactory);
 
@@ -311,6 +319,8 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest {
 	@ParametersByName
 	@UsesMongoService
 	void updateHasNonexistentFields_ignored() throws InvalidTypeException, IOException, InterruptedException {
+		setLogging(ERROR, BsonPlugin.class);
+
 		Bosk<TestEntity> bosk = new Bosk<TestEntity>("Newer", TestEntity.class, this::initialRootWithEmptyCatalog, driverFactory);
 		Bosk<OldEntity> prevBosk = new Bosk<OldEntity>(
 			"Prev",
@@ -339,6 +349,8 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest {
 	@ParametersByName
 	@UsesMongoService
 	void updateNonexistentField_ignored() throws InvalidTypeException, IOException, InterruptedException {
+		setLogging(ERROR, MainDriver.class.getPackage()); // Need a big hammer because FormatDrivers complain
+
 		Bosk<TestEntity> bosk = new Bosk<TestEntity>("Newer", TestEntity.class, this::initialRootWithEmptyCatalog, driverFactory);
 		Bosk<OldEntity> prevBosk = new Bosk<OldEntity>(
 			"Prev",
@@ -414,6 +426,8 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest {
 	@ParametersByName
 	@UsesMongoService
 	void deleteNonexistentField_ignored() throws InvalidTypeException, IOException, InterruptedException {
+		setLogging(ERROR, MainDriver.class.getPackage()); // Need a big hammer because FormatDrivers complain
+
 		Bosk<TestEntity> bosk = new Bosk<TestEntity>("Newer", TestEntity.class, this::initialRootWithEmptyCatalog, driverFactory);
 		Bosk<OldEntity> prevBosk = new Bosk<OldEntity>(
 			"Prev",
@@ -525,7 +539,7 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest {
 	@ParametersByName
 	@UsesMongoService
 	void manifestVersionBump_disconnects() throws IOException, InterruptedException {
-		setLogging(ERROR, MongoDriver.class.getPackage()); // We're expecting some warnings here
+		setLogging(ERROR, MainDriver.class, ChangeReceiver.class);
 
 		Bosk<TestEntity> bosk = new Bosk<TestEntity>(
 			"bosk",
@@ -545,6 +559,7 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest {
 			new BsonDocument("_id", new BsonString("manifest")),
 			new BsonDocument("$inc", new BsonDocument("version", new BsonInt32(1)))
 		);
+		// Must also bump the revision number or else flush rightly does nothing
 		collection.updateOne(
 			new BsonDocument("_id", rootDocumentID()),
 			new BsonDocument("$inc", new BsonDocument("revision", new BsonInt64(1)))

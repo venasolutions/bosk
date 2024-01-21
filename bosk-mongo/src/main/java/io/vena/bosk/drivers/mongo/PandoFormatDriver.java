@@ -103,7 +103,7 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 		this.flushLock = flushLock;
 
 		this.bsonSurgeon = new BsonSurgeon(
-			format.separateCollections().stream()
+			format.graftPoints().stream()
 			.map(s -> referenceTo(s, rootRef))
 			.sorted(comparing((Reference<?> ref) -> ref.path().length()).reversed())
 			.collect(toList()));
@@ -203,8 +203,8 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 
 	@Override
 	public void initializeCollection(StateAndMetadata<R> priorContents) {
-		BsonValue initialState = formatter.object2bsonValue(priorContents.state, rootRef.targetType());
-		BsonInt64 newRevision = new BsonInt64(1 + priorContents.revision.longValue());
+		BsonValue initialState = formatter.object2bsonValue(priorContents.state(), rootRef.targetType());
+		BsonInt64 newRevision = new BsonInt64(1 + priorContents.revision().longValue());
 		// Note that priorContents.diagnosticAttributes are ignored, and we use the attributes from this thread
 
 		LOGGER.debug("** Initial upsert for {}", ROOT_DOCUMENT_ID.getValue());
@@ -461,25 +461,40 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 		if (event == null) {
 			return false;
 		}
-		UpdateDescription updateDescription = event.getUpdateDescription();
-		if (updateDescription == null) {
+
+		BsonDocument updatedFields;
+		switch (event.getOperationType()) {
+			case UPDATE -> {
+				UpdateDescription updateDescription = event.getUpdateDescription();
+				if (updateDescription == null) {
+					return false;
+				}
+				updatedFields = updateDescription.getUpdatedFields();
+
+				// This catches the case of somebody deleting the field manually
+				List<String> removedFields = updateDescription.getRemovedFields();
+				if (removedFields != null) {
+					if (removedFields.stream().anyMatch(k -> k.startsWith(field.name()))) {
+						return true;
+					}
+				}
+			}
+			case INSERT -> {
+				// A change that was submitted as an "update" but was actually an upsert
+				// will transmute into an insert if the document didn't exist, so we need
+				// to handle those too.
+				updatedFields = event.getFullDocument();
+			}
+			default -> {
+				return false;
+			}
+		}
+
+		if (updatedFields == null) {
 			return false;
 		}
 
-		BsonDocument updatedFields = updateDescription.getUpdatedFields();
-		if (updatedFields != null) {
-			if (updatedFields.keySet().stream().anyMatch(k -> k.startsWith(field.name()))) {
-				return true;
-			}
-		}
-		List<String> removedFields = updateDescription.getRemovedFields();
-		if (removedFields != null) {
-			if (removedFields.stream().anyMatch(k -> k.startsWith(field.name()))) {
-				return true;
-			}
-		}
-
-		return false;
+		return updatedFields.keySet().stream().anyMatch(k -> k.startsWith(field.name()));
 	}
 
 	//
@@ -616,7 +631,7 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 		}
 
 		// The main reference is the "deepest" one that matches the target reference.
-		// separateCollections is in descending order of depth.
+		// graftPoints is in descending order of depth.
 		// TODO: This could be done more efficiently, perhaps using a trie
 		int targetPathLength = target.path().length();
 		for (GraftPoint graftPoint: bsonSurgeon.graftPoints) {

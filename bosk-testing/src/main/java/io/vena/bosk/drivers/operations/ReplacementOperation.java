@@ -1,6 +1,10 @@
 package io.vena.bosk.drivers.operations;
 
-public interface ReplacementOperation<T> extends UpdateOperation {
+public sealed interface ReplacementOperation<T> extends UpdateOperation permits
+	SubmitConditionalReplacement,
+	SubmitInitialization,
+	SubmitReplacement
+{
 	T newValue();
 
 	@Override

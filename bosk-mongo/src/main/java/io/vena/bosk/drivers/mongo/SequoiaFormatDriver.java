@@ -153,8 +153,8 @@ final class SequoiaFormatDriver<R extends StateTreeNode> implements FormatDriver
 
 	@Override
 	public void initializeCollection(StateAndMetadata<R> priorContents) {
-		BsonValue initialState = formatter.object2bsonValue(priorContents.state, rootRef.targetType());
-		BsonInt64 newRevision = new BsonInt64(1 + priorContents.revision.longValue());
+		BsonValue initialState = formatter.object2bsonValue(priorContents.state(), rootRef.targetType());
+		BsonInt64 newRevision = new BsonInt64(1 + priorContents.revision().longValue());
 		// Note that priorContents.diagnosticAttributes are ignored, and we use the attributes from this thread
 		BsonDocument update = new BsonDocument("$set", initialDocument(initialState, newRevision));
 		BsonDocument filter = documentFilter();

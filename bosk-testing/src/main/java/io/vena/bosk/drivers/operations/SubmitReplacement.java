@@ -4,13 +4,12 @@ import io.vena.bosk.BoskDriver;
 import io.vena.bosk.MapValue;
 import io.vena.bosk.Reference;
 import java.util.Collection;
-import lombok.Value;
 
-@Value
-public class SubmitReplacement<T> implements ReplacementOperation<T> {
-	Reference<T> target;
-	T newValue;
-	MapValue<String> diagnosticAttributes;
+public record SubmitReplacement<T>(
+	Reference<T> target,
+	T newValue,
+	MapValue<String> diagnosticAttributes
+) implements ReplacementOperation<T> {
 
 	@Override
 	public SubmitReplacement<T> withFilteredAttributes(Collection<String> allowedNames) {
@@ -21,4 +20,5 @@ public class SubmitReplacement<T> implements ReplacementOperation<T> {
 	public void submitTo(BoskDriver<?> driver) {
 		driver.submitReplacement(target, newValue);
 	}
+
 }

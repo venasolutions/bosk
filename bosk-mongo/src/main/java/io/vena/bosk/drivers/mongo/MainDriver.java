@@ -155,8 +155,8 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 		try (var __ = collection.newReadOnlySession()){
 			FormatDriver<R> detectedDriver = detectFormat();
 			StateAndMetadata<R> loadedState = detectedDriver.loadAllState();
-			root = loadedState.state;
-			detectedDriver.onRevisionToSkip(loadedState.revision);
+			root = loadedState.state();
+			detectedDriver.onRevisionToSkip(loadedState.revision());
 			publishFormatDriver(detectedDriver);
 		} catch (UninitializedCollectionException e) {
 			LOGGER.debug("Database collection is uninitialized; will initialize using downstream.initialRoot");
@@ -216,7 +216,14 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 			// That system needs to cope with a refurbish operations without any help.
 			StateAndMetadata<R> result = formatDriver.loadAllState();
 			FormatDriver<R> newFormatDriver = newPreferredFormatDriver();
-			collection.deleteMany(new BsonDocument());
+
+			// initializeCollection is required to overwrite the manifest anyway,
+			// so deleting it has no value; and if we do delete it, then every
+			// FormatDriver must cope with deletions of the manifest document,
+			// which is a burden. Let's just not.
+			BsonDocument everythingExceptManifest = new BsonDocument("_id", new BsonDocument("$ne", MANIFEST_ID));
+			collection.deleteMany(everythingExceptManifest);
+
 			newFormatDriver.initializeCollection(result);
 			collection.commitTransaction();
 			publishFormatDriver(newFormatDriver);
@@ -351,15 +358,15 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 				// before ours (below) because this code runs on the ChangeReceiver thread, which is
 				// the only thread that submits updates downstream.
 
-				newDriver.onRevisionToSkip(loadedState.revision);
+				newDriver.onRevisionToSkip(loadedState.revision());
 				publishFormatDriver(newDriver);
 
 				// TODO: It's not clear we actually want loadedState.diagnosticAttributes here.
 				// This causes downstream.submitReplacement to be associated with the last update to the state,
 				// which is of dubious relevance. We might just want to use the context from the current thread,
 				// which is probably empty because this runs on the ChangeReceiver thread.
-				try (var ___ = bosk.rootReference().diagnosticContext().withOnly(loadedState.diagnosticAttributes)) {
-					downstream.submitReplacement(bosk.rootReference(), loadedState.state);
+				try (var ___ = bosk.rootReference().diagnosticContext().withOnly(loadedState.diagnosticAttributes())) {
+					downstream.submitReplacement(bosk.rootReference(), loadedState.state());
 				}
 			} else {
 				LOGGER.debug("Running initialRoot action");
@@ -404,14 +411,19 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 		@Override
 		public void onConnectionFailed(Exception e) throws InterruptedException, InitialRootActionException, TimeoutException {
 			LOGGER.debug("onConnectionFailed");
+			// If there's an initialRootAction, the main thread is waiting for us.
+			// Execute the initialRootAction just to communicate the failure.
 			FutureTask<R> initialRootAction = this.taskRef.get();
 			if (initialRootAction == null) {
 				LOGGER.debug("Nothing to do");
 			} else {
-				LOGGER.debug("Running initialRoot action");
-				runInitialRootAction(initialRootAction);
+				LOGGER.debug("Running doomed initialRootAction because the main thread is waiting");
+				try {
+					runInitialRootAction(initialRootAction);
+				} catch (InitialRootActionException e2) {
+					LOGGER.debug("Predictably, initialRootAction failed", e2);
+				}
 			}
-
 		}
 
 		@Override
@@ -431,14 +443,15 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 	}
 
 	private FormatDriver<R> detectFormat() throws UninitializedCollectionException, UnrecognizedFormatException {
-		Manifest manifest = Manifest.forSequoia();
+		Manifest manifest;
 		try (MongoCursor<BsonDocument> cursor = collection.find(new BsonDocument("_id", MANIFEST_ID)).cursor()) {
 			if (cursor.hasNext()) {
 				LOGGER.debug("Found manifest");
 				manifest = formatter.decodeManifest(cursor.next());
 			} else {
 				// For legacy databases with no manifest
-				LOGGER.debug("Manifest is missing; checking for Sequoia format");
+				LOGGER.debug("Manifest is missing; checking for Sequoia format in " + driverSettings.database());
+				manifest = Manifest.forSequoia();
 			}
 		}
 
@@ -454,7 +467,15 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 					.getInt64(DocumentFields.revision.name(), REVISION_ZERO);
 				return newSingleDocFormatDriver(revision.longValue(), format);
 			} else {
-				throw new UninitializedCollectionException("Document doesn't exist");
+				// Note that this message is confusing if the user specified
+				// a preference for Pando but no manifest file exists, because
+				// the message will say it couldn't find the Sequoia document.
+				// One day when we drop support for collections with no
+				// manifest, we can eliminate this confusion.
+				throw new UninitializedCollectionException("Document doesn't exist: "
+					+ driverSettings.database()
+					+ "." + COLLECTION_NAME
+					+ " id=" + documentId);
 			}
 		}
 	}

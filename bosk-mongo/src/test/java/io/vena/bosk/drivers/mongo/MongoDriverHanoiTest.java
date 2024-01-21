@@ -1,7 +1,6 @@
 package io.vena.bosk.drivers.mongo;
 
 import io.vena.bosk.drivers.HanoiTest;
-import io.vena.bosk.drivers.mongo.MongoDriverSettings.MongoDriverSettingsBuilder;
 import io.vena.bosk.drivers.mongo.TestParameters.ParameterSet;
 import io.vena.bosk.junit.ParametersByName;
 import java.util.stream.Stream;
@@ -36,9 +35,9 @@ public class MongoDriverHanoiTest extends HanoiTest {
 		return TestParameters.driverSettings(
 			Stream.of(
 				PandoFormat.oneBigDocument(),
-				PandoFormat.withSeparateCollections("/puzzles"),
-				PandoFormat.withSeparateCollections("/puzzles/-puzzle-/towers"),
-				PandoFormat.withSeparateCollections("/puzzles", "/puzzles/-puzzle-/towers/-tower-/discs"),
+				PandoFormat.withGraftPoints("/puzzles"),
+				PandoFormat.withGraftPoints("/puzzles/-puzzle-/towers"),
+				PandoFormat.withGraftPoints("/puzzles", "/puzzles/-puzzle-/towers/-tower-/discs"),
 				SEQUOIA
 			),
 			Stream.of(NORMAL)

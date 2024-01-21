@@ -11,6 +11,7 @@ import io.vena.bosk.annotations.ReferencePath;
 import io.vena.bosk.drivers.AbstractDriverTest;
 import io.vena.bosk.drivers.state.TestEntity;
 import io.vena.bosk.exceptions.InvalidTypeException;
+import java.io.IOException;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -32,7 +33,7 @@ public class BsonSurgeonTest extends AbstractDriverTest {
 	BsonSurgeon surgeon;
 	BsonPlugin bsonPlugin;
 	Formatter formatter;
-	private List<Reference<? extends EnumerableByIdentifier<?>>> separateCollections;
+	private List<Reference<? extends EnumerableByIdentifier<?>>> graftPoints;
 
 	Refs refs;
 
@@ -48,7 +49,7 @@ public class BsonSurgeonTest extends AbstractDriverTest {
 	}
 
 	@BeforeEach
-	void setup() throws InvalidTypeException {
+	void setup() throws InvalidTypeException, IOException, InterruptedException {
 		setupBosksAndReferences(Bosk::simpleDriver);
 		bsonPlugin = new BsonPlugin();
 		formatter = new Formatter(bosk, bsonPlugin);
@@ -58,7 +59,7 @@ public class BsonSurgeonTest extends AbstractDriverTest {
 		CatalogReference<TestEntity> catalogRef = refs.catalog();
 		SideTableReference<TestEntity, TestEntity> sideTableRef = refs.sideTable();
 		CatalogReference<TestEntity> nestedCatalogRef = refs.anyNestedCatalog();
-		separateCollections = asList(
+		graftPoints = asList(
 			catalogRef,
 			sideTableRef,
 			nestedCatalogRef
@@ -69,7 +70,8 @@ public class BsonSurgeonTest extends AbstractDriverTest {
 		makeCatalog(refs.doubleNestedCatalog().boundTo(Identifier.from("entity1"), Identifier.from("child1")));
 		driver.submitReplacement(sideTableRef.then(Identifier.from("child1")),
 			TestEntity.empty(Identifier.from("sideTableValue"), catalogRef));
-		surgeon = new BsonSurgeon(separateCollections);
+		driver.flush();
+		surgeon = new BsonSurgeon(graftPoints);
 	}
 
 	@Test

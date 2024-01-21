@@ -4,12 +4,11 @@ import io.vena.bosk.BoskDriver;
 import io.vena.bosk.MapValue;
 import io.vena.bosk.Reference;
 import java.util.Collection;
-import lombok.Value;
 
-@Value
-public class SubmitDeletion<T> implements DeletionOperation<T> {
-	Reference<T> target;
-	MapValue<String> diagnosticAttributes;
+public record SubmitDeletion<T>(
+	Reference<T> target,
+	MapValue<String> diagnosticAttributes
+) implements DeletionOperation<T> {
 
 	@Override
 	public SubmitDeletion<T> withFilteredAttributes(Collection<String> allowedNames) {
@@ -20,4 +19,5 @@ public class SubmitDeletion<T> implements DeletionOperation<T> {
 	public void submitTo(BoskDriver<?> driver) {
 		driver.submitDeletion(target);
 	}
+
 }

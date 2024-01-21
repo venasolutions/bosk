@@ -96,8 +96,10 @@ abstract class AbstractMongoDriverTest {
 		}
 	}
 
-	protected void setLogging(Level level, Class<?> logger) {
-		setLogging(level, LoggerFactory.getLogger(logger));
+	protected void setLogging(Level level, Class<?>... loggers) {
+		for (var logger: loggers) {
+			setLogging(level, LoggerFactory.getLogger(logger));
+		}
 	}
 
 	protected void setLogging(Level level, Package logger) {

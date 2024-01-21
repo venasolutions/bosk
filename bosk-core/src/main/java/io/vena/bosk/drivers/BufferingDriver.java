@@ -2,6 +2,7 @@ package io.vena.bosk.drivers;
 
 import io.vena.bosk.BoskDiagnosticContext;
 import io.vena.bosk.BoskDriver;
+import io.vena.bosk.DriverFactory;
 import io.vena.bosk.Identifier;
 import io.vena.bosk.MapValue;
 import io.vena.bosk.Reference;
@@ -37,6 +38,10 @@ public class BufferingDriver<R extends StateTreeNode> implements BoskDriver<R> {
 
 	public static <RR extends StateTreeNode> BufferingDriver<RR> writingTo(BoskDriver<RR> downstream) {
 		return new BufferingDriver<>(downstream);
+	}
+
+	public static <RR extends StateTreeNode> DriverFactory<RR> factory() {
+		return (b,d) -> new BufferingDriver<>(d);
 	}
 
 	@Override

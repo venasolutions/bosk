@@ -29,6 +29,14 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.stream.Collectors.joining;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+/**
+ * Exercises a lot of bosk reads, updates, and hooks.
+ *
+ * <p>
+ * (Note that this doesn't provoke quite as many race conditions as one might think
+ * when using just {@link Bosk#simpleDriver}, because hooks are usually executed on
+ * the same thread that submitted the triggering update.)
+ */
 public abstract class HanoiTest {
 	protected Bosk<HanoiState> bosk;
 	Refs refs;
@@ -39,7 +47,6 @@ public abstract class HanoiTest {
 	public interface Refs {
 		@ReferencePath("/puzzles") CatalogReference<Puzzle> puzzles();
 		@ReferencePath("/puzzles/-puzzle-") Reference<Puzzle> puzzle(Identifier puzzle);
-		@ReferencePath("/solved") Reference<Listing<Puzzle>> solved();
 		@ReferencePath("/solved/-puzzle-") Reference<ListingEntry> solved(Identifier puzzle);
 		@ReferencePath("/puzzles/-puzzle-/startingTower") Reference<Reference<Tower>> startingTower(Identifier puzzle);
 		@ReferencePath("/puzzles/-puzzle-/towers/-tower-") Reference<Tower> tower(Identifier puzzle, Identifier tower);

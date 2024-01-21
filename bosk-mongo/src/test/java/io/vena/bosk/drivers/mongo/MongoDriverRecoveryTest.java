@@ -34,17 +34,17 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 /**
  * Tests the kinds of recovery actions a human operator might take to try to get a busted service running again.
  */
-public class MongoDriverResiliencyTest extends AbstractMongoDriverTest {
+public class MongoDriverRecoveryTest extends AbstractMongoDriverTest {
 	FlushOrWait flushOrWait;
 
 	@BeforeEach
 	void setupLogging() {
 		// This test deliberately provokes a lot of warnings, so log errors only
-		setLogging(ERROR, MongoDriver.class.getPackage());
+		setLogging(ERROR, MainDriver.class, ChangeReceiver.class);
 	}
 
 	@ParametersByName
-	MongoDriverResiliencyTest(FlushOrWait flushOrWait, TestParameters.ParameterSet parameters) {
+	MongoDriverRecoveryTest(FlushOrWait flushOrWait, TestParameters.ParameterSet parameters) {
 		super(parameters.driverSettingsBuilder());
 		this.flushOrWait = flushOrWait;
 	}
@@ -53,8 +53,8 @@ public class MongoDriverResiliencyTest extends AbstractMongoDriverTest {
 	static Stream<TestParameters.ParameterSet> parameters() {
 		return TestParameters.driverSettings(
 			Stream.of(
-				PandoFormat.withSeparateCollections("/catalog", "/sideTable"),
-				SEQUOIA
+//				SEQUOIA,
+				PandoFormat.withGraftPoints("/catalog", "/sideTable")
 			),
 			Stream.of(EventTiming.NORMAL)
 		).map(b -> b.applyDriverSettings(s -> s
@@ -296,5 +296,5 @@ public class MongoDriverResiliencyTest extends AbstractMongoDriverTest {
 
 	private static final AtomicInteger boskCounter = new AtomicInteger(0);
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(MongoDriverResiliencyTest.class);
+	private static final Logger LOGGER = LoggerFactory.getLogger(MongoDriverRecoveryTest.class);
 }
