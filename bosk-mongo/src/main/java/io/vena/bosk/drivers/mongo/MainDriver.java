@@ -437,7 +437,7 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 	private FormatDriver<R> newPreferredFormatDriver() {
 		DatabaseFormat preferred = driverSettings.preferredDatabaseFormat();
 		if (preferred.equals(SEQUOIA) || preferred instanceof PandoFormat) {
-			return newSingleDocFormatDriver(REVISION_ZERO.longValue(), preferred);
+			return newFormatDriver(REVISION_ZERO.longValue(), preferred);
 		}
 		throw new AssertionError("Unknown database format setting: " + preferred);
 	}
@@ -465,7 +465,7 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 				BsonInt64 revision = cursor
 					.next()
 					.getInt64(DocumentFields.revision.name(), REVISION_ZERO);
-				return newSingleDocFormatDriver(revision.longValue(), format);
+				return newFormatDriver(revision.longValue(), format);
 			} else {
 				// Note that this message is confusing if the user specified
 				// a preference for Pando but no manifest file exists, because
@@ -480,7 +480,7 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 		}
 	}
 
-	private FormatDriver<R> newSingleDocFormatDriver(long revisionAlreadySeen, DatabaseFormat format) {
+	private FormatDriver<R> newFormatDriver(long revisionAlreadySeen, DatabaseFormat format) {
 		if (format.equals(SEQUOIA)) {
 			return new SequoiaFormatDriver<>(
 				bosk,
