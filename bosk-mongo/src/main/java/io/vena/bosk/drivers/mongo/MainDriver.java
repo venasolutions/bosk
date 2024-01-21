@@ -443,14 +443,15 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 	}
 
 	private FormatDriver<R> detectFormat() throws UninitializedCollectionException, UnrecognizedFormatException {
-		Manifest manifest = Manifest.forSequoia();
+		Manifest manifest;
 		try (MongoCursor<BsonDocument> cursor = collection.find(new BsonDocument("_id", MANIFEST_ID)).cursor()) {
 			if (cursor.hasNext()) {
 				LOGGER.debug("Found manifest");
 				manifest = formatter.decodeManifest(cursor.next());
 			} else {
 				// For legacy databases with no manifest
-				LOGGER.debug("Manifest is missing; checking for Sequoia format");
+				LOGGER.debug("Manifest is missing; checking for Sequoia format in " + driverSettings.database());
+				manifest = Manifest.forSequoia();
 			}
 		}
 
@@ -466,7 +467,15 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 					.getInt64(DocumentFields.revision.name(), REVISION_ZERO);
 				return newSingleDocFormatDriver(revision.longValue(), format);
 			} else {
-				throw new UninitializedCollectionException("Document doesn't exist");
+				// Note that this message is confusing if the user specified
+				// a preference for Pando but no manifest file exists, because
+				// the message will say it couldn't find the Sequoia document.
+				// One day when we drop support for collections with no
+				// manifest, we can eliminate this confusion.
+				throw new UninitializedCollectionException("Document doesn't exist: "
+					+ driverSettings.database()
+					+ "." + COLLECTION_NAME
+					+ " id=" + documentId);
 			}
 		}
 	}
