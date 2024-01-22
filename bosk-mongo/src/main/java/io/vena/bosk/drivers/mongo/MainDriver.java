@@ -296,30 +296,12 @@ class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 	@Override
 	public void flush() throws IOException, InterruptedException {
 		try {
-			RetryableOperation<IOException, InterruptedException> flushOperation = this::doFlush;
-			try (MDCScope __ = beginDriverOperation("flush")) {
-				try {
-					flushOperation.run();
-				} catch (DisconnectedException e) {
-					LOGGER.debug("Driver is disconnected ({}); will wait and retry operation", e.getMessage());
-					waitAndRetry(flushOperation, "flush");
-				} catch (RevisionFieldDisruptedException e) {
-					// TODO: Really, at the moment the damage is noticed, we should probably make the receiver reboot; but we currently have no way to do so!
-					LOGGER.debug("Revision field has been disrupted; wait for receiver to notice something is wrong", e);
-					waitAndRetry(flushOperation, "flush");
-				} catch (FailedSessionException e) {
-					LOGGER.debug("Cannot open MongoDB session; will wait and retry flush", e);
-					waitAndRetry(flushOperation, "flush");
-				}
-			}
+			this.<InterruptedException, IOException>doRetryableDriverOperation(() -> {
+				formatDriver.flush();
+			}, "flush");
 		} catch (DisconnectedException | FailedSessionException e) {
+			// Callers are expecting a FlushFailureException in these cases
 			throw new FlushFailureException(e);
-		}
-	}
-
-	private void doFlush() throws IOException, InterruptedException {
-		try (var ___ = collection.newReadOnlySession()) {
-			formatDriver.flush();
 		}
 	}
 
