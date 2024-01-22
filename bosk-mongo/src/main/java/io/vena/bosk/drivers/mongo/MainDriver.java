@@ -60,7 +60,15 @@ class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 	private final Listener listener;
 	final Formatter formatter;
 
+	/**
+	 * Hold this while waiting on {@link #formatDriverChanged}
+	 */
 	private final ReentrantLock formatDriverLock = new ReentrantLock();
+
+	/**
+	 * Wait on this in cases where the {@link #formatDriver} isn't working
+	 * and might be asynchronously repaired.
+	 */
 	private final Condition formatDriverChanged = formatDriverLock.newCondition();
 
 	private volatile FormatDriver<R> formatDriver = new DisconnectedDriver<>(new Exception("Driver not yet initialized"));
@@ -158,7 +166,7 @@ class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 		// calls to driver update methods to wait until we're finished here. (There shouldn't
 		// be any such calls while initialRoot is still running, but this ensures that if any
 		// do happen, they won't corrupt our internal state in confusing ways.)
-		quietlySetFormatDriver(new DisconnectedDriver<>(FAILURE_TO_COMPUTE_INITIAL_ROOT));
+		setDisconnectedDriver(FAILURE_TO_COMPUTE_INITIAL_ROOT);
 
 		// In effect, at this point, the entire driver is now single-threaded for the remainder
 		// of this method. Our only concurrency concerns now involve database operations performed
@@ -183,7 +191,7 @@ class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 				publishFormatDriver(preferredDriver);
 			} catch (RuntimeException | IOException e2) {
 				LOGGER.warn("Failed to initialize database; disconnecting", e2);
-				quietlySetFormatDriver(new DisconnectedDriver<>(e2));
+				setDisconnectedDriver(e2);
 			}
 		} catch (RuntimeException | UnrecognizedFormatException | IOException e) {
 			switch (driverSettings.initialDatabaseUnavailableMode()) {
@@ -192,7 +200,7 @@ class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 					throw new InitialRootFailureException("Unable to load initial state from MongoDB", e);
 				case DISCONNECT:
 					LOGGER.info("Unable to load initial root from database; will proceed with downstream.initialRoot", e);
-					quietlySetFormatDriver(new DisconnectedDriver<>(e));
+					setDisconnectedDriver(e);
 					root = callDownstreamInitialRoot(rootType);
 					break;
 				default:
@@ -443,7 +451,7 @@ class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 		public void onDisconnect(Throwable e) {
 			LOGGER.debug("onDisconnect({})", e.toString());
 			formatDriver.close();
-			quietlySetFormatDriver(new DisconnectedDriver<>(e));
+			setDisconnectedDriver(e);
 		}
 	}
 
@@ -539,7 +547,7 @@ class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 				operation.run();
 				session.commitTransactionIfAny();
 			} catch (FailedSessionException e) {
-				quietlySetFormatDriver(new DisconnectedDriver<>(e));
+				setDisconnectedDriver(e);
 				throw new DisconnectedException(e);
 			}
 		};
@@ -587,22 +595,25 @@ class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 	}
 
 	/**
-	 * Sets {@link #formatDriver} but does not signal threads waiting to retry,
-	 * because there's very likely a better driver on its way.
+	 * Sets {@link #formatDriver} but does not signal threads waiting on {@link #formatDriverChanged},
+	 * because there's no point waking them to retry with {@link DisconnectedDriver}
+	 * (which is bound to fail); they might as well keep waiting and hope for another
+	 * better driver to arrive instead.
 	 */
-	void quietlySetFormatDriver(FormatDriver<R> newFormatDriver) {
-		LOGGER.debug("quietlySetFormatDriver({}) (was {})", newFormatDriver.getClass().getSimpleName(), formatDriver.getClass().getSimpleName());
+	void setDisconnectedDriver(Throwable reason) {
+		LOGGER.debug("quietlySetDisconnectedDriver({}) (previously {})", reason.getClass().getSimpleName(), formatDriver.getClass().getSimpleName());
 		try {
 			formatDriverLock.lock();
 			formatDriver.close();
-			formatDriver = newFormatDriver;
+			formatDriver = new DisconnectedDriver<>(reason);
 		} finally {
 			formatDriverLock.unlock();
 		}
 	}
 
 	/**
-	 * Sets {@link #formatDriver} and also signals any threads waiting to retry.
+	 * Sets {@link #formatDriver} and also signals any threads waiting on {@link #formatDriverChanged}
+	 * to retry their operation.
 	 */
 	void publishFormatDriver(FormatDriver<R> newFormatDriver) {
 		LOGGER.debug("publishFormatDriver({}) (was {})", newFormatDriver.getClass().getSimpleName(), formatDriver.getClass().getSimpleName());
