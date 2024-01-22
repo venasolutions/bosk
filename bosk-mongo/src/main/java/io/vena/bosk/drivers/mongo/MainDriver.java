@@ -50,7 +50,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
  * are delegated to a {@link FormatDriver} object that can be swapped out dynamically
  * as the database evolves.
  */
-public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
+class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 	private final Bosk<R> bosk;
 	private final ChangeReceiver receiver;
 	private final MongoDriverSettings driverSettings;
@@ -101,6 +101,8 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 	@Override
 	public R initialRoot(Type rootType) throws InvalidTypeException, InterruptedException, IOException {
 		try (MDCScope __ = beginDriverOperation("initialRoot({})", rootType)) {
+			// The actual loading of the initial state happens on the ChangeReceiver thread.
+			// Here, we just wait for that to finish and deal with the consequences.
 			FutureTask<R> task = listener.taskRef.get();
 			if (task == null) {
 				throw new IllegalStateException("initialRoot has already run");
@@ -140,8 +142,9 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 	}
 
 	/**
-	 * Called on the {@link ChangeReceiver}'s background thread via {@link Listener#taskRef},
-	 * so there are no concerns with more events arriving concurrently.
+	 * Called on the {@link ChangeReceiver}'s background thread via {@link Listener#taskRef}
+	 * because it's important that this logic finishes before processing any change events,
+	 * and no other change events can arrive concurrently.
 	 * <p>
 	 * Should throw no exceptions except {@link DownstreamInitialRootException}.
 	 *
@@ -151,8 +154,17 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 	 * and {@link InitialDatabaseUnavailableMode#FAIL} is active.
 	 */
 	private R doInitialRoot(Type rootType) {
+		// This establishes a safe fallback in case things go wrong. It also causes any
+		// calls to driver update methods to wait until we're finished here. (There shouldn't
+		// be any such calls while initialRoot is still running, but this ensures that if any
+		// do happen, they won't corrupt our internal state in confusing ways.)
+		quietlySetFormatDriver(new DisconnectedDriver<>(FAILURE_TO_COMPUTE_INITIAL_ROOT));
+
+		// In effect, at this point, the entire driver is now single-threaded for the remainder
+		// of this method. Our only concurrency concerns now involve database operations performed
+		// by other processes.
+
 		R root;
-		quietlySetFormatDriver(new DisconnectedDriver<>(FAILURE_TO_COMPUTE_INITIAL_ROOT)); // Pessimistic fallback
 		try (var __ = collection.newReadOnlySession()){
 			FormatDriver<R> detectedDriver = detectFormat();
 			StateAndMetadata<R> loadedState = detectedDriver.loadAllState();
