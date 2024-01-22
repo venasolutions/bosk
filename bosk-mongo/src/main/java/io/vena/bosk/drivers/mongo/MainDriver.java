@@ -66,7 +66,7 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 	private volatile FormatDriver<R> formatDriver = new DisconnectedDriver<>(new Exception("Driver not yet initialized"));
 	private volatile boolean isClosed = false;
 
-	public MainDriver(
+	MainDriver(
 		Bosk<R> bosk,
 		MongoClientSettings clientSettings,
 		MongoDriverSettings driverSettings,
@@ -140,7 +140,8 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 	}
 
 	/**
-	 * Executed on the thread that calls {@link #initialRoot}.
+	 * Called on the {@link ChangeReceiver}'s background thread via {@link Listener#taskRef},
+	 * so there are no concerns with more events arriving concurrently.
 	 * <p>
 	 * Should throw no exceptions except {@link DownstreamInitialRootException}.
 	 *
