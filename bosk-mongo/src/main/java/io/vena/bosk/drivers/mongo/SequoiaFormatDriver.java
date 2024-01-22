@@ -70,7 +70,7 @@ final class SequoiaFormatDriver<R extends StateTreeNode> implements FormatDriver
 		FlushLock flushLock,
 		BoskDriver<R> downstream
 	) {
-		this.description = SequoiaFormatDriver.class.getSimpleName() + ": " + driverSettings;
+		this.description = getClass().getSimpleName() + ": " + driverSettings;
 		this.settings = driverSettings;
 		this.formatter = new Formatter(bosk, bsonPlugin);
 		this.collection = collection;
