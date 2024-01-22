@@ -50,7 +50,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
  * are delegated to a {@link FormatDriver} object that can be swapped out dynamically
  * as the database evolves.
  */
-public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
+class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 	private final Bosk<R> bosk;
 	private final ChangeReceiver receiver;
 	private final MongoDriverSettings driverSettings;
@@ -60,13 +60,21 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 	private final Listener listener;
 	final Formatter formatter;
 
+	/**
+	 * Hold this while waiting on {@link #formatDriverChanged}
+	 */
 	private final ReentrantLock formatDriverLock = new ReentrantLock();
+
+	/**
+	 * Wait on this in cases where the {@link #formatDriver} isn't working
+	 * and might be asynchronously repaired.
+	 */
 	private final Condition formatDriverChanged = formatDriverLock.newCondition();
 
 	private volatile FormatDriver<R> formatDriver = new DisconnectedDriver<>(new Exception("Driver not yet initialized"));
 	private volatile boolean isClosed = false;
 
-	public MainDriver(
+	MainDriver(
 		Bosk<R> bosk,
 		MongoClientSettings clientSettings,
 		MongoDriverSettings driverSettings,
@@ -101,6 +109,8 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 	@Override
 	public R initialRoot(Type rootType) throws InvalidTypeException, InterruptedException, IOException {
 		try (MDCScope __ = beginDriverOperation("initialRoot({})", rootType)) {
+			// The actual loading of the initial state happens on the ChangeReceiver thread.
+			// Here, we just wait for that to finish and deal with the consequences.
 			FutureTask<R> task = listener.taskRef.get();
 			if (task == null) {
 				throw new IllegalStateException("initialRoot has already run");
@@ -140,7 +150,9 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 	}
 
 	/**
-	 * Executed on the thread that calls {@link #initialRoot}.
+	 * Called on the {@link ChangeReceiver}'s background thread via {@link Listener#taskRef}
+	 * because it's important that this logic finishes before processing any change events,
+	 * and no other change events can arrive concurrently.
 	 * <p>
 	 * Should throw no exceptions except {@link DownstreamInitialRootException}.
 	 *
@@ -150,8 +162,17 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 	 * and {@link InitialDatabaseUnavailableMode#FAIL} is active.
 	 */
 	private R doInitialRoot(Type rootType) {
+		// This establishes a safe fallback in case things go wrong. It also causes any
+		// calls to driver update methods to wait until we're finished here. (There shouldn't
+		// be any such calls while initialRoot is still running, but this ensures that if any
+		// do happen, they won't corrupt our internal state in confusing ways.)
+		setDisconnectedDriver(FAILURE_TO_COMPUTE_INITIAL_ROOT);
+
+		// In effect, at this point, the entire driver is now single-threaded for the remainder
+		// of this method. Our only concurrency concerns now involve database operations performed
+		// by other processes.
+
 		R root;
-		quietlySetFormatDriver(new DisconnectedDriver<>(FAILURE_TO_COMPUTE_INITIAL_ROOT)); // Pessimistic fallback
 		try (var __ = collection.newReadOnlySession()){
 			FormatDriver<R> detectedDriver = detectFormat();
 			StateAndMetadata<R> loadedState = detectedDriver.loadAllState();
@@ -170,7 +191,7 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 				publishFormatDriver(preferredDriver);
 			} catch (RuntimeException | IOException e2) {
 				LOGGER.warn("Failed to initialize database; disconnecting", e2);
-				quietlySetFormatDriver(new DisconnectedDriver<>(e2));
+				setDisconnectedDriver(e2);
 			}
 		} catch (RuntimeException | UnrecognizedFormatException | IOException e) {
 			switch (driverSettings.initialDatabaseUnavailableMode()) {
@@ -179,7 +200,7 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 					throw new InitialRootFailureException("Unable to load initial state from MongoDB", e);
 				case DISCONNECT:
 					LOGGER.info("Unable to load initial root from database; will proceed with downstream.initialRoot", e);
-					quietlySetFormatDriver(new DisconnectedDriver<>(e));
+					setDisconnectedDriver(e);
 					root = callDownstreamInitialRoot(rootType);
 					break;
 				default:
@@ -275,30 +296,12 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 	@Override
 	public void flush() throws IOException, InterruptedException {
 		try {
-			RetryableOperation<IOException, InterruptedException> flushOperation = this::doFlush;
-			try (MDCScope __ = beginDriverOperation("flush")) {
-				try {
-					flushOperation.run();
-				} catch (DisconnectedException e) {
-					LOGGER.debug("Driver is disconnected ({}); will wait and retry operation", e.getMessage());
-					waitAndRetry(flushOperation, "flush");
-				} catch (RevisionFieldDisruptedException e) {
-					// TODO: Really, at the moment the damage is noticed, we should probably make the receiver reboot; but we currently have no way to do so!
-					LOGGER.debug("Revision field has been disrupted; wait for receiver to notice something is wrong", e);
-					waitAndRetry(flushOperation, "flush");
-				} catch (FailedSessionException e) {
-					LOGGER.debug("Cannot open MongoDB session; will wait and retry flush", e);
-					waitAndRetry(flushOperation, "flush");
-				}
-			}
+			this.<InterruptedException, IOException>doRetryableDriverOperation(() -> {
+				formatDriver.flush();
+			}, "flush");
 		} catch (DisconnectedException | FailedSessionException e) {
+			// Callers are expecting a FlushFailureException in these cases
 			throw new FlushFailureException(e);
-		}
-	}
-
-	private void doFlush() throws IOException, InterruptedException {
-		try (var ___ = collection.newReadOnlySession()) {
-			formatDriver.flush();
 		}
 	}
 
@@ -430,14 +433,14 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 		public void onDisconnect(Throwable e) {
 			LOGGER.debug("onDisconnect({})", e.toString());
 			formatDriver.close();
-			quietlySetFormatDriver(new DisconnectedDriver<>(e));
+			setDisconnectedDriver(e);
 		}
 	}
 
 	private FormatDriver<R> newPreferredFormatDriver() {
 		DatabaseFormat preferred = driverSettings.preferredDatabaseFormat();
 		if (preferred.equals(SEQUOIA) || preferred instanceof PandoFormat) {
-			return newSingleDocFormatDriver(REVISION_ZERO.longValue(), preferred);
+			return newFormatDriver(REVISION_ZERO.longValue(), preferred);
 		}
 		throw new AssertionError("Unknown database format setting: " + preferred);
 	}
@@ -465,7 +468,7 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 				BsonInt64 revision = cursor
 					.next()
 					.getInt64(DocumentFields.revision.name(), REVISION_ZERO);
-				return newSingleDocFormatDriver(revision.longValue(), format);
+				return newFormatDriver(revision.longValue(), format);
 			} else {
 				// Note that this message is confusing if the user specified
 				// a preference for Pando but no manifest file exists, because
@@ -480,7 +483,7 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 		}
 	}
 
-	private FormatDriver<R> newSingleDocFormatDriver(long revisionAlreadySeen, DatabaseFormat format) {
+	private FormatDriver<R> newFormatDriver(long revisionAlreadySeen, DatabaseFormat format) {
 		if (format.equals(SEQUOIA)) {
 			return new SequoiaFormatDriver<>(
 				bosk,
@@ -526,7 +529,7 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 				operation.run();
 				session.commitTransactionIfAny();
 			} catch (FailedSessionException e) {
-				quietlySetFormatDriver(new DisconnectedDriver<>(e));
+				setDisconnectedDriver(e);
 				throw new DisconnectedException(e);
 			}
 		};
@@ -574,22 +577,25 @@ public class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 	}
 
 	/**
-	 * Sets {@link #formatDriver} but does not signal threads waiting to retry,
-	 * because there's very likely a better driver on its way.
+	 * Sets {@link #formatDriver} but does not signal threads waiting on {@link #formatDriverChanged},
+	 * because there's no point waking them to retry with {@link DisconnectedDriver}
+	 * (which is bound to fail); they might as well keep waiting and hope for another
+	 * better driver to arrive instead.
 	 */
-	void quietlySetFormatDriver(FormatDriver<R> newFormatDriver) {
-		LOGGER.debug("quietlySetFormatDriver({}) (was {})", newFormatDriver.getClass().getSimpleName(), formatDriver.getClass().getSimpleName());
+	void setDisconnectedDriver(Throwable reason) {
+		LOGGER.debug("quietlySetDisconnectedDriver({}) (previously {})", reason.getClass().getSimpleName(), formatDriver.getClass().getSimpleName());
 		try {
 			formatDriverLock.lock();
 			formatDriver.close();
-			formatDriver = newFormatDriver;
+			formatDriver = new DisconnectedDriver<>(reason);
 		} finally {
 			formatDriverLock.unlock();
 		}
 	}
 
 	/**
-	 * Sets {@link #formatDriver} and also signals any threads waiting to retry.
+	 * Sets {@link #formatDriver} and also signals any threads waiting on {@link #formatDriverChanged}
+	 * to retry their operation.
 	 */
 	void publishFormatDriver(FormatDriver<R> newFormatDriver) {
 		LOGGER.debug("publishFormatDriver({}) (was {})", newFormatDriver.getClass().getSimpleName(), formatDriver.getClass().getSimpleName());

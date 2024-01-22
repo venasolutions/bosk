@@ -26,7 +26,6 @@ import lombok.Getter;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.Value;
-import lombok.val;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -322,7 +321,7 @@ public class Bosk<R extends StateTreeNode> {
 		 */
 		private synchronized <T> boolean tryGraftDeletion(Reference<T> target) {
 			Path targetPath = target.path();
-			if (targetPath.length() == 0) {
+			if (targetPath.isEmpty()) {
 				throw new IllegalArgumentException("Cannot delete root object");
 			}
 			Dereferencer dereferencer = dereferencerFor(target);
@@ -375,6 +374,13 @@ public class Bosk<R extends StateTreeNode> {
 						try (@SuppressWarnings("unused") ReadContext executionContext = new ReadContext(rootForHook)) {
 							LOGGER.debug("Hook: RUN {}({})", reg.name, changedRef);
 							reg.hook.onChanged(changedRef);
+						} catch (Exception e) {
+							LOGGER.error("Bosk hook \"" + reg.name() + "\" terminated with an exception, which usually indicates a bug. State updates may have been lost", e);
+
+							// Note that we don't catch Error. The practical reason is to allow users to write
+							// unit tests that throw AssertionError from hooks, but the bigger reason is that
+							// Errors indicate that something has gone dreadfully wrong, and we probably should
+							// not attempt to continue.
 						} finally {
 							LOGGER.debug("Hook: end {}({})", reg.name, changedRef);
 						}
@@ -415,11 +421,7 @@ public class Bosk<R extends StateTreeNode> {
 				if (hookExecutionPermit.tryAcquire()) {
 					try {
 						for (Runnable ex = hookExecutionQueue.pollFirst(); ex != null; ex = hookExecutionQueue.pollFirst()) {
-							try {
-								ex.run();
-							} catch (Exception e) {
-								LOGGER.error("Bosk hook terminated with an exception, which usually indicates a bug. State updates may have been lost", e);
-							}
+							ex.run();
 						}
 					} finally {
 						hookExecutionPermit.release();
@@ -844,10 +846,11 @@ try (ReadContext originalThReadContext = bosk.readContext()) {
 		}
 	}
 
+	@Getter
 	@RequiredArgsConstructor
 	private abstract class ReferenceImpl<T> implements Reference<T> {
-		@Getter protected final Path path;
-		@Getter protected final Type targetType;
+		protected final Path path;
+		protected final Type targetType;
 
 		@Override
 		@SuppressWarnings("unchecked")
@@ -930,7 +933,7 @@ try (ReadContext originalThReadContext = bosk.readContext()) {
 			if (obj == null) {
 				return false;
 			}
-			if (!(obj instanceof Reference)) {
+			if (!(obj instanceof @SuppressWarnings({"rawtypes"})Reference other)) {
 				return false;
 			}
 
@@ -939,8 +942,6 @@ try (ReadContext originalThReadContext = bosk.readContext()) {
 			// That means we can compare references from one Bosk to the other
 			// if they both have the same root type.
 
-			@SuppressWarnings({"rawtypes", "unchecked"})
-			Reference other = (Reference) obj;
 			return Objects.equals(this.rootType(), other.root().targetType())
 				&& Objects.equals(path, other.path());
 		}

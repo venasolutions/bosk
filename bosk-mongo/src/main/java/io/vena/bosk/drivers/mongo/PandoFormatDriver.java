@@ -93,7 +93,7 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 		FlushLock flushLock,
 		BoskDriver<R> downstream
 	) {
-		this.description = PandoFormatDriver.class.getSimpleName() + ": " + driverSettings;
+		this.description = getClass().getSimpleName() + ": " + driverSettings;
 		this.settings = driverSettings;
 		this.format = format;
 		this.formatter = new Formatter(bosk, bsonPlugin);

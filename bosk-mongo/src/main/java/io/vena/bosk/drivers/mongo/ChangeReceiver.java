@@ -25,6 +25,17 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
  * Houses a background thread that repeatedly initializes, processes, and closes a change stream cursor.
  * Ideally, the opening and closing happen just once, but they're done in a loop for fault tolerance,
  * so that the driver can reinitialize if certain unusual conditions arise.
+ *
+ * <p>
+ * We're maintaining an in-memory replica of database state, and so
+ * the loading of database state and the subsequent handling of events are inherently coupled.
+ * To coordinate this, we call back into {@link ChangeListener#onConnectionSucceeded()} to indicate the
+ * appropriate time to load the initial state before any event processing begins.
+ * The code ends up looking a bit complicated, with {@link MainDriver} creating a {@link ChangeReceiver}
+ * that calls back into {@link MainDriver} via {@link ChangeListener};
+ * but it eliminates all race conditions
+ * (which dramatically simplifies the reasoning about parallelism and corner cases)
+ * because the state loading and event processing happen on the same thread.
  */
 class ChangeReceiver implements Closeable {
 	private final String boskName;
@@ -53,6 +64,7 @@ class ChangeReceiver implements Closeable {
 	public void close() {
 		isClosed = true;
 		ex.shutdownNow();
+		// Note: don't awaitTermination. It seems like a good idea, but it makes the tests crawl, and it doesn't matter for correctness
 	}
 
 	/**
@@ -207,7 +219,9 @@ class ChangeReceiver implements Closeable {
 					LOGGER.debug("Interrupted while waiting for change event: {}", e.toString());
 					break;
 				}
-				processEvent(event);
+				if (!isClosed) {
+					processEvent(event);
+				}
 			}
 		} catch (RuntimeException e) {
 			addContextToException(e);
@@ -249,6 +263,6 @@ class ChangeReceiver implements Closeable {
 	}
 
 	private static final AtomicLong EVENT_COUNTER = new AtomicLong(0);
-	public static final String MDC_KEY = "MongoDriver.event";
+	public static final String MDC_KEY = "bosk.MongoDriver.event";
 	private static final Logger LOGGER = LoggerFactory.getLogger(ChangeReceiver.class);
 }

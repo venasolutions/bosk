@@ -133,7 +133,7 @@ class TransactionalCollection<TDocument> implements MongoCollection<TDocument> {
 			MDC.put(MDC_KEY, oldMDC);
 		}
 
-		private static final String MDC_KEY = "MongoDriver.transaction";
+		private static final String MDC_KEY = "bosk.MongoDriver.transaction";
 	}
 
 	/**
