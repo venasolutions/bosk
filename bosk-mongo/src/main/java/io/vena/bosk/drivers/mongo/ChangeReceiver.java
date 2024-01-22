@@ -263,6 +263,6 @@ class ChangeReceiver implements Closeable {
 	}
 
 	private static final AtomicLong EVENT_COUNTER = new AtomicLong(0);
-	public static final String MDC_KEY = "MongoDriver.event";
+	public static final String MDC_KEY = "bosk.MongoDriver.event";
 	private static final Logger LOGGER = LoggerFactory.getLogger(ChangeReceiver.class);
 }

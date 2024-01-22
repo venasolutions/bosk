@@ -26,5 +26,5 @@ final class MappedDiagnosticContext {
 		@Override public void close() { MDC.put(MDC_KEY, oldValue); }
 	}
 
-	private static final String MDC_KEY = "MongoDriver";
+	private static final String MDC_KEY = "bosk.MongoDriver";
 }
