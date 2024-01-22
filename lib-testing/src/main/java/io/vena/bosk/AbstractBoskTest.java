@@ -14,16 +14,14 @@ import lombok.experimental.FieldNameConstants;
 import static java.util.Arrays.asList;
 
 public abstract class AbstractBoskTest {
-	@Value
-	@EqualsAndHashCode(callSuper=false)
 	@With
 	@FieldNameConstants
-	public static class TestRoot extends AbstractEntity {
-		Identifier id;
-		Catalog<TestEntity> entities;
-		StringListValueSubclass someStrings;
-		MapValue<String> someMappedStrings;
-	}
+	public record TestRoot(
+		Identifier id,
+		Catalog<TestEntity> entities,
+		StringListValueSubclass someStrings,
+		MapValue<String> someMappedStrings
+	) implements Entity { }
 
 	public static class StringListValueSubclass extends ListValue<String> {
 		public StringListValueSubclass(String... entries) {
@@ -31,74 +29,76 @@ public abstract class AbstractBoskTest {
 		}
 	}
 
-	@Value
-	@EqualsAndHashCode(callSuper=false)
 	@With
 	@FieldNameConstants
-	public static class TestEntity extends AbstractEntity {
-		Identifier id;
-		String string;
-		TestEnum testEnum;
-		Catalog<TestChild> children;
-		Listing<TestChild> oddChildren;
-		SideTable<TestChild,String> stringSideTable;
-		Phantoms phantoms;
-		Optionals optionals;
-		ImplicitRefs implicitRefs;
-
+	public record TestEntity(
+		Identifier id,
+		String string,
+		TestEnum testEnum,
+		Catalog<TestChild> children,
+		Listing<TestChild> oddChildren,
+		SideTable<TestChild, String> stringSideTable,
+		Phantoms phantoms,
+		Optionals optionals,
+		ImplicitRefs implicitRefs
+	) implements Entity {
 		public TestEntity withChild(TestChild child) {
 			return this.withChildren(children.with(child));
 		}
 	}
 
-	@Value
-	@EqualsAndHashCode(callSuper=false)
 	@With
 	@FieldNameConstants
-	public static class TestChild extends AbstractEntity {
-		Identifier id;
-		String string;
-		TestEnum testEnum;
-		Catalog<TestChild> recursiveChildren;
-	}
+	public record TestChild(
+		Identifier id,
+		String string,
+		TestEnum testEnum,
+		Catalog<TestChild> recursiveChildren
+	) implements Entity { }
 
-	@Value
-	@EqualsAndHashCode(callSuper=false)
 	@With
 	@FieldNameConstants
-	public static class Optionals extends AbstractEntity {
-		Identifier id;
-		Optional<String> optionalString;
-		Optional<TestChild> optionalEntity;
-		Optional<Reference<TestEntity>> optionalRef;
-		Optional<Catalog<TestChild>> optionalCatalog;
-		Optional<Listing<TestChild>> optionalListing;
-		Optional<SideTable<TestChild,String>> optionalSideTable;
-
+	public record Optionals(
+		Identifier id,
+		Optional<String> optionalString,
+		Optional<TestChild> optionalEntity,
+		Optional<Reference<TestEntity>> optionalRef,
+		Optional<Catalog<TestChild>> optionalCatalog,
+		Optional<Listing<TestChild>> optionalListing,
+		Optional<SideTable<TestChild, String>> optionalSideTable
+	) implements Entity {
 		public static Optionals empty(Identifier id) {
-			return new Optionals(id,
-				Optional.empty(), Optional.empty(), Optional.empty(),
-				Optional.empty(), Optional.empty(), Optional.empty());
+			return new Optionals(
+				id,
+				Optional.empty(),
+				Optional.empty(),
+				Optional.empty(),
+				Optional.empty(),
+				Optional.empty(),
+				Optional.empty());
 		}
 	}
 
-	@Value
-	@EqualsAndHashCode(callSuper=false)
 	@With
 	@FieldNameConstants
-	public static class Phantoms extends AbstractEntity {
-		Identifier id;
-		Phantom<String> phantomString;
-		Phantom<TestChild> phantomEntity;
-		Phantom<Reference<TestEntity>> phantomRef;
-		Phantom<Catalog<TestChild>> phantomCatalog;
-		Phantom<Listing<TestChild>> phantomListing;
-		Phantom<SideTable<TestChild,String>> phantomSideTable;
-
+	public record Phantoms(
+		Identifier id,
+		Phantom<String> phantomString,
+		Phantom<TestChild> phantomEntity,
+		Phantom<Reference<TestEntity>> phantomRef,
+		Phantom<Catalog<TestChild>> phantomCatalog,
+		Phantom<Listing<TestChild>> phantomListing,
+		Phantom<SideTable<TestChild, String>> phantomSideTable
+	) implements Entity {
 		public static Phantoms empty(Identifier id) {
-			return new Phantoms(id,
-				Phantom.empty(), Phantom.empty(), Phantom.empty(),
-				Phantom.empty(), Phantom.empty(), Phantom.empty());
+			return new Phantoms(
+				id,
+				Phantom.empty(),
+				Phantom.empty(),
+				Phantom.empty(),
+				Phantom.empty(),
+				Phantom.empty(),
+				Phantom.empty());
 		}
 	}
 
