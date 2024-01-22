@@ -428,16 +428,16 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest {
 	void deleteNonexistentField_ignored() throws InvalidTypeException, IOException, InterruptedException {
 		setLogging(ERROR, MainDriver.class.getPackage()); // Need a big hammer because FormatDrivers complain
 
-		Bosk<TestEntity> bosk = new Bosk<TestEntity>("Newer", TestEntity.class, this::initialRootWithEmptyCatalog, driverFactory);
+		Bosk<TestEntity> newerBosk = new Bosk<TestEntity>("Newer", TestEntity.class, this::initialRootWithEmptyCatalog, driverFactory);
 		Bosk<OldEntity> prevBosk = new Bosk<OldEntity>(
 			"Prev",
 			OldEntity.class,
 			(b) -> { throw new AssertionError("prevBosk should use the state from MongoDB"); },
 			createDriverFactory());
 
-		ListingReference<TestEntity> listingRef = bosk.rootReference().thenListing(TestEntity.class, TestEntity.Fields.listing);
+		ListingReference<TestEntity> listingRef = newerBosk.rootReference().thenListing(TestEntity.class, TestEntity.Fields.listing);
 
-		bosk.driver().submitDeletion(listingRef.then(entity123));
+		newerBosk.driver().submitDeletion(listingRef.then(entity123));
 
 		prevBosk.driver().flush();
 
@@ -659,7 +659,7 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest {
 	 */
 	public record OldEntity(
 		Identifier id,
-		String string,
+		Optional<String> string,
 		// We need catalog and sideTable because we use them in our PandoConfiguration
 		Catalog<OldEntity> catalog,
 		SideTable<OldEntity, OldEntity> sideTable
@@ -667,7 +667,7 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest {
 		public static OldEntity withString(String value, Bosk<OldEntity> bosk) throws InvalidTypeException {
 			return new OldEntity(
 				rootID,
-				value,
+				Optional.of(value),
 				Catalog.empty(),
 				SideTable.empty(bosk.rootReference().then(Classes.catalog(OldEntity.class), "catalog"))
 			);
@@ -676,7 +676,7 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest {
 
 	/**
 	 * A version of {@link TestEntity} where the {@link Optional} {@link TestEntity#values()}
-	 * field has a polyfill (and some other fields have been deleted).
+	 * field has a polyfill.
 	 */
 	public record UpgradeableEntity(
 		Identifier id,
