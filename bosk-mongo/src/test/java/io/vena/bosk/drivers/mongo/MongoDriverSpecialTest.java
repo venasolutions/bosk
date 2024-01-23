@@ -452,6 +452,42 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest {
 
 	@ParametersByName
 	@UsesMongoService
+	void databaseMissingField_fallsBackToDefaultState() throws InvalidTypeException, IOException, InterruptedException {
+		LOGGER.debug("Set up database with entity that has no string field");
+		Bosk<OptionalEntity> setupBosk = new Bosk<OptionalEntity>("Setup", OptionalEntity.class, b -> OptionalEntity.withString(Optional.empty(), b), createDriverFactory());
+
+		LOGGER.debug("Connect another bosk where the string field is mandatory");
+		Bosk<TestEntity> testBosk = new Bosk<TestEntity>("Test", TestEntity.class, this::initialRoot, driverFactory);
+		TestEntity expected1 = initialRoot(testBosk); // NOT what was put there by the setup bosk!
+		TestEntity actual1;
+		try (var __ = testBosk.readContext()) {
+			actual1 = testBosk.rootReference().value();
+		}
+
+		assertEquals(expected1, actual1, "Disconnected bosk should use the default initial root");
+
+		LOGGER.debug("Repair the bosk by writing the string value");
+		setupBosk.driver().submitReplacement(
+			setupBosk.rootReference().then(String.class, "string"),
+			"stringValue");
+
+		LOGGER.debug("Flush testBosk to get the state from the database");
+		testBosk.driver().flush();
+
+		Refs refs = testBosk.buildReferences(Refs.class);
+		TestEntity expected2 = TestEntity.empty(Identifier.from("optionalEntity"), refs.catalog())
+			.withString("stringValue");
+
+		TestEntity actual2;
+		try (var __ = testBosk.readContext()) {
+			actual2 = testBosk.rootReference().value();
+		}
+
+		assertEquals(expected2, actual2, "Reconnected bosk should see the state from the database");
+	}
+
+	@ParametersByName
+	@UsesMongoService
 	void unrelatedDatabase_ignored() throws InvalidTypeException, IOException, InterruptedException {
 		tearDownActions.addFirst(mongoService.client().getDatabase("unrelated")::drop);
 		doUnrelatedChangeTest("unrelated", COLLECTION_NAME, rootDocumentID().getValue());
@@ -689,6 +725,31 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest {
 	) implements Entity {
 		@Polyfill("values")
 		static final TestValues DEFAULT_VALUES = TestValues.blank();
+	}
+
+	/**
+	 * A version of {@link TestEntity} where all the fields are {@link Optional} so we
+	 * have full control over what fields we set.
+	 */
+	@With
+	public record OptionalEntity(
+		Identifier id,
+		Optional<String> string,
+		Optional<Catalog<TestEntity>> catalog,
+		Optional<Listing<TestEntity>> listing,
+		Optional<SideTable<TestEntity, TestEntity>> sideTable,
+		Optional<TestValues> values
+	) implements Entity {
+		static OptionalEntity withString(Optional<String> string, Bosk<OptionalEntity> bosk) throws InvalidTypeException {
+			CatalogReference<TestEntity> domain = bosk.rootReference().thenCatalog(TestEntity.class, "catalog");
+			return new OptionalEntity(
+				Identifier.from("optionalEntity"),
+				string,
+				Optional.of(Catalog.empty()),
+				Optional.of(Listing.empty(domain)),
+				Optional.of(SideTable.empty(domain)),
+				Optional.empty());
+		}
 	}
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(MongoDriverSpecialTest.class);

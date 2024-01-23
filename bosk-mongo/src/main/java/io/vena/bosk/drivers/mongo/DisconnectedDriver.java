@@ -51,8 +51,8 @@ class DisconnectedDriver<R extends StateTreeNode> implements FormatDriver<R> {
 	}
 
 	@Override
-	public void onEvent(ChangeStreamDocument<BsonDocument> event) {
-		LOGGER.debug("Already disconnected; ignoring event ({})", event.getOperationType().getValue());
+	public void onEvent(ChangeStreamDocument<BsonDocument> event) throws UnprocessableEventException {
+		throw new UnprocessableEventException("Cannot process event when disconnected", event.getOperationType());
 	}
 
 	@Override
