@@ -29,6 +29,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.stream.Stream;
+import lombok.With;
 import org.bson.BsonDocument;
 import org.bson.BsonInt32;
 import org.bson.BsonInt64;
@@ -298,7 +299,7 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest {
 		setLogging(ERROR, BsonPlugin.class);
 
 		// Upon creating bosk, the initial value will be saved to MongoDB
-		new Bosk<TestEntity>("Newer", TestEntity.class, this::initialRootWithEmptyCatalog, driverFactory);
+		new Bosk<TestEntity>("Newer", TestEntity.class, this::initialRootWithValues, driverFactory);
 
 		// Upon creating prevBosk, the state in the database will be loaded into the local.
 		Bosk<OldEntity> prevBosk = new Bosk<OldEntity>(
@@ -332,18 +333,18 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest {
 		bosk.driver().submitReplacement(bosk.rootReference(),
 			initialRoot
 				.withString("replacementString")
-				.withListing(Listing.of(initialRoot.listing().domain(), Identifier.from("newEntry"))));
+				.withValues(Optional.of(TestValues.blank())));
 
 		prevBosk.driver().flush();
 
-		OldEntity expected = OldEntity.withString("replacementString", prevBosk);
+		OldEntity oldEntity = OldEntity.withString("replacementString", prevBosk);
 
 		OldEntity actual;
 		try (var __ = prevBosk.readContext()) {
 			actual = prevBosk.rootReference().value();
 		}
 
-		assertEquals(expected, actual);
+		assertEquals(oldEntity, actual);
 	}
 
 	@ParametersByName
@@ -358,15 +359,14 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest {
 			(b) -> { throw new AssertionError("prevBosk should use the state from MongoDB"); },
 			createDriverFactory());
 
-		ListingReference<TestEntity> listingRef = bosk.rootReference().thenListing(TestEntity.class, TestEntity.Fields.listing);
-
-		TestEntity initialRoot = initialRootWithEmptyCatalog(bosk);
-		bosk.driver().submitReplacement(listingRef,
-			Listing.of(initialRoot.listing().domain(), Identifier.from("newEntry")));
+		Refs refs = bosk.buildReferences(Refs.class);
+		bosk.driver().submitReplacement(refs.values(),
+			TestValues.blank());
 
 		prevBosk.driver().flush();
 
-		OldEntity expected = OldEntity.withString(rootID.toString(), prevBosk); // unchanged
+		OldEntity expected = OldEntity // unchanged from before
+			.withString(rootID.toString(), prevBosk);
 
 		OldEntity actual;
 		try (var __ = prevBosk.readContext()) {
@@ -435,20 +435,19 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest {
 			(b) -> { throw new AssertionError("prevBosk should use the state from MongoDB"); },
 			createDriverFactory());
 
-		ListingReference<TestEntity> listingRef = newerBosk.rootReference().thenListing(TestEntity.class, TestEntity.Fields.listing);
-
-		newerBosk.driver().submitDeletion(listingRef.then(entity123));
+		Refs refs = newerBosk.buildReferences(Refs.class);
+		newerBosk.driver().submitDeletion(refs.values());
 
 		prevBosk.driver().flush();
 
-		OldEntity expected = OldEntity.withString(rootID.toString(), prevBosk); // unchanged
+		OldEntity oldEntity = OldEntity.withString(rootID.toString(), prevBosk); // unchanged
 
 		OldEntity actual;
 		try (var __ = prevBosk.readContext()) {
 			actual = prevBosk.rootReference().value();
 		}
 
-		assertEquals(expected, actual);
+		assertEquals(oldEntity, actual);
 	}
 
 	@ParametersByName
@@ -657,19 +656,21 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest {
 	/**
 	 * Represents an earlier version of the entity before some fields were added.
 	 */
+	@With
 	public record OldEntity(
 		Identifier id,
-		Optional<String> string,
+		String string,
 		// We need catalog and sideTable because we use them in our PandoConfiguration
 		Catalog<OldEntity> catalog,
 		SideTable<OldEntity, OldEntity> sideTable
 	) implements Entity {
 		public static OldEntity withString(String value, Bosk<OldEntity> bosk) throws InvalidTypeException {
+			Reference<Catalog<OldEntity>> catalogRef = bosk.rootReference().then(Classes.catalog(OldEntity.class), "catalog");
 			return new OldEntity(
 				rootID,
-				Optional.of(value),
+				value,
 				Catalog.empty(),
-				SideTable.empty(bosk.rootReference().then(Classes.catalog(OldEntity.class), "catalog"))
+				SideTable.empty(catalogRef)
 			);
 		}
 	}
