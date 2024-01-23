@@ -123,7 +123,7 @@ class ChangeReceiver implements Closeable {
 							}
 						} catch (UnprocessableEventException|UnexpectedEventProcessingException e) {
 							addContextToException(e);
-							LOGGER.warn("Unable to process MongoDB change event; reconnecting: {}", e.getMessage(), e);
+							LOGGER.warn("Unable to process MongoDB change event; reconnecting ({})", e.getMessage(), e);
 							listener.onDisconnect(e);
 							// Reconnection will skip this event, so it's safe to try it right away
 							continue;
@@ -156,6 +156,10 @@ class ChangeReceiver implements Closeable {
 							addContextToException(e);
 							LOGGER.warn("Timed out waiting for bosk state to initialize; will wait and retry", e);
 							listener.onDisconnect(e);
+							return;
+						} catch (DisconnectedException e) {
+							addContextToException(e);
+							LOGGER.warn("Driver is disconnected; will wait and retry", e);
 							return;
 						} catch (RuntimeException | Error e) {
 							addContextToException(e);
@@ -223,6 +227,9 @@ class ChangeReceiver implements Closeable {
 					processEvent(event);
 				}
 			}
+		} catch (DisconnectedException e) {
+			LOGGER.trace("connectionLoop can handle this exception; rethrow it", e);
+			throw e;
 		} catch (RuntimeException e) {
 			addContextToException(e);
 			LOGGER.debug("Unexpected {} while processing events", e.getClass().getSimpleName(), e);
