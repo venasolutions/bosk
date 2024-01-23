@@ -29,6 +29,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.stream.Stream;
+import lombok.With;
 import org.bson.BsonDocument;
 import org.bson.BsonInt32;
 import org.bson.BsonInt64;
@@ -298,7 +299,7 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest {
 		setLogging(ERROR, BsonPlugin.class);
 
 		// Upon creating bosk, the initial value will be saved to MongoDB
-		new Bosk<TestEntity>("Newer", TestEntity.class, this::initialRootWithEmptyCatalog, driverFactory);
+		new Bosk<TestEntity>("Newer", TestEntity.class, this::initialRootWithValues, driverFactory);
 
 		// Upon creating prevBosk, the state in the database will be loaded into the local.
 		Bosk<OldEntity> prevBosk = new Bosk<OldEntity>(
@@ -332,18 +333,18 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest {
 		bosk.driver().submitReplacement(bosk.rootReference(),
 			initialRoot
 				.withString("replacementString")
-				.withListing(Listing.of(initialRoot.listing().domain(), Identifier.from("newEntry"))));
+				.withValues(Optional.of(TestValues.blank())));
 
 		prevBosk.driver().flush();
 
-		OldEntity expected = OldEntity.withString("replacementString", prevBosk);
+		OldEntity oldEntity = OldEntity.withString("replacementString", prevBosk);
 
 		OldEntity actual;
 		try (var __ = prevBosk.readContext()) {
 			actual = prevBosk.rootReference().value();
 		}
 
-		assertEquals(expected, actual);
+		assertEquals(oldEntity, actual);
 	}
 
 	@ParametersByName
@@ -358,15 +359,14 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest {
 			(b) -> { throw new AssertionError("prevBosk should use the state from MongoDB"); },
 			createDriverFactory());
 
-		ListingReference<TestEntity> listingRef = bosk.rootReference().thenListing(TestEntity.class, TestEntity.Fields.listing);
-
-		TestEntity initialRoot = initialRootWithEmptyCatalog(bosk);
-		bosk.driver().submitReplacement(listingRef,
-			Listing.of(initialRoot.listing().domain(), Identifier.from("newEntry")));
+		Refs refs = bosk.buildReferences(Refs.class);
+		bosk.driver().submitReplacement(refs.values(),
+			TestValues.blank());
 
 		prevBosk.driver().flush();
 
-		OldEntity expected = OldEntity.withString(rootID.toString(), prevBosk); // unchanged
+		OldEntity expected = OldEntity // unchanged from before
+			.withString(rootID.toString(), prevBosk);
 
 		OldEntity actual;
 		try (var __ = prevBosk.readContext()) {
@@ -428,27 +428,62 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest {
 	void deleteNonexistentField_ignored() throws InvalidTypeException, IOException, InterruptedException {
 		setLogging(ERROR, MainDriver.class.getPackage()); // Need a big hammer because FormatDrivers complain
 
-		Bosk<TestEntity> bosk = new Bosk<TestEntity>("Newer", TestEntity.class, this::initialRootWithEmptyCatalog, driverFactory);
+		Bosk<TestEntity> newerBosk = new Bosk<TestEntity>("Newer", TestEntity.class, this::initialRootWithEmptyCatalog, driverFactory);
 		Bosk<OldEntity> prevBosk = new Bosk<OldEntity>(
 			"Prev",
 			OldEntity.class,
 			(b) -> { throw new AssertionError("prevBosk should use the state from MongoDB"); },
 			createDriverFactory());
 
-		ListingReference<TestEntity> listingRef = bosk.rootReference().thenListing(TestEntity.class, TestEntity.Fields.listing);
-
-		bosk.driver().submitDeletion(listingRef.then(entity123));
+		Refs refs = newerBosk.buildReferences(Refs.class);
+		newerBosk.driver().submitDeletion(refs.values());
 
 		prevBosk.driver().flush();
 
-		OldEntity expected = OldEntity.withString(rootID.toString(), prevBosk); // unchanged
+		OldEntity oldEntity = OldEntity.withString(rootID.toString(), prevBosk); // unchanged
 
 		OldEntity actual;
 		try (var __ = prevBosk.readContext()) {
 			actual = prevBosk.rootReference().value();
 		}
 
-		assertEquals(expected, actual);
+		assertEquals(oldEntity, actual);
+	}
+
+	@ParametersByName
+	@UsesMongoService
+	void databaseMissingField_fallsBackToDefaultState() throws InvalidTypeException, IOException, InterruptedException {
+		LOGGER.debug("Set up database with entity that has no string field");
+		Bosk<OptionalEntity> setupBosk = new Bosk<OptionalEntity>("Setup", OptionalEntity.class, b -> OptionalEntity.withString(Optional.empty(), b), createDriverFactory());
+
+		LOGGER.debug("Connect another bosk where the string field is mandatory");
+		Bosk<TestEntity> testBosk = new Bosk<TestEntity>("Test", TestEntity.class, this::initialRoot, driverFactory);
+		TestEntity expected1 = initialRoot(testBosk); // NOT what was put there by the setup bosk!
+		TestEntity actual1;
+		try (var __ = testBosk.readContext()) {
+			actual1 = testBosk.rootReference().value();
+		}
+
+		assertEquals(expected1, actual1, "Disconnected bosk should use the default initial root");
+
+		LOGGER.debug("Repair the bosk by writing the string value");
+		setupBosk.driver().submitReplacement(
+			setupBosk.rootReference().then(String.class, "string"),
+			"stringValue");
+
+		LOGGER.debug("Flush testBosk to get the state from the database");
+		testBosk.driver().flush();
+
+		Refs refs = testBosk.buildReferences(Refs.class);
+		TestEntity expected2 = TestEntity.empty(Identifier.from("optionalEntity"), refs.catalog())
+			.withString("stringValue");
+
+		TestEntity actual2;
+		try (var __ = testBosk.readContext()) {
+			actual2 = testBosk.rootReference().value();
+		}
+
+		assertEquals(expected2, actual2, "Reconnected bosk should see the state from the database");
 	}
 
 	@ParametersByName
@@ -657,6 +692,7 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest {
 	/**
 	 * Represents an earlier version of the entity before some fields were added.
 	 */
+	@With
 	public record OldEntity(
 		Identifier id,
 		String string,
@@ -665,18 +701,19 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest {
 		SideTable<OldEntity, OldEntity> sideTable
 	) implements Entity {
 		public static OldEntity withString(String value, Bosk<OldEntity> bosk) throws InvalidTypeException {
+			Reference<Catalog<OldEntity>> catalogRef = bosk.rootReference().then(Classes.catalog(OldEntity.class), "catalog");
 			return new OldEntity(
 				rootID,
 				value,
 				Catalog.empty(),
-				SideTable.empty(bosk.rootReference().then(Classes.catalog(OldEntity.class), "catalog"))
+				SideTable.empty(catalogRef)
 			);
 		}
 	}
 
 	/**
 	 * A version of {@link TestEntity} where the {@link Optional} {@link TestEntity#values()}
-	 * field has a polyfill (and some other fields have been deleted).
+	 * field has a polyfill.
 	 */
 	public record UpgradeableEntity(
 		Identifier id,
@@ -688,6 +725,31 @@ class MongoDriverSpecialTest extends AbstractMongoDriverTest {
 	) implements Entity {
 		@Polyfill("values")
 		static final TestValues DEFAULT_VALUES = TestValues.blank();
+	}
+
+	/**
+	 * A version of {@link TestEntity} where all the fields are {@link Optional} so we
+	 * have full control over what fields we set.
+	 */
+	@With
+	public record OptionalEntity(
+		Identifier id,
+		Optional<String> string,
+		Optional<Catalog<TestEntity>> catalog,
+		Optional<Listing<TestEntity>> listing,
+		Optional<SideTable<TestEntity, TestEntity>> sideTable,
+		Optional<TestValues> values
+	) implements Entity {
+		static OptionalEntity withString(Optional<String> string, Bosk<OptionalEntity> bosk) throws InvalidTypeException {
+			CatalogReference<TestEntity> domain = bosk.rootReference().thenCatalog(TestEntity.class, "catalog");
+			return new OptionalEntity(
+				Identifier.from("optionalEntity"),
+				string,
+				Optional.of(Catalog.empty()),
+				Optional.of(Listing.empty(domain)),
+				Optional.of(SideTable.empty(domain)),
+				Optional.empty());
+		}
 	}
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(MongoDriverSpecialTest.class);

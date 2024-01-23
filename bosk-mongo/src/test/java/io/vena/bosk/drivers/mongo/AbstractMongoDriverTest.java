@@ -16,6 +16,7 @@ import io.vena.bosk.SideTable;
 import io.vena.bosk.annotations.ReferencePath;
 import io.vena.bosk.drivers.mongo.MongoDriverSettings.MongoDriverSettingsBuilder;
 import io.vena.bosk.drivers.state.TestEntity;
+import io.vena.bosk.drivers.state.TestValues;
 import io.vena.bosk.exceptions.InvalidTypeException;
 import java.lang.reflect.Method;
 import java.util.ArrayDeque;
@@ -124,6 +125,11 @@ abstract class AbstractMongoDriverTest {
 			));
 	}
 
+	public TestEntity initialRootWithValues(Bosk<TestEntity> testEntityBosk) throws InvalidTypeException {
+		return initialRootWithEmptyCatalog(testEntityBosk)
+			.withValues(Optional.of(TestValues.blank()));
+	}
+
 	public TestEntity initialRootWithEmptyCatalog(Bosk<TestEntity> testEntityBosk) throws InvalidTypeException {
 		Refs refs = testEntityBosk.buildReferences(Refs.class);
 		return new TestEntity(rootID,
@@ -160,6 +166,7 @@ abstract class AbstractMongoDriverTest {
 		@ReferencePath("/catalog/-child-/catalog") CatalogReference<TestEntity> childCatalog(Identifier child);
 		@ReferencePath("/listing") ListingReference<TestEntity> listing();
 		@ReferencePath("/listing/-entity-") Reference<ListingEntry> listingEntry(Identifier entity);
+		@ReferencePath("/values") Reference<TestValues> values();
 		@ReferencePath("/values/string") Reference<String> valuesString();
 	}
 
