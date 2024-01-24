@@ -47,6 +47,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 
+import static io.vena.bosk.drivers.mongo.MdcKeys.TRANSACTION;
+
 /**
  * A wrapper for {@link MongoCollection} that manages a thread-local
  * {@link ClientSession} so that operations can implicitly participate
@@ -83,7 +85,7 @@ class TransactionalCollection<TDocument> implements MongoCollection<TDocument> {
 		public Session(boolean isReadOnly) throws FailedSessionException {
 			this.isReadOnly = isReadOnly;
 			name = (isReadOnly? "r":"s") + identityCounter.getAndIncrement();
-			oldMDC = MDC.get(MDC_KEY);
+			oldMDC = MDC.get(TRANSACTION);
 			if (currentSession.get() != null) {
 				// Note: we don't throw FailedSessionException because this
 				// is not a transient exception that can be remedied by waiting
@@ -106,7 +108,7 @@ class TransactionalCollection<TDocument> implements MongoCollection<TDocument> {
 				throw new FailedSessionException(e);
 			}
 			currentSession.set(this);
-			MDC.put(MDC_KEY, name);
+			MDC.put(TRANSACTION, name);
 			LOGGER.debug("Begin session");
 		}
 
@@ -130,10 +132,9 @@ class TransactionalCollection<TDocument> implements MongoCollection<TDocument> {
 			LOGGER.debug("Close session");
 			clientSession.close();
 			currentSession.remove();
-			MDC.put(MDC_KEY, oldMDC);
+			MDC.put(TRANSACTION, oldMDC);
 		}
 
-		private static final String MDC_KEY = "bosk.MongoDriver.transaction";
 	}
 
 	/**

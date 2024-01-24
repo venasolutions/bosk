@@ -1,11 +1,17 @@
 package io.vena.bosk.drivers.mongo;
 
+import io.vena.bosk.Identifier;
 import org.slf4j.MDC;
 
+import static io.vena.bosk.drivers.mongo.MdcKeys.BOSK_INSTANCE_ID;
+import static io.vena.bosk.drivers.mongo.MdcKeys.BOSK_NAME;
+
 final class MappedDiagnosticContext {
-	static MDCScope setupMDC(String boskName) {
+
+	static MDCScope setupMDC(String boskName, Identifier boskID) {
 		MDCScope result = new MDCScope();
-		MDC.put(MDC_KEY, " [" + boskName + "]");
+		MDC.put(BOSK_NAME, boskName);
+		MDC.put(BOSK_INSTANCE_ID, boskID.toString());
 		return result;
 	}
 
@@ -22,9 +28,12 @@ final class MappedDiagnosticContext {
 	 * You really want to use this in a try block that has no catch or finally clause.
 	 */
 	static final class MDCScope implements AutoCloseable {
-		final String oldValue = MDC.get(MDC_KEY);
-		@Override public void close() { MDC.put(MDC_KEY, oldValue); }
+		final String oldName = MDC.get(BOSK_NAME);
+		final String oldID = MDC.get(BOSK_INSTANCE_ID);
+		@Override public void close() {
+			MDC.put(BOSK_NAME, oldName);
+			MDC.put(BOSK_INSTANCE_ID, oldID);
+		}
 	}
 
-	private static final String MDC_KEY = "bosk.MongoDriver";
 }
