@@ -4,6 +4,8 @@ import com.mongodb.MongoInterruptedException;
 import com.mongodb.client.MongoChangeStreamCursor;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.changestream.ChangeStreamDocument;
+import io.vena.bosk.Bosk;
+import io.vena.bosk.Identifier;
 import io.vena.bosk.drivers.mongo.MappedDiagnosticContext.MDCScope;
 import java.io.Closeable;
 import java.io.IOException;
@@ -18,6 +20,7 @@ import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 
 import static io.vena.bosk.drivers.mongo.MappedDiagnosticContext.setupMDC;
+import static io.vena.bosk.drivers.mongo.MdcKeys.EVENT;
 import static java.lang.Thread.currentThread;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -39,6 +42,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
  */
 class ChangeReceiver implements Closeable {
 	private final String boskName;
+	private final Identifier boskID;
 	private final ChangeListener listener;
 	private final MongoDriverSettings settings;
 	private final MongoCollection<BsonDocument> collection;
@@ -46,8 +50,9 @@ class ChangeReceiver implements Closeable {
 	private final Exception creationPoint;
 	private volatile boolean isClosed = false;
 
-	ChangeReceiver(String boskName, ChangeListener listener, MongoDriverSettings settings, MongoCollection<BsonDocument> collection) {
+	ChangeReceiver(String boskName, Identifier boskID, ChangeListener listener, MongoDriverSettings settings, MongoCollection<BsonDocument> collection) {
 		this.boskName = boskName;
+		this.boskID = boskID;
 		this.listener = listener;
 		this.settings = settings;
 		this.collection = collection;
@@ -76,7 +81,7 @@ class ChangeReceiver implements Closeable {
 	private void connectionLoop() {
 		String oldThreadName = currentThread().getName();
 		currentThread().setName(getClass().getSimpleName() + " [" + boskName + "]");
-		try (MDCScope __ = setupMDC(boskName)) {
+		try (MDCScope __ = setupMDC(boskName, boskID)) {
 			LOGGER.debug("Starting connectionLoop task");
 			try {
 				while (!isClosed) {
@@ -121,7 +126,7 @@ class ChangeReceiver implements Closeable {
 									return;
 								}
 							}
-						} catch (UnprocessableEventException|UnexpectedEventProcessingException e) {
+						} catch (UnprocessableEventException | UnexpectedEventProcessingException e) {
 							addContextToException(e);
 							LOGGER.warn("Unable to process MongoDB change event; reconnecting ({})", e.getMessage(), e);
 							listener.onDisconnect(e);
@@ -249,7 +254,7 @@ class ChangeReceiver implements Closeable {
 			}
 		}
 		try {
-			MDC.put(MDC_KEY, "e" + EVENT_COUNTER.incrementAndGet());
+			MDC.put(EVENT, "e" + EVENT_COUNTER.incrementAndGet());
 			switch (event.getOperationType()) {
 				case INSERT:
 				case UPDATE:
@@ -265,11 +270,10 @@ class ChangeReceiver implements Closeable {
 					throw new UnprocessableEventException("Disruptive event received", event.getOperationType());
 			}
 		} finally {
-			MDC.remove(MDC_KEY);
+			MDC.remove(EVENT);
 		}
 	}
 
 	private static final AtomicLong EVENT_COUNTER = new AtomicLong(0);
-	public static final String MDC_KEY = "bosk.MongoDriver.event";
 	private static final Logger LOGGER = LoggerFactory.getLogger(ChangeReceiver.class);
 }

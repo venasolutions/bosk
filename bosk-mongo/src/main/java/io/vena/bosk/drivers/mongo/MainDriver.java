@@ -81,7 +81,7 @@ class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 		BsonPlugin bsonPlugin,
 		BoskDriver<R> downstream
 	) {
-		try (MDCScope __ = setupMDC(bosk.name())) {
+		try (MDCScope __ = setupMDC(bosk.name(), bosk.instanceID())) {
 			this.bosk = bosk;
 			this.driverSettings = driverSettings;
 			this.bsonPlugin = bsonPlugin;
@@ -102,7 +102,7 @@ class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 			Type rootType = bosk.rootReference().targetType();
 			this.listener = new Listener(new FutureTask<>(() -> doInitialRoot(rootType)));
 			this.formatter = new Formatter(bosk, bsonPlugin);
-			this.receiver = new ChangeReceiver(bosk.name(), listener, driverSettings, rawCollection);
+			this.receiver = new ChangeReceiver(bosk.name(), bosk.instanceID(), listener, driverSettings, rawCollection);
 		}
 	}
 
@@ -510,7 +510,7 @@ class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 		if (isClosed) {
 			throw new IllegalStateException("Driver is closed");
 		}
-		MDCScope ex = setupMDC(bosk.name());
+		MDCScope ex = setupMDC(bosk.name(), bosk.instanceID());
 		LOGGER.debug(description, args);
 		if (driverSettings.testing().eventDelayMS() < 0) {
 			LOGGER.debug("| eventDelayMS {}ms ", driverSettings.testing().eventDelayMS());
