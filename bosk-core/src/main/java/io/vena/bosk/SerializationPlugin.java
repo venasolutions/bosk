@@ -214,13 +214,13 @@ public abstract class SerializationPlugin {
 							throw new DeserializationException("Missing id field for object at " + path);
 						}
 					} else if (polyfillIfAny != null) {
+						LOGGER.info("{} used polyfill value for {}.{}", getClass().getSimpleName(), nodeClass.getSimpleName(), name);
 						parameterValues.add(polyfillIfAny);
 					} else {
 						throw new DeserializationException("Missing field \"" + name + "\" at " + path);
 					}
 				}
 			} else if (implicitReference == null) {
-				LOGGER.info("{} used polyfill value for {}.{}", getClass().getSimpleName(), nodeClass.getSimpleName(), name);
 				parameterValues.add(value);
 			} else {
 				throw new DeserializationException("Unexpected field \"" + name + "\" for implicit reference");
