@@ -1,6 +1,7 @@
 package io.vena.bosk.drivers.mongo;
 
 import com.mongodb.ClientSessionOptions;
+import com.mongodb.MongoException;
 import com.mongodb.MongoNamespace;
 import com.mongodb.ReadConcern;
 import com.mongodb.ReadPreference;
@@ -117,9 +118,25 @@ class TransactionalCollection<TDocument> implements MongoCollection<TDocument> {
 		 * would start a new transaction.
 		 */
 		public void commitTransactionIfAny() {
-			if (clientSession.hasActiveTransaction()) {
+			int retriesRemaining = 2;
+			while (clientSession.hasActiveTransaction()) {
 				LOGGER.debug("Commit transaction");
-				clientSession.commitTransaction();
+				try {
+					clientSession.commitTransaction();
+				} catch (MongoException e) {
+					if (e.hasErrorLabel(MongoException.UNKNOWN_TRANSACTION_COMMIT_RESULT_LABEL)) {
+						if (retriesRemaining >= 1) {
+							retriesRemaining--;
+							LOGGER.debug("Unknown transaction commit result; retrying the commit", e);
+						} else {
+							LOGGER.debug("Exhausted commit retry attempts", e);
+							throw e;
+						}
+					} else {
+						LOGGER.debug("Can't retry commit; rethrowing", e);
+						throw e;
+					}
+				}
 			}
 		}
 
@@ -169,6 +186,8 @@ class TransactionalCollection<TDocument> implements MongoCollection<TDocument> {
 	 * this can be called first to ensure a successful commit before proceeding.
 	 */
 	public void commitTransaction() {
+		// TODO: Can we eliminate this and use commitTransactionIfAny exclusively?
+		// This one doesn't even have the retry logic.
 		LOGGER.debug("Commit transaction");
 		currentSession().commitTransaction();
 	}
