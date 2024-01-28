@@ -1,6 +1,7 @@
 package io.vena.bosk.drivers.mongo;
 
 import com.mongodb.MongoClientSettings;
+import com.mongodb.MongoException;
 import com.mongodb.ReadConcern;
 import com.mongodb.WriteConcern;
 import com.mongodb.client.FindIterable;
@@ -35,6 +36,7 @@ import org.bson.BsonValue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static com.mongodb.MongoException.TRANSIENT_TRANSACTION_ERROR_LABEL;
 import static io.vena.bosk.drivers.mongo.Formatter.REVISION_ONE;
 import static io.vena.bosk.drivers.mongo.Formatter.REVISION_ZERO;
 import static io.vena.bosk.drivers.mongo.MappedDiagnosticContext.setupMDC;
@@ -525,12 +527,31 @@ class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 
 	private <X extends Exception, Y extends Exception> void doRetryableDriverOperation(RetryableOperation<X,Y> operation, String description, Object... args) throws X,Y {
 		RetryableOperation<X,Y> operationInSession = () -> {
-			try (var session = collection.newSession()) {
-				operation.run();
-				session.commitTransactionIfAny();
-			} catch (FailedSessionException e) {
-				setDisconnectedDriver(e);
-				throw new DisconnectedException(e);
+			int immediateRetriesLeft = 2;
+			while (true) {
+				try (var session = collection.newSession()) {
+					operation.run();
+					session.commitTransactionIfAny();
+				} catch (FailedSessionException e) {
+					setDisconnectedDriver(e);
+					throw new DisconnectedException(e);
+				} catch (MongoException e) {
+					if (e.hasErrorLabel(TRANSIENT_TRANSACTION_ERROR_LABEL)) {
+						if (immediateRetriesLeft >= 1) {
+							immediateRetriesLeft--;
+							LOGGER.debug("Transient transaction error; retrying immediately", e);
+							continue;
+						} else {
+							LOGGER.warn("Exhausted immediate retry attempts for transient transaction error", e);
+							setDisconnectedDriver(e);
+							throw new DisconnectedException(e);
+						}
+					} else {
+						LOGGER.debug("MongoException is not recoverable; rethrowing", e);
+						throw e;
+					}
+				}
+				break;
 			}
 		};
 		try (var __ = beginDriverOperation(description, args)) {
