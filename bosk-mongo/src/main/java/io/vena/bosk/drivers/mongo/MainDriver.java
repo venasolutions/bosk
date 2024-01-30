@@ -474,7 +474,17 @@ class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 				BsonInt64 revision = cursor
 					.next()
 					.getInt64(DocumentFields.revision.name(), REVISION_ZERO);
-				return newFormatDriver(revision.longValue(), format);
+
+				// We're in the midst of loading the existing state, so at this point,
+				// the downstream driver has not yet "already seen" the current database
+				// contents. So we temporarily "back-date" the revision number; that way,
+				// any flush operations that occur before we send this state downstream will wait.
+				// After sending the state downstream, the caller will call onRevisionToSkip,
+				// thereby establishing the correct revision number.
+				// TODO: We really need a better way to deal with revision numbers
+				long revisionAlreadySeen = revision.longValue()-1;
+
+				return newFormatDriver(revisionAlreadySeen, format);
 			} else {
 				// Note that this message is confusing if the user specified
 				// a preference for Pando but no manifest file exists, because
