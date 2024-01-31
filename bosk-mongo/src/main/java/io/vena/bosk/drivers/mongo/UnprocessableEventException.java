@@ -14,7 +14,7 @@ class UnprocessableEventException extends Exception {
 	public final OperationType operationType;
 
 	public UnprocessableEventException(String message, OperationType operationType) {
-		super(message + " (" + operationType + ")");
+		super(message + ": " + operationType.name());
 		this.operationType = operationType;
 	}
 

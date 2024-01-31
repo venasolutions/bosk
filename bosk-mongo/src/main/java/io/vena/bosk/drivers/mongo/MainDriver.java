@@ -179,18 +179,18 @@ class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 			FormatDriver<R> detectedDriver = detectFormat();
 			StateAndMetadata<R> loadedState = detectedDriver.loadAllState();
 			root = loadedState.state();
-			detectedDriver.onRevisionToSkip(loadedState.revision());
 			publishFormatDriver(detectedDriver);
+			detectedDriver.onRevisionToSkip(loadedState.revision());
 		} catch (UninitializedCollectionException e) {
 			LOGGER.debug("Database collection is uninitialized; will initialize using downstream.initialRoot");
 			root = callDownstreamInitialRoot(rootType);
 			try (var session = collection.newSession()) {
 				FormatDriver<R> preferredDriver = newPreferredFormatDriver();
 				preferredDriver.initializeCollection(new StateAndMetadata<>(root, REVISION_ZERO, bosk.diagnosticContext().getAttributes()));
-				preferredDriver.onRevisionToSkip(REVISION_ONE); // initialRoot handles REVISION_ONE; downstream only needs to know about changes after that
 				session.commitTransactionIfAny();
 				// We can now publish the driver knowing that the transaction, if there is one, has committed
 				publishFormatDriver(preferredDriver);
+				preferredDriver.onRevisionToSkip(REVISION_ONE); // initialRoot handles REVISION_ONE; downstream only needs to know about changes after that
 			} catch (RuntimeException | IOException e2) {
 				LOGGER.warn("Failed to initialize database; disconnecting", e2);
 				setDisconnectedDriver(e2);
@@ -363,7 +363,6 @@ class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 				// before ours (below) because this code runs on the ChangeReceiver thread, which is
 				// the only thread that submits updates downstream.
 
-				newDriver.onRevisionToSkip(loadedState.revision());
 				publishFormatDriver(newDriver);
 
 				// TODO: It's not clear we actually want loadedState.diagnosticAttributes here.
@@ -372,7 +371,12 @@ class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 				// which is probably empty because this runs on the ChangeReceiver thread.
 				try (var ___ = bosk.rootReference().diagnosticContext().withOnly(loadedState.diagnosticAttributes())) {
 					downstream.submitReplacement(bosk.rootReference(), loadedState.state());
+					LOGGER.debug("Done submitting downstream");
 				}
+
+				// Now that the state is submitted downstream, we can establish that there's no need to wait
+				// for a change event with that revision number; a downstream flush is now sufficient.
+				newDriver.onRevisionToSkip(loadedState.revision());
 			} else {
 				LOGGER.debug("Running initialRoot action");
 				runInitialRootAction(initialRootAction);
@@ -470,7 +474,17 @@ class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 				BsonInt64 revision = cursor
 					.next()
 					.getInt64(DocumentFields.revision.name(), REVISION_ZERO);
-				return newFormatDriver(revision.longValue(), format);
+
+				// We're in the midst of loading the existing state, so at this point,
+				// the downstream driver has not yet "already seen" the current database
+				// contents. So we temporarily "back-date" the revision number; that way,
+				// any flush operations that occur before we send this state downstream will wait.
+				// After sending the state downstream, the caller will call onRevisionToSkip,
+				// thereby establishing the correct revision number.
+				// TODO: We really need a better way to deal with revision numbers
+				long revisionAlreadySeen = revision.longValue()-1;
+
+				return newFormatDriver(revisionAlreadySeen, format);
 			} else {
 				// Note that this message is confusing if the user specified
 				// a preference for Pando but no manifest file exists, because
@@ -639,6 +653,6 @@ class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 
 	public static final String COLLECTION_NAME = "boskCollection";
 	public static final BsonString MANIFEST_ID = new BsonString("manifest");
-	private static final Exception FAILURE_TO_COMPUTE_INITIAL_ROOT = new Exception("Failure to compute initial root");
+	private static final Exception FAILURE_TO_COMPUTE_INITIAL_ROOT = new InitialRootFailureException("Failure to compute initial root");
 	private static final Logger LOGGER = LoggerFactory.getLogger(MainDriver.class);
 }
