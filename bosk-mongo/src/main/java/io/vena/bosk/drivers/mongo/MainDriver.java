@@ -19,6 +19,7 @@ import io.vena.bosk.drivers.mongo.Formatter.DocumentFields;
 import io.vena.bosk.drivers.mongo.MappedDiagnosticContext.MDCScope;
 import io.vena.bosk.drivers.mongo.MongoDriverSettings.DatabaseFormat;
 import io.vena.bosk.drivers.mongo.MongoDriverSettings.InitialDatabaseUnavailableMode;
+import io.vena.bosk.drivers.mongo.status.MongoStatus;
 import io.vena.bosk.exceptions.FlushFailureException;
 import io.vena.bosk.exceptions.InvalidTypeException;
 import java.io.IOException;
@@ -330,6 +331,21 @@ class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 		doRetryableDriverOperation(() -> {
 			refurbishTransaction();
 		}, "refurbish");
+	}
+
+	@Override
+	public MongoStatus readStatus() throws Exception {
+		try (var __ = collection.newReadOnlySession()) {
+			FormatDriver<R> detectedDriver = detectFormat();
+			MongoStatus partialResult = detectedDriver.readStatus();
+			Manifest manifest = loadManifest(); // TODO: Avoid loading the manifest again
+
+			return new MongoStatus(
+				partialResult.error(),
+				manifest,
+				partialResult.stateBytes()
+			);
+		}
 	}
 
 	@Override

@@ -141,6 +141,8 @@ public class SchemaEvolutionTest {
 		try (var __ = toBosk.readContext()) {
 			assertEquals("Distinctive String", toRefs.string().value());
 		}
+
+//		System.out.println("Status: " + ((MongoDriver<?>)toBosk.driver()).readStatus());
 	}
 
 	/**

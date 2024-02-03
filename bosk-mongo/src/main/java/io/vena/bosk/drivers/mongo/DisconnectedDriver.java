@@ -4,6 +4,7 @@ import com.mongodb.client.model.changestream.ChangeStreamDocument;
 import io.vena.bosk.Identifier;
 import io.vena.bosk.Reference;
 import io.vena.bosk.StateTreeNode;
+import io.vena.bosk.drivers.mongo.status.MongoStatus;
 import io.vena.bosk.exceptions.InitializationFailureException;
 import java.io.IOException;
 import lombok.RequiredArgsConstructor;
@@ -43,6 +44,15 @@ class DisconnectedDriver<R extends StateTreeNode> implements FormatDriver<R> {
 	@Override
 	public void flush() throws IOException, InterruptedException {
 		throw disconnected();
+	}
+
+	@Override
+	public MongoStatus readStatus() {
+		return new MongoStatus(
+			"Disconnected: " + reason,
+			null,
+			null
+		);
 	}
 
 	@Override

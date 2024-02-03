@@ -3,6 +3,7 @@ package io.vena.bosk.drivers.mongo;
 import io.vena.bosk.MapValue;
 import io.vena.bosk.RootReference;
 import io.vena.bosk.StateTreeNode;
+import io.vena.bosk.drivers.mongo.status.MongoStatus;
 import java.io.IOException;
 import lombok.RequiredArgsConstructor;
 import org.bson.BsonDocument;
@@ -14,6 +15,24 @@ import static io.vena.bosk.drivers.mongo.Formatter.REVISION_ZERO;
 abstract class AbstractFormatDriver<R extends StateTreeNode> implements FormatDriver<R> {
 	final RootReference<R> rootRef;
 	final Formatter formatter;
+
+	@Override
+	public MongoStatus readStatus() {
+		try {
+			BsonState bsonState = loadBsonState();
+			return new MongoStatus(
+				null,
+				null, // MainDriver should fill this in
+				formatter.bsonValueBinarySize(bsonState.state)
+			);
+		} catch (UninitializedCollectionException e) {
+			return new MongoStatus(
+				e.toString(),
+				null,
+				null
+			);
+		}
+	}
 
 	@Override
 	public StateAndMetadata<R> loadAllState() throws IOException, UninitializedCollectionException {
