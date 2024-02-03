@@ -248,14 +248,8 @@ final class Formatter {
 	}
 
 	MapValue<String> getDiagnosticAttributesFromFullDocument(BsonDocument fullDocument) {
-		if (fullDocument == null) {
-			return null;
-		}
-		BsonDocument diagnostics = fullDocument.getDocument(DocumentFields.diagnostics.name(), null);
-		if (diagnostics == null) {
-			return null;
-		}
-		return decodeDiagnosticAttributes(diagnostics);
+		BsonDocument diagnostics = getDiagnosticAttributesIfAny(fullDocument);
+		return diagnostics == null ? null : decodeDiagnosticAttributes(diagnostics);
 	}
 
 	BsonInt64 getRevisionFromUpdateEvent(ChangeStreamDocument<BsonDocument> event) {
@@ -272,14 +266,8 @@ final class Formatter {
 
 	MapValue<String> getDiagnosticAttributesFromUpdateEvent(ChangeStreamDocument<BsonDocument> event) {
 		BsonDocument updatedFields = getUpdatedFieldsIfAny(event);
-		if (updatedFields == null) {
-			return null;
-		}
-		BsonDocument diagnostics = updatedFields.getDocument(DocumentFields.diagnostics.name(), null);
-		if (diagnostics == null) {
-			return null;
-		}
-		return decodeDiagnosticAttributes(diagnostics);
+		BsonDocument diagnostics = getDiagnosticAttributesIfAny(updatedFields);
+		return diagnostics == null ? null : decodeDiagnosticAttributes(diagnostics);
 	}
 
 	private static BsonDocument getUpdatedFieldsIfAny(ChangeStreamDocument<BsonDocument> event) {
@@ -291,6 +279,17 @@ final class Formatter {
 			return null;
 		}
 		return updateDescription.getUpdatedFields();
+	}
+
+	static BsonDocument getDiagnosticAttributesIfAny(BsonDocument fullDocument) {
+		if (fullDocument == null) {
+			return null;
+		}
+		BsonDocument diagnostics = fullDocument.getDocument(DocumentFields.diagnostics.name(), null);
+		if (diagnostics == null) {
+			return null;
+		}
+		return diagnostics;
 	}
 
 	@NonNull private MapValue<String> getOrSetEventDiagnosticAttributes(MapValue<String> fromEvent) {

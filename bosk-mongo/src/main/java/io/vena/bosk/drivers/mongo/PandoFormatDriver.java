@@ -69,13 +69,11 @@ import static org.bson.BsonBoolean.TRUE;
 /**
  * Implements {@link PandoFormat}.
  */
-final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R> {
+final class PandoFormatDriver<R extends StateTreeNode> extends AbstractFormatDriver<R> {
 	private final String description;
 	private final PandoFormat format;
 	private final MongoDriverSettings settings;
-	private final Formatter formatter;
 	private final TransactionalCollection<BsonDocument> collection;
-	private final RootReference<R> rootRef;
 	private final BoskDriver<R> downstream;
 	private final FlushLock flushLock;
 	private final BsonSurgeon bsonSurgeon;
@@ -93,12 +91,11 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 		FlushLock flushLock,
 		BoskDriver<R> downstream
 	) {
+		super(bosk.rootReference(), new Formatter(bosk, bsonPlugin));
 		this.description = getClass().getSimpleName() + ": " + driverSettings;
 		this.settings = driverSettings;
 		this.format = format;
-		this.formatter = new Formatter(bosk, bsonPlugin);
 		this.collection = collection;
-		this.rootRef = bosk.rootReference();
 		this.downstream = downstream;
 		this.flushLock = flushLock;
 
@@ -175,7 +172,25 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 	}
 
 	@Override
-	public StateAndMetadata<R> loadAllState() throws IOException, UninitializedCollectionException {
+	public StateAndMetadata<R> loadAllState() throws UninitializedCollectionException, IOException {
+		BsonState bsonState = loadBsonState();
+
+		R root;
+		if (bsonState.state() == null) {
+			throw new IOException("No existing state in document");
+		} else {
+			root = formatter.document2object(bsonState.state(), rootRef);
+		}
+		MapValue<String> diagnosticAttributes = bsonState.diagnosticAttributes() == null ? null
+			:formatter.decodeDiagnosticAttributes(bsonState.diagnosticAttributes());
+		return new StateAndMetadata<>(
+			root,
+			bsonState.revision() == null? REVISION_ZERO : bsonState.revision(),
+			diagnosticAttributes);
+	}
+
+	@Override
+	BsonState loadBsonState() throws UninitializedCollectionException {
 		List<BsonDocument> allParts = new ArrayList<>();
 		try (MongoCursor<BsonDocument> cursor = collection
 			.withReadConcern(LOCAL) // The revision field needs to be the latest
@@ -193,12 +208,11 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 		if (!ROOT_DOCUMENT_ID.equals(mainPart.get("_id"))) {
 			throw new IllegalStateException("Cannot locate root document");
 		}
-		BsonValue revision = mainPart.get(DocumentFields.revision.name(), REVISION_ZERO);
-		MapValue<String> diagnosticAttributes = formatter.getDiagnosticAttributesFromFullDocument(mainPart);
 
-		BsonDocument combinedState = bsonSurgeon.gather(allParts);
-		R root = formatter.document2object(combinedState, rootRef);
-		return new StateAndMetadata<>(root, revision.asInt64(), diagnosticAttributes);
+		return new BsonState(
+			bsonSurgeon.gather(allParts),
+			mainPart.getInt64(DocumentFields.revision.name(), null), Formatter.getDiagnosticAttributesIfAny(mainPart)
+		);
 	}
 
 	@Override

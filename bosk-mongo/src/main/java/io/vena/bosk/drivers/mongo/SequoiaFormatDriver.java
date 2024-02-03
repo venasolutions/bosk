@@ -13,7 +13,6 @@ import io.vena.bosk.BoskDriver;
 import io.vena.bosk.Identifier;
 import io.vena.bosk.MapValue;
 import io.vena.bosk.Reference;
-import io.vena.bosk.RootReference;
 import io.vena.bosk.StateTreeNode;
 import io.vena.bosk.drivers.mongo.Formatter.DocumentFields;
 import io.vena.bosk.exceptions.FlushFailureException;
@@ -49,12 +48,10 @@ import static org.bson.BsonBoolean.FALSE;
 /**
  * Implements the {@link io.vena.bosk.drivers.mongo.MongoDriverSettings.DatabaseFormat#SEQUOIA Sequoia} format.
  */
-final class SequoiaFormatDriver<R extends StateTreeNode> implements FormatDriver<R> {
+final class SequoiaFormatDriver<R extends StateTreeNode> extends AbstractFormatDriver<R> {
 	private final String description;
 	private final MongoDriverSettings settings;
-	private final Formatter formatter;
 	private final MongoCollection<BsonDocument> collection;
-	private final RootReference<R> rootRef;
 	private final BoskDriver<R> downstream;
 	private final FlushLock flushLock;
 
@@ -70,11 +67,10 @@ final class SequoiaFormatDriver<R extends StateTreeNode> implements FormatDriver
 		FlushLock flushLock,
 		BoskDriver<R> downstream
 	) {
+		super(bosk.rootReference(), new Formatter(bosk, bsonPlugin));
 		this.description = getClass().getSimpleName() + ": " + driverSettings;
 		this.settings = driverSettings;
-		this.formatter = new Formatter(bosk, bsonPlugin);
 		this.collection = collection;
-		this.rootRef = bosk.rootReference();
 		this.downstream = downstream;
 		this.flushLock = flushLock;
 	}
@@ -128,7 +124,7 @@ final class SequoiaFormatDriver<R extends StateTreeNode> implements FormatDriver
 	}
 
 	@Override
-	public StateAndMetadata<R> loadAllState() throws IOException, UninitializedCollectionException {
+	BsonState loadBsonState() throws UninitializedCollectionException {
 		try (MongoCursor<BsonDocument> cursor = collection
 			.withReadConcern(LOCAL) // The revision field needs to be the latest
 			.find(documentFilter())
@@ -136,15 +132,10 @@ final class SequoiaFormatDriver<R extends StateTreeNode> implements FormatDriver
 			.cursor()
 		) {
 			BsonDocument document = cursor.next();
-			BsonDocument state = document.getDocument(DocumentFields.state.name(), null);
-			BsonInt64 revision = document.getInt64(DocumentFields.revision.name(), REVISION_ZERO);
-			MapValue<String> diagnosticAttributes = formatter.getDiagnosticAttributesFromFullDocument(document);
-			if (state == null) {
-				throw new IOException("No existing state in document");
-			} else {
-				R root = formatter.document2object(state, rootRef);
-				return new StateAndMetadata<>(root, revision, diagnosticAttributes);
-			}
+			return new BsonState(
+				document.getDocument(DocumentFields.state.name(), null),
+				document.getInt64(DocumentFields.revision.name(), null), Formatter.getDiagnosticAttributesIfAny(document)
+			);
 		} catch (NoSuchElementException e) {
 			throw new UninitializedCollectionException("No existing document", e);
 		}
