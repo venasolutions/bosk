@@ -1,5 +1,6 @@
 package io.vena.bosk.drivers.mongo;
 
+import ch.qos.logback.classic.Level;
 import io.vena.bosk.Bosk;
 import io.vena.bosk.Reference;
 import io.vena.bosk.annotations.ReferencePath;
@@ -71,6 +72,8 @@ public class SchemaEvolutionTest {
 
 	@ParametersByName
 	void pairwise_readCompatible() throws Exception {
+		fromHelper.setLogging(Level.ERROR, SequoiaFormatDriver.class, PandoFormatDriver.class);
+
 		LOGGER.debug("Create fromBosk [{}]", fromHelper.name);
 		Bosk<TestEntity> fromBosk = newBosk(fromHelper);
 		Refs fromRefs = fromBosk.buildReferences(Refs.class);
@@ -106,6 +109,8 @@ public class SchemaEvolutionTest {
 
 	@ParametersByName
 	void pairwise_writeCompatible() throws Exception {
+		fromHelper.setLogging(Level.ERROR, SequoiaFormatDriver.class, PandoFormatDriver.class, ChangeReceiver.class);
+
 		LOGGER.debug("Create fromBosk [{}]", fromHelper.name);
 		Bosk<TestEntity> fromBosk = newBosk(fromHelper);
 		Refs fromRefs = fromBosk.buildReferences(Refs.class);

@@ -86,7 +86,7 @@ abstract class AbstractMongoDriverTest {
 	}
 
 	// We'd like to use SLF4J's "Level" but that doesn't support OFF
-	protected void setLogging(Level level, Logger logger) {
+	public void setLogging(Level level, Logger logger) {
 		ch.qos.logback.classic.Logger logbackLogger = (ch.qos.logback.classic.Logger) logger;
 		if (Level.DEBUG.isGreaterOrEqual(logbackLogger.getEffectiveLevel())) {
 			// Note: in logback, a "greater" level is less verbose. So if DEBUG is greater or equal to
@@ -106,13 +106,13 @@ abstract class AbstractMongoDriverTest {
 		}
 	}
 
-	protected void setLogging(Level level, Class<?>... loggers) {
+	public void setLogging(Level level, Class<?>... loggers) {
 		for (var logger: loggers) {
 			setLogging(level, LoggerFactory.getLogger(logger));
 		}
 	}
 
-	protected void setLogging(Level level, Package logger) {
+	public void setLogging(Level level, Package logger) {
 		setLogging(level, LoggerFactory.getLogger(logger.getName()));
 	}
 
