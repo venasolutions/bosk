@@ -88,6 +88,15 @@ abstract class AbstractMongoDriverTest {
 	// We'd like to use SLF4J's "Level" but that doesn't support OFF
 	protected void setLogging(Level level, Logger logger) {
 		ch.qos.logback.classic.Logger logbackLogger = (ch.qos.logback.classic.Logger) logger;
+		if (Level.DEBUG.isGreaterOrEqual(logbackLogger.getEffectiveLevel())) {
+			// Note: in logback, a "greater" level is less verbose. So if DEBUG is greater or equal to
+			// the current effective level, it means the user has asked for DEBUG logs (or more),
+			// assuming the logback.xml settings specify INFO by default.
+			if (!ALREADY_WARNED.getAndSet(true)) {
+				LOGGER.warn("Logging level is {}; ignoring the recommended setting from the testcase itself", logbackLogger.getEffectiveLevel());
+			}
+			return;
+		}
 		Level originalLevel = logbackLogger.getLevel();
 		if (originalLevel == null) {
 			tearDownActions.addFirst(()->logbackLogger.setLevel(originalLevel));
@@ -170,6 +179,9 @@ abstract class AbstractMongoDriverTest {
 		@ReferencePath("/values/string") Reference<String> valuesString();
 	}
 
+	/**
+	 * One warning that we're ignoring logging settings from the testcase is enough.
+	 */
 	private static final AtomicBoolean ALREADY_WARNED = new AtomicBoolean(false);
 	private static final Logger LOGGER = LoggerFactory.getLogger(AbstractMongoDriverTest.class);
 }
