@@ -77,15 +77,31 @@ public class SchemaEvolutionTest {
 
 		LOGGER.debug("Set distinctive string");
 		fromBosk.driver().submitReplacement(fromRefs.string(), "Distinctive String");
+		fromBosk.driver().flush();
 
 		LOGGER.debug("Create toBosk [{}]", toHelper.name);
 		Bosk<TestEntity> toBosk = newBosk(toHelper);
 		Refs toRefs = toBosk.buildReferences(Refs.class);
 
-		LOGGER.debug("Perform read");
+		LOGGER.debug("Perform toBosk read");
 		try (var __ = toBosk.readContext()) {
 			assertEquals("Distinctive String", toRefs.string().value());
 		}
+
+		LOGGER.debug("Refurbish");
+		((MongoDriver<?>)toBosk.driver()).refurbish();
+
+		LOGGER.debug("Perform fromBosk read");
+		try (var __ = fromBosk.readContext()) {
+			assertEquals("Distinctive String", fromRefs.string().value());
+		}
+
+		LOGGER.debug("Perform toBosk read");
+		try (var __ = toBosk.readContext()) {
+			assertEquals("Distinctive String", toRefs.string().value());
+		}
+
+//		System.out.println("Status: " + ((MongoDriver<?>)toBosk.driver()).readStatus());
 	}
 
 	@ParametersByName
