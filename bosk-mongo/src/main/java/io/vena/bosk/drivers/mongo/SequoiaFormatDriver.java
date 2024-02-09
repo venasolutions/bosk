@@ -386,6 +386,24 @@ final class SequoiaFormatDriver<R extends StateTreeNode> extends AbstractFormatD
 		UpdateResult result = collection.updateOne(filter, updateDoc);
 		LOGGER.debug("| Update result: {}", result);
 		if (result.wasAcknowledged()) {
+			// NOTE: This case can occur in a few situations:
+			// 1. A conditional update whose precondition failed
+			// 2. An update inside a nonexistent node
+			// 3. The bosk document has disappeared
+			//
+			// Differentiating these cases without transactions is complex,
+			// and the only benefit of the Sequoia format is its simplicity,
+			// so for now, we're opting not to handle this case.
+			//
+			// This means valid updates can be silently ignored during the window
+			// between when a refurbish operation deletes the bosk document and
+			// when the corresponding change event arrives. We are going to accept
+			// and document this risk for the time being, unless we can determine
+			// a sufficiently straightforward way to detect this situation.
+			//
+			// Therefore, when refurbishing from Sequoia to another format,
+			// the system should be quiescent or else updates may be lost.
+
 			assert result.getMatchedCount() <= 1;
 			return result.getMatchedCount() >= 1;
 		} else {

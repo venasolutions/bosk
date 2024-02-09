@@ -781,8 +781,16 @@ final class PandoFormatDriver<R extends StateTreeNode> extends AbstractFormatDri
 		UpdateResult result = collection.updateOne(filter, updateDoc);
 		LOGGER.debug("| Update result: {}", result);
 		if (result.wasAcknowledged()) {
-			assert result.getMatchedCount() <= 1;
-			return result.getMatchedCount() >= 1;
+			long matchedCount = result.getMatchedCount();
+			if (matchedCount == 0) {
+				LOGGER.debug("| -> No documents were updated; double-checking that the root document still exists");
+				try (var cursor = collection.find(documentFilter(rootRef)).limit(1).cursor()) {
+					if (!cursor.hasNext()) {
+						throw new IllegalStateException("Root document disappeared");
+					}
+				}
+			}
+			return matchedCount >= 1;
 		} else {
 			LOGGER.error("MongoDB write was not acknowledged");
 			LOGGER.trace("Details of MongoDB write not acknowledged:\n\tFilter: {}\n\tUpdate: {}\n\tResult: {}", filter, updateDoc, result);
