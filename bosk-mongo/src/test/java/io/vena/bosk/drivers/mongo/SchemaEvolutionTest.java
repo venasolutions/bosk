@@ -7,7 +7,6 @@ import io.vena.bosk.drivers.mongo.MongoDriverSettings.DatabaseFormat;
 import io.vena.bosk.drivers.mongo.MongoDriverSettings.Experimental;
 import io.vena.bosk.drivers.mongo.MongoDriverSettings.ManifestMode;
 import io.vena.bosk.drivers.state.TestEntity;
-import io.vena.bosk.exceptions.InvalidTypeException;
 import io.vena.bosk.junit.ParametersByName;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
@@ -70,7 +69,7 @@ public class SchemaEvolutionTest {
 	}
 
 	@ParametersByName
-	void pairwiseImplementationKinds_compatible() throws InvalidTypeException {
+	void pairwise_readCompatible() throws Exception {
 		LOGGER.debug("Create fromBosk [{}]", fromHelper.name);
 		Bosk<TestEntity> fromBosk = newBosk(fromHelper);
 		Refs fromRefs = fromBosk.buildReferences(Refs.class);
