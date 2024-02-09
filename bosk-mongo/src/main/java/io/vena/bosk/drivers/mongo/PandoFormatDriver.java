@@ -2,6 +2,7 @@ package io.vena.bosk.drivers.mongo;
 
 import com.mongodb.client.MongoCursor;
 import com.mongodb.client.model.CountOptions;
+import com.mongodb.client.model.ReplaceOptions;
 import com.mongodb.client.model.UpdateOptions;
 import com.mongodb.client.model.changestream.ChangeStreamDocument;
 import com.mongodb.client.model.changestream.OperationType;
@@ -49,6 +50,7 @@ import static com.mongodb.client.model.Filters.regex;
 import static com.mongodb.client.model.Projections.fields;
 import static com.mongodb.client.model.Projections.include;
 import static com.mongodb.client.model.changestream.OperationType.INSERT;
+import static com.mongodb.client.model.changestream.OperationType.REPLACE;
 import static io.vena.bosk.Path.parseParameterized;
 import static io.vena.bosk.drivers.mongo.BsonSurgeon.docSegments;
 import static io.vena.bosk.drivers.mongo.Formatter.REVISION_ZERO;
@@ -242,11 +244,10 @@ final class PandoFormatDriver<R extends StateTreeNode> extends AbstractFormatDri
 	private void writeManifest() {
 		BsonDocument doc = new BsonDocument("_id", MANIFEST_ID);
 		doc.putAll((BsonDocument) formatter.object2bsonValue(Manifest.forPando(format), Manifest.class));
-		BsonDocument update = new BsonDocument("$set", doc);
 		BsonDocument filter = new BsonDocument("_id", MANIFEST_ID);
-		UpdateOptions options = new UpdateOptions().upsert(true);
 		LOGGER.debug("| Initial manifest: {}", doc);
-		UpdateResult result = collection.updateOne(filter, update, options);
+		ReplaceOptions options = new ReplaceOptions().upsert(true);
+		UpdateResult result = collection.replaceOne(filter, doc, options);
 		LOGGER.debug("| Manifest result: {}", result);
 	}
 
@@ -447,7 +448,8 @@ final class PandoFormatDriver<R extends StateTreeNode> extends AbstractFormatDri
 	 * so incompatible database changes don't go unnoticed.
 	 */
 	private void onManifestEvent(ChangeStreamDocument<BsonDocument> event) throws UnprocessableEventException {
-		if (event.getOperationType() == INSERT) {
+		LOGGER.debug("onManifestEvent({})", event.getOperationType().name());
+		if (event.getOperationType() == INSERT || event.getOperationType() == REPLACE) {
 			BsonDocument manifestDoc = requireNonNull(event.getFullDocument());
 			Manifest manifest;
 			try {

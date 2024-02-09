@@ -2,6 +2,7 @@ package io.vena.bosk.drivers.mongo;
 
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoCursor;
+import com.mongodb.client.model.ReplaceOptions;
 import com.mongodb.client.model.UpdateOptions;
 import com.mongodb.client.model.changestream.ChangeStreamDocument;
 import com.mongodb.client.model.changestream.OperationType;
@@ -35,6 +36,7 @@ import static com.mongodb.ReadConcern.LOCAL;
 import static com.mongodb.client.model.Projections.fields;
 import static com.mongodb.client.model.Projections.include;
 import static com.mongodb.client.model.changestream.OperationType.INSERT;
+import static com.mongodb.client.model.changestream.OperationType.REPLACE;
 import static io.vena.bosk.drivers.mongo.Formatter.REVISION_ZERO;
 import static io.vena.bosk.drivers.mongo.Formatter.dottedFieldNameOf;
 import static io.vena.bosk.drivers.mongo.Formatter.enclosingReference;
@@ -134,7 +136,8 @@ final class SequoiaFormatDriver<R extends StateTreeNode> extends AbstractFormatD
 			BsonDocument document = cursor.next();
 			return new BsonState(
 				document.getDocument(DocumentFields.state.name(), null),
-				document.getInt64(DocumentFields.revision.name(), null), Formatter.getDiagnosticAttributesIfAny(document)
+				document.getInt64(DocumentFields.revision.name(), null),
+				Formatter.getDiagnosticAttributesIfAny(document)
 			);
 		} catch (NoSuchElementException e) {
 			throw new UninitializedCollectionException("No existing document", e);
@@ -169,11 +172,10 @@ final class SequoiaFormatDriver<R extends StateTreeNode> extends AbstractFormatD
 		assert settings.experimental().manifestMode() == CREATE_IF_ABSENT;
 		BsonDocument doc = new BsonDocument("_id", MANIFEST_ID);
 		doc.putAll((BsonDocument) formatter.object2bsonValue(Manifest.forSequoia(), Manifest.class));
-		BsonDocument update = new BsonDocument("$set", doc);
 		BsonDocument filter = new BsonDocument("_id", MANIFEST_ID);
-		UpdateOptions options = new UpdateOptions().upsert(true);
 		LOGGER.debug("| Initial manifest: {}", doc);
-		UpdateResult result = collection.updateOne(filter, update, options);
+		ReplaceOptions options = new ReplaceOptions().upsert(true);
+		UpdateResult result = collection.replaceOne(filter, doc, options);
 		LOGGER.debug("| Manifest result: {}", result);
 	}
 
@@ -250,7 +252,8 @@ final class SequoiaFormatDriver<R extends StateTreeNode> extends AbstractFormatD
 	 * so incompatible database changes don't go unnoticed.
 	 */
 	private void onManifestEvent(ChangeStreamDocument<BsonDocument> event) throws UnprocessableEventException {
-		if (event.getOperationType() == INSERT) {
+		LOGGER.debug("onManifestEvent({})", event.getOperationType().name());
+		if (event.getOperationType() == INSERT || event.getOperationType() == REPLACE) {
 			BsonDocument manifest = requireNonNull(event.getFullDocument());
 			manifest.remove("_id");
 			try {
