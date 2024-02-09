@@ -234,6 +234,7 @@ class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 	 */
 	private void refurbishTransaction() throws IOException {
 		collection.ensureTransactionStarted();
+		LOGGER.debug("Refurbishing to {}", driverSettings.preferredDatabaseFormat());
 		try {
 			// Design note: this operation shouldn't do any special coordination with
 			// the receiver/listener system, because other replicas won't.
@@ -591,6 +592,9 @@ class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 				operationInSession.run();
 			} catch (DisconnectedException e) {
 				LOGGER.debug("Driver is disconnected ({}); will wait and retry operation", e.getMessage());
+				waitAndRetry(operationInSession, description, args);
+			} catch (Exception e) {
+				LOGGER.debug("Unexpected exception; will wait and retry operation", e);
 				waitAndRetry(operationInSession, description, args);
 			} finally {
 				LOGGER.debug("Finished operation " + description, args);
