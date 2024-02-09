@@ -41,6 +41,7 @@ import static io.vena.bosk.drivers.mongo.Formatter.REVISION_ONE;
 import static io.vena.bosk.drivers.mongo.Formatter.REVISION_ZERO;
 import static io.vena.bosk.drivers.mongo.MappedDiagnosticContext.setupMDC;
 import static io.vena.bosk.drivers.mongo.MongoDriverSettings.DatabaseFormat.SEQUOIA;
+import static io.vena.bosk.drivers.mongo.MongoDriverSettings.ManifestMode.USE_IF_EXISTS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 /**
@@ -233,6 +234,7 @@ class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 	 */
 	private void refurbishTransaction() throws IOException {
 		collection.ensureTransactionStarted();
+		LOGGER.debug("Refurbishing to {}", driverSettings.preferredDatabaseFormat());
 		try {
 			// Design note: this operation shouldn't do any special coordination with
 			// the receiver/listener system, because other replicas won't.
@@ -240,12 +242,26 @@ class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 			StateAndMetadata<R> result = formatDriver.loadAllState();
 			FormatDriver<R> newFormatDriver = newPreferredFormatDriver();
 
-			// initializeCollection is required to overwrite the manifest anyway,
-			// so deleting it has no value; and if we do delete it, then every
-			// FormatDriver must cope with deletions of the manifest document,
-			// which is a burden. Let's just not.
-			BsonDocument everythingExceptManifest = new BsonDocument("_id", new BsonDocument("$ne", MANIFEST_ID));
-			collection.deleteMany(everythingExceptManifest);
+			BsonDocument deletionFilter;
+			if (driverSettings.experimental().manifestMode() == USE_IF_EXISTS) {
+				// In this weirdo mode, the format driver won't create a manifest
+				// document. We'd better delete the one that's there to avoid
+				// ending up with an incorrect manifest document that doesn't
+				// match the database contents.
+				//
+				// TODO: The sooner we get rid of this mode, the better.
+
+				deletionFilter = new BsonDocument();
+				LOGGER.debug("Deleting manifest due to experimental USE_IF_EXISTS manifest mode");
+			} else {
+				// initializeCollection is required to replace the manifest anyway,
+				// so deleting it has no value; and if we do delete it, then every
+				// FormatDriver must cope with deletions of the manifest document,
+				// which is a burden. Let's just not.
+				deletionFilter = new BsonDocument("_id", new BsonDocument("$ne", MANIFEST_ID));
+			}
+			LOGGER.trace("Deleting state documents: {}", deletionFilter);
+			collection.deleteMany(deletionFilter);
 
 			newFormatDriver.initializeCollection(result);
 			collection.commitTransaction();
@@ -352,6 +368,7 @@ class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 					LOGGER.debug("Loading database state to submit to downstream driver");
 					newDriver = detectFormat();
 					loadedState = newDriver.loadAllState();
+					LOGGER.trace("Loaded state: {}", loadedState);
 				}
 				// Note: can't call downstream methods with a session open,
 				// because that could run hooks, which could themselves submit
@@ -452,18 +469,7 @@ class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 	}
 
 	private FormatDriver<R> detectFormat() throws UninitializedCollectionException, UnrecognizedFormatException {
-		Manifest manifest;
-		try (MongoCursor<BsonDocument> cursor = collection.find(new BsonDocument("_id", MANIFEST_ID)).cursor()) {
-			if (cursor.hasNext()) {
-				LOGGER.debug("Found manifest");
-				manifest = formatter.decodeManifest(cursor.next());
-			} else {
-				// For legacy databases with no manifest
-				LOGGER.debug("Manifest is missing; checking for Sequoia format in " + driverSettings.database());
-				manifest = Manifest.forSequoia();
-			}
-		}
-
+		Manifest manifest = loadManifest();
 		DatabaseFormat format = manifest.pando().isPresent()? manifest.pando().get() : SEQUOIA;
 		BsonString documentId = (format == SEQUOIA)
 			? SequoiaFormatDriver.DOCUMENT_ID
@@ -495,6 +501,19 @@ class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 					+ driverSettings.database()
 					+ "." + COLLECTION_NAME
 					+ " id=" + documentId);
+			}
+		}
+	}
+
+	private Manifest loadManifest() throws UnrecognizedFormatException {
+		try (MongoCursor<BsonDocument> cursor = collection.find(new BsonDocument("_id", MANIFEST_ID)).cursor()) {
+			if (cursor.hasNext()) {
+				LOGGER.debug("Found manifest");
+				return formatter.decodeManifest(cursor.next());
+			} else {
+				// For legacy databases with no manifest
+				LOGGER.debug("Manifest is missing; checking for Sequoia format in " + driverSettings.database());
+				return Manifest.forSequoia();
 			}
 		}
 	}
@@ -573,6 +592,9 @@ class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 				operationInSession.run();
 			} catch (DisconnectedException e) {
 				LOGGER.debug("Driver is disconnected ({}); will wait and retry operation", e.getMessage());
+				waitAndRetry(operationInSession, description, args);
+			} catch (Exception e) {
+				LOGGER.debug("Unexpected exception; will wait and retry operation", e);
 				waitAndRetry(operationInSession, description, args);
 			} finally {
 				LOGGER.debug("Finished operation " + description, args);

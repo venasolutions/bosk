@@ -41,7 +41,9 @@ jobs:
           ORG_GRADLE_PROJECT_signingKey: ${{secrets.GPG_PRIVATE_KEY}}
           ORG_GRADLE_PROJECT_signingPassword: ${{secrets.GPG_PASSWORD}}
 
-      - uses: actions/upload-artifact@v4
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: success() || failure()
         with:
           name: reports
           path: build/reports/

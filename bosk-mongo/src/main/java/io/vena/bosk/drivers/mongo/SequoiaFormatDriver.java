@@ -2,6 +2,7 @@ package io.vena.bosk.drivers.mongo;
 
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoCursor;
+import com.mongodb.client.model.ReplaceOptions;
 import com.mongodb.client.model.UpdateOptions;
 import com.mongodb.client.model.changestream.ChangeStreamDocument;
 import com.mongodb.client.model.changestream.OperationType;
@@ -13,7 +14,6 @@ import io.vena.bosk.BoskDriver;
 import io.vena.bosk.Identifier;
 import io.vena.bosk.MapValue;
 import io.vena.bosk.Reference;
-import io.vena.bosk.RootReference;
 import io.vena.bosk.StateTreeNode;
 import io.vena.bosk.drivers.mongo.Formatter.DocumentFields;
 import io.vena.bosk.exceptions.FlushFailureException;
@@ -36,6 +36,7 @@ import static com.mongodb.ReadConcern.LOCAL;
 import static com.mongodb.client.model.Projections.fields;
 import static com.mongodb.client.model.Projections.include;
 import static com.mongodb.client.model.changestream.OperationType.INSERT;
+import static com.mongodb.client.model.changestream.OperationType.REPLACE;
 import static io.vena.bosk.drivers.mongo.Formatter.REVISION_ZERO;
 import static io.vena.bosk.drivers.mongo.Formatter.dottedFieldNameOf;
 import static io.vena.bosk.drivers.mongo.Formatter.enclosingReference;
@@ -49,12 +50,10 @@ import static org.bson.BsonBoolean.FALSE;
 /**
  * Implements the {@link io.vena.bosk.drivers.mongo.MongoDriverSettings.DatabaseFormat#SEQUOIA Sequoia} format.
  */
-final class SequoiaFormatDriver<R extends StateTreeNode> implements FormatDriver<R> {
+final class SequoiaFormatDriver<R extends StateTreeNode> extends AbstractFormatDriver<R> {
 	private final String description;
 	private final MongoDriverSettings settings;
-	private final Formatter formatter;
 	private final MongoCollection<BsonDocument> collection;
-	private final RootReference<R> rootRef;
 	private final BoskDriver<R> downstream;
 	private final FlushLock flushLock;
 
@@ -70,11 +69,10 @@ final class SequoiaFormatDriver<R extends StateTreeNode> implements FormatDriver
 		FlushLock flushLock,
 		BoskDriver<R> downstream
 	) {
+		super(bosk.rootReference(), new Formatter(bosk, bsonPlugin));
 		this.description = getClass().getSimpleName() + ": " + driverSettings;
 		this.settings = driverSettings;
-		this.formatter = new Formatter(bosk, bsonPlugin);
 		this.collection = collection;
-		this.rootRef = bosk.rootReference();
 		this.downstream = downstream;
 		this.flushLock = flushLock;
 	}
@@ -128,7 +126,7 @@ final class SequoiaFormatDriver<R extends StateTreeNode> implements FormatDriver
 	}
 
 	@Override
-	public StateAndMetadata<R> loadAllState() throws IOException, UninitializedCollectionException {
+	BsonState loadBsonState() throws UninitializedCollectionException {
 		try (MongoCursor<BsonDocument> cursor = collection
 			.withReadConcern(LOCAL) // The revision field needs to be the latest
 			.find(documentFilter())
@@ -136,15 +134,11 @@ final class SequoiaFormatDriver<R extends StateTreeNode> implements FormatDriver
 			.cursor()
 		) {
 			BsonDocument document = cursor.next();
-			BsonDocument state = document.getDocument(DocumentFields.state.name(), null);
-			BsonInt64 revision = document.getInt64(DocumentFields.revision.name(), REVISION_ZERO);
-			MapValue<String> diagnosticAttributes = formatter.getDiagnosticAttributesFromFullDocument(document);
-			if (state == null) {
-				throw new IOException("No existing state in document");
-			} else {
-				R root = formatter.document2object(state, rootRef);
-				return new StateAndMetadata<>(root, revision, diagnosticAttributes);
-			}
+			return new BsonState(
+				document.getDocument(DocumentFields.state.name(), null),
+				document.getInt64(DocumentFields.revision.name(), null),
+				Formatter.getDiagnosticAttributesIfAny(document)
+			);
 		} catch (NoSuchElementException e) {
 			throw new UninitializedCollectionException("No existing document", e);
 		}
@@ -178,11 +172,10 @@ final class SequoiaFormatDriver<R extends StateTreeNode> implements FormatDriver
 		assert settings.experimental().manifestMode() == CREATE_IF_ABSENT;
 		BsonDocument doc = new BsonDocument("_id", MANIFEST_ID);
 		doc.putAll((BsonDocument) formatter.object2bsonValue(Manifest.forSequoia(), Manifest.class));
-		BsonDocument update = new BsonDocument("$set", doc);
 		BsonDocument filter = new BsonDocument("_id", MANIFEST_ID);
-		UpdateOptions options = new UpdateOptions().upsert(true);
 		LOGGER.debug("| Initial manifest: {}", doc);
-		UpdateResult result = collection.updateOne(filter, update, options);
+		ReplaceOptions options = new ReplaceOptions().upsert(true);
+		UpdateResult result = collection.replaceOne(filter, doc, options);
 		LOGGER.debug("| Manifest result: {}", result);
 	}
 
@@ -259,7 +252,8 @@ final class SequoiaFormatDriver<R extends StateTreeNode> implements FormatDriver
 	 * so incompatible database changes don't go unnoticed.
 	 */
 	private void onManifestEvent(ChangeStreamDocument<BsonDocument> event) throws UnprocessableEventException {
-		if (event.getOperationType() == INSERT) {
+		LOGGER.debug("onManifestEvent({})", event.getOperationType().name());
+		if (event.getOperationType() == INSERT || event.getOperationType() == REPLACE) {
 			BsonDocument manifest = requireNonNull(event.getFullDocument());
 			manifest.remove("_id");
 			try {
@@ -392,6 +386,24 @@ final class SequoiaFormatDriver<R extends StateTreeNode> implements FormatDriver
 		UpdateResult result = collection.updateOne(filter, updateDoc);
 		LOGGER.debug("| Update result: {}", result);
 		if (result.wasAcknowledged()) {
+			// NOTE: This case can occur in a few situations:
+			// 1. A conditional update whose precondition failed
+			// 2. An update inside a nonexistent node
+			// 3. The bosk document has disappeared
+			//
+			// Differentiating these cases without transactions is complex,
+			// and the only benefit of the Sequoia format is its simplicity,
+			// so for now, we're opting not to handle this case.
+			//
+			// This means valid updates can be silently ignored during the window
+			// between when a refurbish operation deletes the bosk document and
+			// when the corresponding change event arrives. We are going to accept
+			// and document this risk for the time being, unless we can determine
+			// a sufficiently straightforward way to detect this situation.
+			//
+			// Therefore, when refurbishing from Sequoia to another format,
+			// the system should be quiescent or else updates may be lost.
+
 			assert result.getMatchedCount() <= 1;
 			return result.getMatchedCount() >= 1;
 		} else {

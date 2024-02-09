@@ -711,7 +711,7 @@ The second step is to ensure that any older versions of the server are shut down
 This will prevent _new_ objects from being created without the new field.
 
 The third step is to change external systems so they always supply the new field;
-for `MongoDriver`, this is accomplished by calling `MongoDriver.refurbish()`.
+for `MongoDriver`, this is accomplished by calling `MongoDriver.refurbish()`.[^1]
 This method rewrites the entire bosk state in the new format, which has the effect of adding the new field to all existing objects.
 
 Finally, you can remove the `@Polyfill` field,
@@ -728,6 +728,11 @@ That is, if you provide a polyfill for a node at `/a/b`, but that node does not 
 then a read from `/a/b` will return the polyfill node,
 but a write to `/a/b/c` will be ignored, which could be confusing.
 We hope to overcome this shortcoming in the near future.
+
+[^1]: Note that if your database is using the Sequoia format, and you refurbish it to the Pando format,
+there is a brief window (before the change events arrive) when writes to the old Sequoia driver will
+be silently ignored. While refurbishing from Sequoia to a different format,
+ensure the bosk is quiescent (not performing any updates), or is performing a `flush()` before each update.
 
 #### Compliance rules
 

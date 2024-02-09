@@ -51,7 +51,9 @@ public class MongoDriverSettings {
 		@Default long eventDelayMS = 0;
 	}
 
-	public interface DatabaseFormat {
+	public sealed interface DatabaseFormat
+		permits SequoiaFormat, PandoFormat
+	{
 		/**
 		 * Simple format that stores the entire bosk state in a single document,
 		 * and (except for {@link MongoDriver#refurbish() refirbish})
@@ -63,7 +65,8 @@ public class MongoDriverSettings {
 		DatabaseFormat SEQUOIA = new SequoiaFormat();
 	}
 
-	private static final class SequoiaFormat implements DatabaseFormat {
+	public static final class SequoiaFormat implements DatabaseFormat {
+		SequoiaFormat() { }
 		@Override public String toString() { return "SequoiaFormat"; }
 	}
 

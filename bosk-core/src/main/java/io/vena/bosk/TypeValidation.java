@@ -167,6 +167,7 @@ public final class TypeValidation {
 	 * prevent people from putting mutable data in an object, but let's work hard to
 	 * make sure they don't do it by accident.
 	 *
+	 * <p>
 	 * Note that we check every field in the class, including inherited ones; not
 	 * just the fields taken by the constructor. Don't use mutable fields in bosk
 	 * objects. Just don't!

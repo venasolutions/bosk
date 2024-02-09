@@ -2,6 +2,7 @@ package io.vena.bosk.drivers.mongo;
 
 import com.mongodb.client.MongoCursor;
 import com.mongodb.client.model.CountOptions;
+import com.mongodb.client.model.ReplaceOptions;
 import com.mongodb.client.model.UpdateOptions;
 import com.mongodb.client.model.changestream.ChangeStreamDocument;
 import com.mongodb.client.model.changestream.OperationType;
@@ -49,6 +50,7 @@ import static com.mongodb.client.model.Filters.regex;
 import static com.mongodb.client.model.Projections.fields;
 import static com.mongodb.client.model.Projections.include;
 import static com.mongodb.client.model.changestream.OperationType.INSERT;
+import static com.mongodb.client.model.changestream.OperationType.REPLACE;
 import static io.vena.bosk.Path.parseParameterized;
 import static io.vena.bosk.drivers.mongo.BsonSurgeon.docSegments;
 import static io.vena.bosk.drivers.mongo.Formatter.REVISION_ZERO;
@@ -69,13 +71,11 @@ import static org.bson.BsonBoolean.TRUE;
 /**
  * Implements {@link PandoFormat}.
  */
-final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R> {
+final class PandoFormatDriver<R extends StateTreeNode> extends AbstractFormatDriver<R> {
 	private final String description;
 	private final PandoFormat format;
 	private final MongoDriverSettings settings;
-	private final Formatter formatter;
 	private final TransactionalCollection<BsonDocument> collection;
-	private final RootReference<R> rootRef;
 	private final BoskDriver<R> downstream;
 	private final FlushLock flushLock;
 	private final BsonSurgeon bsonSurgeon;
@@ -93,12 +93,11 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 		FlushLock flushLock,
 		BoskDriver<R> downstream
 	) {
+		super(bosk.rootReference(), new Formatter(bosk, bsonPlugin));
 		this.description = getClass().getSimpleName() + ": " + driverSettings;
 		this.settings = driverSettings;
 		this.format = format;
-		this.formatter = new Formatter(bosk, bsonPlugin);
 		this.collection = collection;
-		this.rootRef = bosk.rootReference();
 		this.downstream = downstream;
 		this.flushLock = flushLock;
 
@@ -175,7 +174,25 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 	}
 
 	@Override
-	public StateAndMetadata<R> loadAllState() throws IOException, UninitializedCollectionException {
+	public StateAndMetadata<R> loadAllState() throws UninitializedCollectionException, IOException {
+		BsonState bsonState = loadBsonState();
+
+		R root;
+		if (bsonState.state() == null) {
+			throw new IOException("No existing state in document");
+		} else {
+			root = formatter.document2object(bsonState.state(), rootRef);
+		}
+		MapValue<String> diagnosticAttributes = bsonState.diagnosticAttributes() == null ? null
+			:formatter.decodeDiagnosticAttributes(bsonState.diagnosticAttributes());
+		return new StateAndMetadata<>(
+			root,
+			bsonState.revision() == null? REVISION_ZERO : bsonState.revision(),
+			diagnosticAttributes);
+	}
+
+	@Override
+	BsonState loadBsonState() throws UninitializedCollectionException {
 		List<BsonDocument> allParts = new ArrayList<>();
 		try (MongoCursor<BsonDocument> cursor = collection
 			.withReadConcern(LOCAL) // The revision field needs to be the latest
@@ -193,12 +210,11 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 		if (!ROOT_DOCUMENT_ID.equals(mainPart.get("_id"))) {
 			throw new IllegalStateException("Cannot locate root document");
 		}
-		BsonValue revision = mainPart.get(DocumentFields.revision.name(), REVISION_ZERO);
-		MapValue<String> diagnosticAttributes = formatter.getDiagnosticAttributesFromFullDocument(mainPart);
 
-		BsonDocument combinedState = bsonSurgeon.gather(allParts);
-		R root = formatter.document2object(combinedState, rootRef);
-		return new StateAndMetadata<>(root, revision.asInt64(), diagnosticAttributes);
+		return new BsonState(
+			bsonSurgeon.gather(allParts),
+			mainPart.getInt64(DocumentFields.revision.name(), null), Formatter.getDiagnosticAttributesIfAny(mainPart)
+		);
 	}
 
 	@Override
@@ -228,11 +244,10 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 	private void writeManifest() {
 		BsonDocument doc = new BsonDocument("_id", MANIFEST_ID);
 		doc.putAll((BsonDocument) formatter.object2bsonValue(Manifest.forPando(format), Manifest.class));
-		BsonDocument update = new BsonDocument("$set", doc);
 		BsonDocument filter = new BsonDocument("_id", MANIFEST_ID);
-		UpdateOptions options = new UpdateOptions().upsert(true);
 		LOGGER.debug("| Initial manifest: {}", doc);
-		UpdateResult result = collection.updateOne(filter, update, options);
+		ReplaceOptions options = new ReplaceOptions().upsert(true);
+		UpdateResult result = collection.replaceOne(filter, doc, options);
 		LOGGER.debug("| Manifest result: {}", result);
 	}
 
@@ -433,7 +448,8 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 	 * so incompatible database changes don't go unnoticed.
 	 */
 	private void onManifestEvent(ChangeStreamDocument<BsonDocument> event) throws UnprocessableEventException {
-		if (event.getOperationType() == INSERT) {
+		LOGGER.debug("onManifestEvent({})", event.getOperationType().name());
+		if (event.getOperationType() == INSERT || event.getOperationType() == REPLACE) {
 			BsonDocument manifestDoc = requireNonNull(event.getFullDocument());
 			Manifest manifest;
 			try {
@@ -765,8 +781,16 @@ final class PandoFormatDriver<R extends StateTreeNode> implements FormatDriver<R
 		UpdateResult result = collection.updateOne(filter, updateDoc);
 		LOGGER.debug("| Update result: {}", result);
 		if (result.wasAcknowledged()) {
-			assert result.getMatchedCount() <= 1;
-			return result.getMatchedCount() >= 1;
+			long matchedCount = result.getMatchedCount();
+			if (matchedCount == 0) {
+				LOGGER.debug("| -> No documents were updated; double-checking that the root document still exists");
+				try (var cursor = collection.find(documentFilter(rootRef)).limit(1).cursor()) {
+					if (!cursor.hasNext()) {
+						throw new IllegalStateException("Root document disappeared");
+					}
+				}
+			}
+			return matchedCount >= 1;
 		} else {
 			LOGGER.error("MongoDB write was not acknowledged");
 			LOGGER.trace("Details of MongoDB write not acknowledged:\n\tFilter: {}\n\tUpdate: {}\n\tResult: {}", filter, updateDoc, result);
