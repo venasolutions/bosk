@@ -352,6 +352,7 @@ class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 					LOGGER.debug("Loading database state to submit to downstream driver");
 					newDriver = detectFormat();
 					loadedState = newDriver.loadAllState();
+					LOGGER.trace("Loaded state: {}", loadedState);
 				}
 				// Note: can't call downstream methods with a session open,
 				// because that could run hooks, which could themselves submit
