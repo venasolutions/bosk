@@ -453,18 +453,7 @@ class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 	}
 
 	private FormatDriver<R> detectFormat() throws UninitializedCollectionException, UnrecognizedFormatException {
-		Manifest manifest;
-		try (MongoCursor<BsonDocument> cursor = collection.find(new BsonDocument("_id", MANIFEST_ID)).cursor()) {
-			if (cursor.hasNext()) {
-				LOGGER.debug("Found manifest");
-				manifest = formatter.decodeManifest(cursor.next());
-			} else {
-				// For legacy databases with no manifest
-				LOGGER.debug("Manifest is missing; checking for Sequoia format in " + driverSettings.database());
-				manifest = Manifest.forSequoia();
-			}
-		}
-
+		Manifest manifest = loadManifest();
 		DatabaseFormat format = manifest.pando().isPresent()? manifest.pando().get() : SEQUOIA;
 		BsonString documentId = (format == SEQUOIA)
 			? SequoiaFormatDriver.DOCUMENT_ID
@@ -496,6 +485,19 @@ class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 					+ driverSettings.database()
 					+ "." + COLLECTION_NAME
 					+ " id=" + documentId);
+			}
+		}
+	}
+
+	private Manifest loadManifest() throws UnrecognizedFormatException {
+		try (MongoCursor<BsonDocument> cursor = collection.find(new BsonDocument("_id", MANIFEST_ID)).cursor()) {
+			if (cursor.hasNext()) {
+				LOGGER.debug("Found manifest");
+				return formatter.decodeManifest(cursor.next());
+			} else {
+				// For legacy databases with no manifest
+				LOGGER.debug("Manifest is missing; checking for Sequoia format in " + driverSettings.database());
+				return Manifest.forSequoia();
 			}
 		}
 	}
