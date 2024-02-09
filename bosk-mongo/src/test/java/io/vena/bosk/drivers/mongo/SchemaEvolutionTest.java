@@ -9,8 +9,8 @@ import io.vena.bosk.drivers.mongo.MongoDriverSettings.ManifestMode;
 import io.vena.bosk.drivers.state.TestEntity;
 import io.vena.bosk.exceptions.InvalidTypeException;
 import io.vena.bosk.junit.ParametersByName;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
-import lombok.RequiredArgsConstructor;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -22,11 +22,17 @@ import static io.vena.bosk.drivers.mongo.MongoDriverSettings.DatabaseFormat.SEQU
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @UsesMongoService
-@RequiredArgsConstructor(onConstructor = @__({@ParametersByName}))
 public class SchemaEvolutionTest {
 
 	private final Helper fromHelper;
 	private final Helper toHelper;
+
+	@ParametersByName
+	SchemaEvolutionTest(Configuration fromConfig, Configuration toConfig) {
+		int dbCounter = DB_COUNTER.incrementAndGet();
+		this.fromHelper = new Helper(fromConfig, dbCounter);
+		this.toHelper = new Helper(toConfig, dbCounter);
+	}
 
 	@BeforeAll
 	static void beforeAll() {
@@ -49,18 +55,18 @@ public class SchemaEvolutionTest {
 	}
 
 	@SuppressWarnings("unused")
-	static Stream<Helper> fromHelper() {
+	static Stream<Configuration> fromConfig() {
 		return Stream.of(
-			new Helper(SEQUOIA, ManifestMode.USE_IF_EXISTS),
-			new Helper(SEQUOIA, ManifestMode.CREATE_IF_ABSENT),
-			new Helper(PandoFormat.oneBigDocument(), ManifestMode.CREATE_IF_ABSENT),
-			new Helper(PandoFormat.withGraftPoints("/catalog", "/sideTable"), ManifestMode.CREATE_IF_ABSENT)
+			new Configuration(SEQUOIA, ManifestMode.USE_IF_EXISTS),
+			new Configuration(SEQUOIA, ManifestMode.CREATE_IF_ABSENT),
+			new Configuration(PandoFormat.oneBigDocument(), ManifestMode.CREATE_IF_ABSENT),
+			new Configuration(PandoFormat.withGraftPoints("/catalog", "/sideTable"), ManifestMode.CREATE_IF_ABSENT)
 		);
 	}
 
 	@SuppressWarnings("unused")
-	static Stream<Helper> toHelper() {
-		return fromHelper();
+	static Stream<Configuration> toConfig() {
+		return fromConfig();
 	}
 
 	@ParametersByName
@@ -86,18 +92,27 @@ public class SchemaEvolutionTest {
 		return new Bosk<TestEntity>(helper.name, TestEntity.class, helper::initialRoot, helper.driverFactory);
 	}
 
+	record Configuration(
+		DatabaseFormat preferredFormat,
+		ManifestMode manifestMode
+	) {
+		@Override
+		public String toString() {
+			return preferredFormat + "&" + manifestMode;
+		}
+	}
+
 	static final class Helper extends AbstractMongoDriverTest {
 		final String name;
 
-		public Helper(DatabaseFormat preferredFormat, ManifestMode manifestMode) {
+		public Helper(Configuration config, int dbCounter) {
 			super(MongoDriverSettings.builder()
-				.database(SchemaEvolutionTest.class.getSimpleName())
-				.preferredDatabaseFormat(preferredFormat)
+				.database(SchemaEvolutionTest.class.getSimpleName() + "_" + dbCounter)
+				.preferredDatabaseFormat(config.preferredFormat())
 				.experimental(Experimental.builder()
-					.manifestMode(manifestMode)
-					.build())
-			);
-			this.name = (preferredFormat + ":" + manifestMode).toLowerCase();
+					.manifestMode(config.manifestMode())
+					.build()));
+			this.name = (config.preferredFormat() + ":" + config.manifestMode()).toLowerCase();
 		}
 
 		@Override
@@ -107,8 +122,10 @@ public class SchemaEvolutionTest {
 	}
 
 	public interface Refs {
-		@ReferencePath("/string") Reference<String> string();
+		@ReferencePath("/string")
+		Reference<String> string();
 	}
 
+	private static final AtomicInteger DB_COUNTER = new AtomicInteger(0);
 	private static final Logger LOGGER = LoggerFactory.getLogger(SchemaEvolutionTest.class);
 }
