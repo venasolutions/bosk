@@ -41,6 +41,7 @@ import static io.vena.bosk.drivers.mongo.Formatter.REVISION_ONE;
 import static io.vena.bosk.drivers.mongo.Formatter.REVISION_ZERO;
 import static io.vena.bosk.drivers.mongo.MappedDiagnosticContext.setupMDC;
 import static io.vena.bosk.drivers.mongo.MongoDriverSettings.DatabaseFormat.SEQUOIA;
+import static io.vena.bosk.drivers.mongo.MongoDriverSettings.ManifestMode.USE_IF_EXISTS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 /**
@@ -240,12 +241,26 @@ class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 			StateAndMetadata<R> result = formatDriver.loadAllState();
 			FormatDriver<R> newFormatDriver = newPreferredFormatDriver();
 
-			// initializeCollection is required to overwrite the manifest anyway,
-			// so deleting it has no value; and if we do delete it, then every
-			// FormatDriver must cope with deletions of the manifest document,
-			// which is a burden. Let's just not.
-			BsonDocument everythingExceptManifest = new BsonDocument("_id", new BsonDocument("$ne", MANIFEST_ID));
-			collection.deleteMany(everythingExceptManifest);
+			BsonDocument deletionFilter;
+			if (driverSettings.experimental().manifestMode() == USE_IF_EXISTS) {
+				// In this weirdo mode, the format driver won't create a manifest
+				// document. We'd better delete the one that's there to avoid
+				// ending up with an incorrect manifest document that doesn't
+				// match the database contents.
+				//
+				// TODO: The sooner we get rid of this mode, the better.
+
+				deletionFilter = new BsonDocument();
+				LOGGER.debug("Deleting manifest due to experimental USE_IF_EXISTS manifest mode");
+			} else {
+				// initializeCollection is required to replace the manifest anyway,
+				// so deleting it has no value; and if we do delete it, then every
+				// FormatDriver must cope with deletions of the manifest document,
+				// which is a burden. Let's just not.
+				deletionFilter = new BsonDocument("_id", new BsonDocument("$ne", MANIFEST_ID));
+			}
+			LOGGER.trace("Deleting state documents: {}", deletionFilter);
+			collection.deleteMany(deletionFilter);
 
 			newFormatDriver.initializeCollection(result);
 			collection.commitTransaction();
