@@ -18,6 +18,10 @@ java {
 dependencies {
 	api project(":bosk-core")
 	api 'org.mongodb:mongodb-driver-sync:4.1.2'
+
+	// Allows us to annotate status objects so they're handy to serialize with jackson
+	implementation group: 'com.fasterxml.jackson.core', name: 'jackson-annotations', version: '2.16.1'
+
 	testImplementation project(":bosk-testing")
 	testImplementation project(":lib-testing")
 }

@@ -4,12 +4,10 @@ import io.vena.bosk.Bosk;
 import io.vena.bosk.Catalog;
 import io.vena.bosk.CatalogReference;
 import io.vena.bosk.Identifier;
-import io.vena.bosk.Reference;
 import io.vena.bosk.annotations.ReferencePath;
 import io.vena.bosk.exceptions.InvalidTypeException;
 import io.vena.hello.state.BoskState;
 import io.vena.hello.state.Target;
-import java.util.Optional;
 import org.springframework.stereotype.Component;
 
 @Component

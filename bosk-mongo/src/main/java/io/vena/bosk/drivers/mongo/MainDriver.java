@@ -19,6 +19,7 @@ import io.vena.bosk.drivers.mongo.Formatter.DocumentFields;
 import io.vena.bosk.drivers.mongo.MappedDiagnosticContext.MDCScope;
 import io.vena.bosk.drivers.mongo.MongoDriverSettings.DatabaseFormat;
 import io.vena.bosk.drivers.mongo.MongoDriverSettings.InitialDatabaseUnavailableMode;
+import io.vena.bosk.drivers.mongo.status.MongoStatus;
 import io.vena.bosk.exceptions.FlushFailureException;
 import io.vena.bosk.exceptions.InvalidTypeException;
 import java.io.IOException;
@@ -183,7 +184,9 @@ class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 			publishFormatDriver(detectedDriver);
 			detectedDriver.onRevisionToSkip(loadedState.revision());
 		} catch (UninitializedCollectionException e) {
-			LOGGER.debug("Database collection is uninitialized; will initialize using downstream.initialRoot");
+			// We log this at warn because, in production, this is a big deal.
+			// Might be annoying in local dev ¯\_(ツ)_/¯
+			LOGGER.warn("Database collection is uninitialized; initializing now. (" + e.getMessage() + ")");
 			root = callDownstreamInitialRoot(rootType);
 			try (var session = collection.newSession()) {
 				FormatDriver<R> preferredDriver = newPreferredFormatDriver();
@@ -328,6 +331,18 @@ class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 		doRetryableDriverOperation(() -> {
 			refurbishTransaction();
 		}, "refurbish");
+	}
+
+	@Override
+	public MongoStatus readStatus() throws Exception {
+		try (
+			var __1 = bosk.readContext();
+			var __2 = collection.newReadOnlySession()
+		) {
+			MongoStatus partialResult = detectFormat().readStatus();
+			Manifest manifest = loadManifest(); // TODO: Avoid loading the manifest again
+			return partialResult.with(driverSettings.preferredDatabaseFormat(), manifest);
+		}
 	}
 
 	@Override
@@ -498,9 +513,9 @@ class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 				// One day when we drop support for collections with no
 				// manifest, we can eliminate this confusion.
 				throw new UninitializedCollectionException("Document doesn't exist: "
-					+ driverSettings.database()
+					+ "collection=" + driverSettings.database()
 					+ "." + COLLECTION_NAME
-					+ " id=" + documentId);
+					+ " id=" + documentId.getValue());
 			}
 		}
 	}

@@ -5,6 +5,7 @@ import io.vena.bosk.Bosk;
 import io.vena.bosk.BoskDriver;
 import io.vena.bosk.DriverFactory;
 import io.vena.bosk.StateTreeNode;
+import io.vena.bosk.drivers.mongo.status.MongoStatus;
 import java.io.IOException;
 
 public interface MongoDriver<R extends StateTreeNode> extends BoskDriver<R> {
@@ -33,6 +34,8 @@ public interface MongoDriver<R extends StateTreeNode> extends BoskDriver<R> {
 	 * but for unsupported formats or other corruption, YMMV.
 	 */
 	void refurbish() throws IOException;
+
+	MongoStatus readStatus() throws Exception;
 
 	/**
 	 * Frees up resources used by this driver and leaves it unusable.

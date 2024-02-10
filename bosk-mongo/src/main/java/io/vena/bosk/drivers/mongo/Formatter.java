@@ -25,6 +25,7 @@ import java.util.function.Function;
 import java.util.function.UnaryOperator;
 import java.util.regex.Pattern;
 import lombok.NonNull;
+import org.bson.BsonBinaryWriter;
 import org.bson.BsonDocument;
 import org.bson.BsonDocumentReader;
 import org.bson.BsonDocumentWriter;
@@ -33,6 +34,7 @@ import org.bson.BsonInt64;
 import org.bson.BsonReader;
 import org.bson.BsonString;
 import org.bson.BsonValue;
+import org.bson.codecs.BsonValueCodec;
 import org.bson.codecs.Codec;
 import org.bson.codecs.DecoderContext;
 import org.bson.codecs.DocumentCodecProvider;
@@ -40,6 +42,7 @@ import org.bson.codecs.EncoderContext;
 import org.bson.codecs.ValueCodecProvider;
 import org.bson.codecs.configuration.CodecRegistries;
 import org.bson.codecs.configuration.CodecRegistry;
+import org.bson.io.BasicOutputBuffer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -233,6 +236,18 @@ final class Formatter {
 			reader.readStartDocument();
 			reader.readName("value");
 			return objectCodec.decode(reader, DecoderContext.builder().build());
+		}
+	}
+
+	@SuppressWarnings("unchecked")
+	long bsonValueBinarySize(BsonValue bson) {
+		Codec<BsonValue> codec = new BsonValueCodec();
+		try (
+			BasicOutputBuffer buffer = new BasicOutputBuffer();
+			BsonBinaryWriter w = new BsonBinaryWriter(buffer)
+		) {
+			codec.encode(w, bson, EncoderContext.builder().build());
+			return buffer.getPosition();
 		}
 	}
 

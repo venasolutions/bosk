@@ -1,8 +1,8 @@
 package io.vena.bosk.drivers.mongo;
 
 import io.vena.bosk.StateTreeNode;
+import io.vena.bosk.drivers.mongo.MongoDriverSettings.DatabaseFormat;
 import java.util.Optional;
-import lombok.Value;
 
 public record Manifest(
 	Integer version,
@@ -17,5 +17,14 @@ public record Manifest(
 
 	public static Manifest forPando(PandoFormat settings) {
 		return new Manifest(1, Optional.empty(), Optional.of(settings));
+	}
+
+	public static Manifest forFormat(DatabaseFormat format) {
+		// TODO: Use a type switch in newer Java versions
+		if (format instanceof PandoFormat p) {
+			return forPando(p);
+		} else {
+			return forSequoia();
+		}
 	}
 }

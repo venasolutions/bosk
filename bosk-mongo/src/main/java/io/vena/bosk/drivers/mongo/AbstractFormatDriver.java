@@ -3,10 +3,14 @@ package io.vena.bosk.drivers.mongo;
 import io.vena.bosk.MapValue;
 import io.vena.bosk.RootReference;
 import io.vena.bosk.StateTreeNode;
+import io.vena.bosk.drivers.mongo.status.BsonComparator;
+import io.vena.bosk.drivers.mongo.status.MongoStatus;
+import io.vena.bosk.drivers.mongo.status.StateStatus;
 import java.io.IOException;
 import lombok.RequiredArgsConstructor;
 import org.bson.BsonDocument;
 import org.bson.BsonInt64;
+import org.bson.BsonValue;
 
 import static io.vena.bosk.drivers.mongo.Formatter.REVISION_ZERO;
 
@@ -14,6 +18,31 @@ import static io.vena.bosk.drivers.mongo.Formatter.REVISION_ZERO;
 abstract class AbstractFormatDriver<R extends StateTreeNode> implements FormatDriver<R> {
 	final RootReference<R> rootRef;
 	final Formatter formatter;
+
+	@Override
+	public MongoStatus readStatus() {
+		try {
+			BsonState dbContents = loadBsonState();
+			BsonDocument loadedBsonState = dbContents.state;
+			BsonValue inMemoryState = formatter.object2bsonValue(rootRef.value(), rootRef.targetType());
+			BsonComparator comp = new BsonComparator();
+			return new MongoStatus(
+				null,
+				null, // MainDriver should fill this in
+				new StateStatus(
+					dbContents.revision.longValue(),
+					formatter.bsonValueBinarySize(loadedBsonState),
+					comp.difference(inMemoryState, loadedBsonState)
+				)
+			);
+		} catch (UninitializedCollectionException e) {
+			return new MongoStatus(
+				e.toString(),
+				null,
+				null
+			);
+		}
+	}
 
 	@Override
 	public StateAndMetadata<R> loadAllState() throws IOException, UninitializedCollectionException {
@@ -45,4 +74,5 @@ abstract class AbstractFormatDriver<R extends StateTreeNode> implements FormatDr
 		BsonInt64 revision,
 		BsonDocument diagnosticAttributes
 	){}
+
 }
