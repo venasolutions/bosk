@@ -2,7 +2,6 @@ package io.vena.bosk.drivers.mongo;
 
 import io.vena.bosk.StateTreeNode;
 import java.util.Optional;
-import lombok.Value;
 
 public record Manifest(
 	Integer version,

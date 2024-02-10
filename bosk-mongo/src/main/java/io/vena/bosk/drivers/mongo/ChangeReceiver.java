@@ -4,7 +4,6 @@ import com.mongodb.MongoInterruptedException;
 import com.mongodb.client.MongoChangeStreamCursor;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.changestream.ChangeStreamDocument;
-import io.vena.bosk.Bosk;
 import io.vena.bosk.Identifier;
 import io.vena.bosk.drivers.mongo.MappedDiagnosticContext.MDCScope;
 import java.io.Closeable;
