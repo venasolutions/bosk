@@ -335,16 +335,13 @@ class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 
 	@Override
 	public MongoStatus readStatus() throws Exception {
-		try (var __ = collection.newReadOnlySession()) {
-			FormatDriver<R> detectedDriver = detectFormat();
-			MongoStatus partialResult = detectedDriver.readStatus();
+		try (
+			var __1 = bosk.readContext();
+			var __2 = collection.newReadOnlySession()
+		) {
+			MongoStatus partialResult = detectFormat().readStatus();
 			Manifest manifest = loadManifest(); // TODO: Avoid loading the manifest again
-
-			return new MongoStatus(
-				partialResult.error(),
-				manifest,
-				partialResult.stateBytes()
-			);
+			return partialResult.with(driverSettings.preferredDatabaseFormat(), manifest);
 		}
 	}
 
