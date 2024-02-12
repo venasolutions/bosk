@@ -202,6 +202,9 @@ final class SequoiaFormatDriver<R extends StateTreeNode> extends AbstractFormatD
 				// It seems unavoidable to pass the change downstream.
 				BsonDocument fullDocument = event.getFullDocument();
 				if (fullDocument == null) {
+					// The MongoDB docs are confusing, but it seems there should
+					// always be a fullDocument for INSERT events, and probably
+					// also REPLACE. That would imply that this case is impossible.
 					throw new UnprocessableEventException("Missing fullDocument", event.getOperationType());
 				}
 				BsonInt64 revision = formatter.getRevisionFromFullDocument(fullDocument);
@@ -263,6 +266,8 @@ final class SequoiaFormatDriver<R extends StateTreeNode> extends AbstractFormatD
 				throw new UnprocessableEventException("Unexpected value in manifest \"sequoia\" field: " + manifest.get("sequoia"), event.getOperationType());
 			}
 		} else {
+			// SequoiaFormatDriver always uses INSERT/REPLACE to update the manifest;
+			// anything else is unexpected.
 			throw new UnprocessableEventException("Unexpected change to manifest document", event.getOperationType());
 		}
 		LOGGER.debug("Ignoring benign manifest change event");
