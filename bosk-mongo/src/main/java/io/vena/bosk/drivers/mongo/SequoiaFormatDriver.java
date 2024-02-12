@@ -184,9 +184,7 @@ final class SequoiaFormatDriver<R extends StateTreeNode> extends AbstractFormatD
 	 */
 	@Override
 	public void onEvent(ChangeStreamDocument<BsonDocument> event) throws UnprocessableEventException {
-		if (event.getDocumentKey() == null) {
-			throw new UnprocessableEventException("Null document key", event.getOperationType());
-		}
+		assert event.getDocumentKey() != null;
 		if (MANIFEST_ID.equals(event.getDocumentKey().get("_id"))) {
 			onManifestEvent(event);
 			return;
