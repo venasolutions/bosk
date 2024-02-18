@@ -1,6 +1,5 @@
 package io.vena.bosk;
 
-import io.vena.bosk.AbstractBoskTest.AbstractReference;
 import io.vena.bosk.annotations.DerivedRecord;
 import io.vena.bosk.annotations.DeserializationPath;
 import io.vena.bosk.annotations.Enclosing;
@@ -74,7 +73,6 @@ class TypeValidationTest {
 			ListValueSubclassWithTwoConstructors.class,
 			ListValueSubclassWithWrongConstructor.class,
 			ReferenceToReference.class,
-			ReferenceWithMutableField.class,
 			SelfNonReference.class,
 			SelfWrongType.class,
 			SelfSubtype.class,
@@ -158,7 +156,6 @@ class TypeValidationTest {
 		ListValue<String> listValueOfStrings;
 		ListValue<ValueStruct> listValueOfStructs;
 		ListValueSubclass listValueSubclass;
-		ReferenceSubclass referenceSubclass;
 	}
 
 	@Value
@@ -175,11 +172,6 @@ class TypeValidationTest {
 			super(entries);
 			this.extraField = "Hello";
 		}
-	}
-
-	@RequiredArgsConstructor
-	public static final class ReferenceSubclass extends AbstractReference<String> {
-		final String validField;
 	}
 
 	@Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true) @RequiredArgsConstructor
@@ -748,22 +740,6 @@ class TypeValidationTest {
 		public static void testException(InvalidTypeException e) {
 			assertThat(e.getMessage(), containsString("ReferenceToReference.ref"));
 		}
-	}
-
-	@Getter @FieldDefaults(level=AccessLevel.PRIVATE, makeFinal=true)
-	@RequiredArgsConstructor
-	public static final class ReferenceWithMutableField implements Entity {
-		Identifier id;
-		BadReferenceSubclass ref;
-
-		public static void testException(InvalidTypeException e) {
-			assertThat(e.getMessage(), containsString("ReferenceWithMutableField.ref"));
-			assertThat(e.getMessage(), containsString("BadReferenceSubclass.mutableField"));
-		}
-	}
-
-	public static final class BadReferenceSubclass extends AbstractReference<String> {
-		String mutableField;
 	}
 
 	/**

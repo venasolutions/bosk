@@ -783,7 +783,7 @@ try (ReadContext originalThReadContext = bosk.readContext()) {
 		}
 	}
 
-	private final class RootRef extends DefiniteReference<R> implements RootReference<R> {
+	final class RootRef extends DefiniteReference<R> implements RootReference<R> {
 		public RootRef(Type targetType) {
 			super(Path.empty(), targetType);
 		}
@@ -848,7 +848,7 @@ try (ReadContext originalThReadContext = bosk.readContext()) {
 
 	@Getter
 	@RequiredArgsConstructor
-	private abstract class ReferenceImpl<T> implements Reference<T> {
+	sealed abstract class ReferenceImpl<T> implements Reference<T> {
 		protected final Path path;
 		protected final Type targetType;
 
@@ -960,7 +960,7 @@ try (ReadContext originalThReadContext = bosk.readContext()) {
 	/**
 	 * A {@link Reference} with no unbound parameters.
 	 */
-	private class DefiniteReference<T> extends ReferenceImpl<T> {
+	private sealed class DefiniteReference<T> extends ReferenceImpl<T> {
 		@Getter(lazy = true) private final Dereferencer dereferencer = compileVettedPath(path);
 
 		public DefiniteReference(Path path, Type targetType) {

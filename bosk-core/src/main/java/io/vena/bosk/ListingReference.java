@@ -9,7 +9,9 @@ import static java.util.Arrays.asList;
  * but avoids throwing {@link InvalidTypeException} from some methods that are known
  * to be type-safe, like {@link #then(Identifier) then}.
  */
-public interface ListingReference<E extends Entity> extends Reference<Listing<E>> {
+public sealed interface ListingReference<E extends Entity>
+	extends Reference<Listing<E>>
+	permits ReferenceUtils.ListingRef {
 	/**
 	 * @return {@link Reference} to the {@link ListingEntry} representing the entry with the given id.
 	 */

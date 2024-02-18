@@ -9,7 +9,9 @@ import static java.util.Arrays.asList;
  * but avoids throwing {@link InvalidTypeException} from some methods that are known
  * to be type-safe, like {@link #then(Identifier) then}.
  */
-public interface SideTableReference<K extends Entity, V> extends Reference<SideTable<K,V>> {
+public sealed interface SideTableReference<K extends Entity, V>
+	extends Reference<SideTable<K,V>>
+	permits ReferenceUtils.SideTableRef {
 	/**
 	 * @return {@link Reference} to the value of the entry whose key has the given <code>id</code>.
 	 */

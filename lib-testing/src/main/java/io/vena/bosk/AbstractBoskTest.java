@@ -3,9 +3,7 @@ package io.vena.bosk;
 import io.vena.bosk.annotations.Enclosing;
 import io.vena.bosk.annotations.Self;
 import io.vena.bosk.exceptions.InvalidTypeException;
-import java.lang.reflect.Type;
 import java.util.Optional;
-import java.util.function.BiConsumer;
 import lombok.EqualsAndHashCode;
 import lombok.Value;
 import lombok.With;
@@ -125,24 +123,6 @@ public abstract class AbstractBoskTest {
 	public enum TestEnum {
 		OK,
 		NOT_SO_OK
-	}
-
-	protected static abstract class AbstractReference<T> implements Reference<T> {
-		@Override public Path path() { return null; }
-		@Override public Type targetType() { return null; }
-		@Override public Class<T> targetClass() { return null; }
-		@Override public T valueIfExists() { return null; }
-		@Override public void forEachValue(BiConsumer<T, BindingEnvironment> action, BindingEnvironment existingEnvironment) { }
-
-		@Override public RootReference<?> root() { return null; }
-		@Override public <U> Reference<U> then(Class<U> targetClass, String... segments) { return null; }
-		@Override public <E extends Entity> CatalogReference<E> thenCatalog(Class<E> entryClass, String... segments) { return null; }
-		@Override public <E extends Entity> ListingReference<E> thenListing(Class<E> entryClass, String... segments) { return null; }
-		@Override public <K extends Entity, V> SideTableReference<K, V> thenSideTable(Class<K> keyClass, Class<V> valueClass, String... segments) { return null; }
-		@Override public <TT> Reference<Reference<TT>> thenReference(Class<TT> targetClass, String... segments) { return null; }
-		@Override public <TT> Reference<TT> enclosingReference(Class<TT> targetClass) { return null; }
-		@Override public Reference<T> boundBy(BindingEnvironment bindings) { return null; }
-		@Override public <TT> Reference<TT> truncatedTo(Class<TT> targetClass, int remainingSegments) { return null; }
 	}
 
 	protected static Bosk<TestRoot> setUpBosk(DriverFactory<TestRoot> driverFactory) {

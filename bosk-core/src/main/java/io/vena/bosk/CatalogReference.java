@@ -11,7 +11,9 @@ import static java.util.Arrays.asList;
  * but avoids throwing {@link InvalidTypeException} from some methods that are known
  * to be type-safe, like {@link #then(Identifier) then}.
  */
-public interface CatalogReference<E extends Entity> extends Reference<Catalog<E>> {
+public sealed interface CatalogReference<E extends Entity>
+	extends Reference<Catalog<E>>
+	permits ReferenceUtils.CatalogRef {
 	/**
 	 * @return {@link Reference} to the catalog entry with the given <code>id</code>.
 	 */

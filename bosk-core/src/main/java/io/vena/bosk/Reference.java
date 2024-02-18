@@ -20,7 +20,13 @@ import static java.util.Arrays.asList;
  *
  * @param <T> The type of object being referenced.
  */
-public interface Reference<T> {
+public sealed interface Reference<T> permits
+	CatalogReference,
+	ListingReference,
+	RootReference,
+	SideTableReference,
+	Bosk.ReferenceImpl
+{
 	Path path();
 
 	/**
