@@ -933,7 +933,7 @@ try (ReadContext originalThReadContext = bosk.readContext()) {
 			if (obj == null) {
 				return false;
 			}
-			if (!(obj instanceof @SuppressWarnings({"rawtypes"})Reference other)) {
+			if (!(obj instanceof Reference<?> other)) {
 				return false;
 			}
 
