@@ -10,6 +10,9 @@ import org.bson.BsonInt64;
 
 import static java.util.Objects.requireNonNull;
 
+/**
+ * De-interlaces change stream events associated with different transactions.
+ */
 class Demultiplexer {
 	private final Map<TransactionID, List<ChangeStreamDocument<BsonDocument>>> transactionsInProgress = new ConcurrentHashMap<>();
 

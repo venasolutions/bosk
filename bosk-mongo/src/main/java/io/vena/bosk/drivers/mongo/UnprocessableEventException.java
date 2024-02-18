@@ -3,7 +3,7 @@ package io.vena.bosk.drivers.mongo;
 import com.mongodb.client.model.changestream.OperationType;
 
 /**
- * Indicate that no {@link FormatDriver} could cope with a particular
+ * Indicates that no {@link FormatDriver} could cope with a particular
  * change stream event. The framework responds with a (potentially expensive)
  * reload operation that avoids attempting to re-process that event;
  * in other words, using resume tokens would never be appropriate for these.

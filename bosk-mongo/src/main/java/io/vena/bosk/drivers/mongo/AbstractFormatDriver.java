@@ -15,7 +15,7 @@ import org.bson.BsonValue;
 import static io.vena.bosk.drivers.mongo.Formatter.REVISION_ZERO;
 
 @RequiredArgsConstructor
-abstract class AbstractFormatDriver<R extends StateTreeNode> implements FormatDriver<R> {
+non-sealed abstract class AbstractFormatDriver<R extends StateTreeNode> implements FormatDriver<R> {
 	final RootReference<R> rootRef;
 	final Formatter formatter;
 

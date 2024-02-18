@@ -7,7 +7,10 @@ import io.vena.bosk.exceptions.InvalidTypeException;
  * A {@link Reference} to the root node of a particular bosk's state tree,
  * doubling as the main way to acquire/construct other references.
  */
-public interface RootReference<R> extends Reference<R> {
+public sealed interface RootReference<R>
+	extends Reference<R>
+	permits Bosk.RootRef {
+
 	/**
 	 * Dynamically generates an object that can return {@link Reference}s
 	 * as specified by methods annotated with {@link ReferencePath}.

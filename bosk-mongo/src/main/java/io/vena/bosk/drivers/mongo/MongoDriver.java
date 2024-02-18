@@ -8,7 +8,21 @@ import io.vena.bosk.StateTreeNode;
 import io.vena.bosk.drivers.mongo.status.MongoStatus;
 import java.io.IOException;
 
-public interface MongoDriver<R extends StateTreeNode> extends BoskDriver<R> {
+/**
+ * A {@link BoskDriver} that maintains the bosk state in a MongoDB database.
+ * Multiple bosks, potentially in multiple separate processes,
+ * can be configured to use the same database, thereby creating a replica set
+ * with all bosks sharing the same state and receiving updates from each other.
+ * <p>
+ *
+ * For convenience, if the database does not exist at the time of initialization,
+ * this driver will create it and populate it with the state returned by calling
+ * {@link BoskDriver#initialRoot} on the downstream driver.
+ */
+public sealed interface MongoDriver<R extends StateTreeNode>
+	extends BoskDriver<R>
+	permits MainDriver, FormatDriver {
+
 	/**
 	 * Deserializes and re-serializes the entire bosk contents,
 	 * thus updating the database to match the current serialized format.

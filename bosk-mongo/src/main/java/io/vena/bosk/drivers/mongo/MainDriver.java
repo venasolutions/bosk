@@ -54,7 +54,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
  * are delegated to a {@link FormatDriver} object that can be swapped out dynamically
  * as the database evolves.
  */
-class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
+final class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 	private final Bosk<R> bosk;
 	private final ChangeReceiver receiver;
 	private final MongoDriverSettings driverSettings;

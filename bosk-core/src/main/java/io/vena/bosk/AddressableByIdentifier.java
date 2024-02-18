@@ -1,6 +1,6 @@
 package io.vena.bosk;
 
-interface AddressableByIdentifier<T> {
+sealed interface AddressableByIdentifier<T> permits EnumerableByIdentifier {
 	/**
 	 * @return The item with the given <code>id</code>, or null if no such item exists.
 	 */
