@@ -111,10 +111,20 @@ public class Bosk<R extends StateTreeNode> implements BoskInfo<R> {
 			throw new IllegalArgumentException("Invalid root type " + rootType + ": " + e.getMessage(), e);
 		}
 
-		// We do this last because the driver factory is allowed to do such things
-		// as create References, so it needs the rest of the initialization to
-		// have completed already.
-		this.driver = driverFactory.build(this, this.localDriver);
+		// Rather than pass `this` while it's still under construction,
+		// pass another object that contains the things that are available
+		// at this point.
+		//
+		UnderConstruction<R> boskInfo = new UnderConstruction<>(
+			name, instanceID, rootRef, this::registerHooks
+		);
+
+		// We do this as late as possible because the driver factory is allowed
+		// to do such things as create References, so it needs the rest of the
+		// initialization to have completed already.
+		//
+		this.driver = driverFactory.build(boskInfo, this.localDriver);
+
 		try {
 			this.currentRoot = requireNonNull(driver.initialRoot(rootType));
 		} catch (InvalidTypeException | IOException | InterruptedException e) {
@@ -131,6 +141,22 @@ public class Bosk<R extends StateTreeNode> implements BoskInfo<R> {
 
 	public Bosk(String name, Type rootType, R defaultRoot, DriverFactory<R> driverFactory) {
 		this(name, rootType, b->defaultRoot, driverFactory);
+	}
+
+	record UnderConstruction<RR extends StateTreeNode>(
+		String name,
+		Identifier instanceID,
+		RootReference<RR> rootReference,
+		RegisterHooksMethod m
+	) implements BoskInfo<RR> {
+		@Override
+		public void registerHooks(Object receiver) throws InvalidTypeException {
+			m.registerHooks(receiver);
+		}
+	}
+
+	private interface RegisterHooksMethod {
+		void registerHooks(Object receiver) throws InvalidTypeException;
 	}
 
 	/**
