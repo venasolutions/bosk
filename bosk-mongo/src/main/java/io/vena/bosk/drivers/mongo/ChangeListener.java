@@ -14,7 +14,11 @@ interface ChangeListener {
 		InitialRootActionException,
 		TimeoutException;
 
+	/**
+	 * @param event is a document-specific event, with a non-null {@link ChangeStreamDocument#getDocumentKey() document key}.
+	 */
 	void onEvent(ChangeStreamDocument<BsonDocument> event) throws UnprocessableEventException;
+
 	void onConnectionFailed(Exception e) throws InterruptedException, InitialRootActionException, TimeoutException;
 	void onDisconnect(Throwable e);
 }

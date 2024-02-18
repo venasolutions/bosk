@@ -185,8 +185,8 @@ class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 			detectedDriver.onRevisionToSkip(loadedState.revision());
 		} catch (UninitializedCollectionException e) {
 			// We log this at warn because, in production, this is a big deal.
-			// Might be annoying in local dev ¯\_(ツ)_/¯
-			LOGGER.warn("Database collection is uninitialized; initializing now. (" + e.getMessage() + ")");
+			// Annoying in tests, so we log it with UninitializedCollectionException so we can selectively disable it.
+			UninitializedCollectionException.LOGGER.warn("Database collection is uninitialized; initializing now. (" + e.getMessage() + ")");
 			root = callDownstreamInitialRoot(rootType);
 			try (var session = collection.newSession()) {
 				FormatDriver<R> preferredDriver = newPreferredFormatDriver();

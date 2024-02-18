@@ -2,7 +2,7 @@
 plugins {
 	id 'bosk.development'
 	id 'bosk.maven-publish'
-	id 'info.solidsoft.pitest' version '1.7.4'
+	id 'info.solidsoft.pitest' version '1.15.0'
 	id 'com.github.spotbugs' version '5.1.5'
 }
 
@@ -27,7 +27,8 @@ dependencies {
 }
 
 pitest {
-	junit5PluginVersion = '0.15'
+	pitestVersion = '1.15.0'
+	junit5PluginVersion = '1.2.0'
 	jvmArgs = ['-ea'] // Our unit tests check for assert statements
 	targetClasses = ['io.vena.bosk.drivers.mongo.BsonSurgeon']
 	targetTests   = ['io.vena.bosk.drivers.mongo.BsonSurgeonTest']
