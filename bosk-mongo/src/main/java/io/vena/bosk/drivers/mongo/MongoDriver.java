@@ -8,7 +8,10 @@ import io.vena.bosk.StateTreeNode;
 import io.vena.bosk.drivers.mongo.status.MongoStatus;
 import java.io.IOException;
 
-public interface MongoDriver<R extends StateTreeNode> extends BoskDriver<R> {
+public sealed interface MongoDriver<R extends StateTreeNode>
+	extends BoskDriver<R>
+	permits MainDriver, FormatDriver {
+
 	/**
 	 * Deserializes and re-serializes the entire bosk contents,
 	 * thus updating the database to match the current serialized format.

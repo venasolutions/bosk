@@ -33,7 +33,9 @@ import org.bson.BsonInt64;
  *     Implementing {@link #initialRoot} or {@link #refurbish()}
  * </li></ol>
  */
-interface FormatDriver<R extends StateTreeNode> extends MongoDriver<R> {
+sealed interface FormatDriver<R extends StateTreeNode>
+	extends MongoDriver<R>
+	permits AbstractFormatDriver, DisconnectedDriver {
 	void onEvent(ChangeStreamDocument<BsonDocument> event) throws UnprocessableEventException;
 
 	/**
