@@ -1,5 +1,8 @@
 package io.vena.bosk.drivers.mongo;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /**
  * Indicates that the database has been found to be in a state that
  * could be considered "uninitialized", in the sense that we are permitted
@@ -25,4 +28,6 @@ class UninitializedCollectionException extends Exception {
 	public UninitializedCollectionException(Throwable cause) {
 		super(cause);
 	}
+
+	public static final Logger LOGGER = LoggerFactory.getLogger(UninitializedCollectionException.class);
 }

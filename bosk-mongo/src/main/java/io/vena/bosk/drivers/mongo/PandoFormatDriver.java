@@ -256,9 +256,7 @@ final class PandoFormatDriver<R extends StateTreeNode> extends AbstractFormatDri
 	 */
 	@Override
 	public void onEvent(ChangeStreamDocument<BsonDocument> event) throws UnprocessableEventException {
-		if (event.getDocumentKey() == null) {
-			throw new UnprocessableEventException("Null document key", event.getOperationType());
-		}
+		assert event.getDocumentKey() != null;
 		BsonValue bsonDocumentID = event.getDocumentKey().get("_id");
 		if (MANIFEST_ID.equals(bsonDocumentID)) {
 			onManifestEvent(event);
@@ -461,6 +459,8 @@ final class PandoFormatDriver<R extends StateTreeNode> extends AbstractFormatDri
 				throw new UnprocessableEventException("Manifest indicates format has changed", event.getOperationType());
 			}
 		} else {
+			// PandoFormatDriver always uses INSERT/REPLACE to update the manifest;
+			// anything else is unexpected.
 			throw new UnprocessableEventException("Unexpected change to manifest document", event.getOperationType());
 		}
 		LOGGER.debug("Ignoring benign manifest change event");
@@ -613,6 +613,7 @@ final class PandoFormatDriver<R extends StateTreeNode> extends AbstractFormatDri
 		}
 		if (doUpdate(deletionDoc(target, mainRef), standardPreconditions(target, mainRef, documentFilter(mainRef)))) {
 			if (!rootRef.equals(mainRef)) {
+				LOGGER.debug("Deletion succeeded; bumping revision number in root document");
 				doUpdate(blankUpdateDoc(), rootDocumentFilter());
 			}
 		} else {

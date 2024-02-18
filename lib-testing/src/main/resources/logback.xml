@@ -9,6 +9,9 @@
 		<appender-ref ref="CONSOLE" />
 	</root>
 
+	<!-- This emits warnings that matter in production but not in tests -->
+	<logger name="io.vena.bosk.drivers.mongo.UninitializedCollectionException" level="ERROR"/>
+
 	<!-- How to add more tracing during unit tests
 	<logger name="io.vena.bosk.drivers.mongo" level="DEBUG"/>
 	<logger name="io.vena.bosk.drivers.DriverConformanceTest" level="DEBUG"/>

@@ -259,9 +259,9 @@ class ChangeReceiver implements Closeable {
 				case UPDATE:
 				case REPLACE:
 				case DELETE:
-				case RENAME:
 					listener.onEvent(event);
 					break;
+				case RENAME:
 				case DROP:
 				case DROP_DATABASE:
 				case INVALIDATE:
