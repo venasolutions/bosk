@@ -128,16 +128,6 @@ public class BoskConstructorTest {
 		}
 	}
 
-	@Test
-	void readContextDuringDriverFactory_throws() {
-		assertThrows(IllegalStateException.class, ()->{
-			new Bosk<>("readContext", SimpleTypes.class, newEntity(), (b,d) -> {
-				try (val __ = b.readContext()) {}
-				return d;
-			});
-		});
-	}
-
 	////////////////
 	//
 	//  Helpers

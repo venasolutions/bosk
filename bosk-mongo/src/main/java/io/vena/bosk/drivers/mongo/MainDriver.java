@@ -12,6 +12,7 @@ import com.mongodb.client.MongoCursor;
 import com.mongodb.client.model.changestream.ChangeStreamDocument;
 import io.vena.bosk.Bosk;
 import io.vena.bosk.BoskDriver;
+import io.vena.bosk.BoskInfo;
 import io.vena.bosk.Identifier;
 import io.vena.bosk.Reference;
 import io.vena.bosk.StateTreeNode;
@@ -55,7 +56,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
  * as the database evolves.
  */
 final class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
-	private final Bosk<R> bosk;
+	private final BoskInfo<R> boskInfo;
 	private final ChangeReceiver receiver;
 	private final MongoDriverSettings driverSettings;
 	private final BsonPlugin bsonPlugin;
@@ -79,14 +80,14 @@ final class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 	private volatile boolean isClosed = false;
 
 	MainDriver(
-		Bosk<R> bosk,
+		BoskInfo<R> boskInfo,
 		MongoClientSettings clientSettings,
 		MongoDriverSettings driverSettings,
 		BsonPlugin bsonPlugin,
 		BoskDriver<R> downstream
 	) {
-		try (MDCScope __ = setupMDC(bosk.name(), bosk.instanceID())) {
-			this.bosk = bosk;
+		try (MDCScope __ = setupMDC(boskInfo.name(), boskInfo.instanceID())) {
+			this.boskInfo = boskInfo;
 			this.driverSettings = driverSettings;
 			this.bsonPlugin = bsonPlugin;
 			this.downstream = downstream;
@@ -103,10 +104,10 @@ final class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 			this.collection = TransactionalCollection.of(rawCollection, mongoClient);
 			LOGGER.debug("Using database \"{}\" collection \"{}\"", driverSettings.database(), COLLECTION_NAME);
 
-			Type rootType = bosk.rootReference().targetType();
+			Type rootType = boskInfo.rootReference().targetType();
 			this.listener = new Listener(new FutureTask<>(() -> doInitialRoot(rootType)));
-			this.formatter = new Formatter(bosk, bsonPlugin);
-			this.receiver = new ChangeReceiver(bosk.name(), bosk.instanceID(), listener, driverSettings, rawCollection);
+			this.formatter = new Formatter(boskInfo, bsonPlugin);
+			this.receiver = new ChangeReceiver(boskInfo.name(), boskInfo.instanceID(), listener, driverSettings, rawCollection);
 		}
 	}
 
@@ -190,7 +191,7 @@ final class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 			root = callDownstreamInitialRoot(rootType);
 			try (var session = collection.newSession()) {
 				FormatDriver<R> preferredDriver = newPreferredFormatDriver();
-				preferredDriver.initializeCollection(new StateAndMetadata<>(root, REVISION_ZERO, bosk.diagnosticContext().getAttributes()));
+				preferredDriver.initializeCollection(new StateAndMetadata<>(root, REVISION_ZERO, boskInfo.rootReference().diagnosticContext().getAttributes()));
 				session.commitTransactionIfAny();
 				// We can now publish the driver knowing that the transaction, if there is one, has committed
 				publishFormatDriver(preferredDriver);
@@ -336,8 +337,7 @@ final class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 	@Override
 	public MongoStatus readStatus() throws Exception {
 		try (
-			var __1 = bosk.readContext();
-			var __2 = collection.newReadOnlySession()
+			var __ = collection.newReadOnlySession()
 		) {
 			MongoStatus partialResult = detectFormat().readStatus();
 			Manifest manifest = loadManifest(); // TODO: Avoid loading the manifest again
@@ -401,8 +401,8 @@ final class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 				// This causes downstream.submitReplacement to be associated with the last update to the state,
 				// which is of dubious relevance. We might just want to use the context from the current thread,
 				// which is probably empty because this runs on the ChangeReceiver thread.
-				try (var ___ = bosk.rootReference().diagnosticContext().withOnly(loadedState.diagnosticAttributes())) {
-					downstream.submitReplacement(bosk.rootReference(), loadedState.state());
+				try (var ___ = boskInfo.rootReference().diagnosticContext().withOnly(loadedState.diagnosticAttributes())) {
+					downstream.submitReplacement(boskInfo.rootReference(), loadedState.state());
 					LOGGER.debug("Done submitting downstream");
 				}
 
@@ -536,7 +536,7 @@ final class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 	private FormatDriver<R> newFormatDriver(long revisionAlreadySeen, DatabaseFormat format) {
 		if (format.equals(SEQUOIA)) {
 			return new SequoiaFormatDriver<>(
-				bosk,
+				boskInfo,
 				collection,
 				driverSettings,
 				bsonPlugin,
@@ -544,7 +544,7 @@ final class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 				downstream);
 		} else if (format instanceof PandoFormat pandoFormat) {
 			return new PandoFormatDriver<>(
-				bosk,
+				boskInfo,
 				collection,
 				driverSettings,
 				pandoFormat,
@@ -560,7 +560,7 @@ final class MainDriver<R extends StateTreeNode> implements MongoDriver<R> {
 		if (isClosed) {
 			throw new IllegalStateException("Driver is closed");
 		}
-		MDCScope ex = setupMDC(bosk.name(), bosk.instanceID());
+		MDCScope ex = setupMDC(boskInfo.name(), boskInfo.instanceID());
 		LOGGER.debug(description, args);
 		if (driverSettings.testing().eventDelayMS() < 0) {
 			LOGGER.debug("| eventDelayMS {}ms ", driverSettings.testing().eventDelayMS());

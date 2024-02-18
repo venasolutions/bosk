@@ -9,8 +9,8 @@ import com.mongodb.client.model.changestream.OperationType;
 import com.mongodb.client.model.changestream.UpdateDescription;
 import com.mongodb.client.result.UpdateResult;
 import com.mongodb.lang.Nullable;
-import io.vena.bosk.Bosk;
 import io.vena.bosk.BoskDriver;
+import io.vena.bosk.BoskInfo;
 import io.vena.bosk.Identifier;
 import io.vena.bosk.MapValue;
 import io.vena.bosk.Reference;
@@ -62,14 +62,14 @@ final class SequoiaFormatDriver<R extends StateTreeNode> extends AbstractFormatD
 	static final BsonString DOCUMENT_ID = new BsonString("boskDocument");
 
 	SequoiaFormatDriver(
-		Bosk<R> bosk,
+		BoskInfo<R> boskInfo,
 		MongoCollection<BsonDocument> collection,
 		MongoDriverSettings driverSettings,
 		BsonPlugin bsonPlugin,
 		FlushLock flushLock,
 		BoskDriver<R> downstream
 	) {
-		super(bosk.rootReference(), new Formatter(bosk, bsonPlugin));
+		super(boskInfo.rootReference(), new Formatter(boskInfo, bsonPlugin));
 		this.description = getClass().getSimpleName() + ": " + driverSettings;
 		this.settings = driverSettings;
 		this.collection = collection;

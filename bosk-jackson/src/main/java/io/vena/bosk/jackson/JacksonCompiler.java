@@ -11,7 +11,7 @@ import com.fasterxml.jackson.databind.JsonSerializer;
 import com.fasterxml.jackson.databind.SerializationConfig;
 import com.fasterxml.jackson.databind.SerializerProvider;
 import com.fasterxml.jackson.databind.type.TypeFactory;
-import io.vena.bosk.Bosk;
+import io.vena.bosk.BoskInfo;
 import io.vena.bosk.Catalog;
 import io.vena.bosk.Entity;
 import io.vena.bosk.Phantom;
@@ -66,7 +66,7 @@ final class JacksonCompiler {
 	 *
 	 * @return a newly compiled {@link CompiledSerDes} for values of the given <code>nodeType</code>.
 	 */
-	public <T> CompiledSerDes<T> compiled(JavaType nodeType, Bosk<?> bosk, FieldModerator moderator) {
+	public <T> CompiledSerDes<T> compiled(JavaType nodeType, BoskInfo<?> boskInfo, FieldModerator moderator) {
 		try {
 			// Record that we're compiling this one to avoid infinite recursion
 			compilationsInProgress.get().addLast(nodeType);
@@ -89,7 +89,7 @@ final class JacksonCompiler {
 			// Return a CodecWrapper for the codec
 			LinkedHashMap<String, Parameter> parametersByName = new LinkedHashMap<>();
 			parameters.forEach(p -> parametersByName.put(p.getName(), p));
-			return new CodecWrapper<>(codec, bosk, nodeType, parametersByName, moderator);
+			return new CodecWrapper<>(codec, boskInfo, nodeType, parametersByName, moderator);
 		} finally {
 			Type removed = compilationsInProgress.get().removeLast();
 			assert removed.equals(nodeType);
@@ -384,7 +384,7 @@ final class JacksonCompiler {
 	@EqualsAndHashCode(callSuper = false)
 	private class CodecWrapper<T> implements CompiledSerDes<T> {
 		Codec codec;
-		Bosk<?> bosk;
+		BoskInfo<?> boskInfo;
 		JavaType nodeJavaType;
 		LinkedHashMap<String, Parameter> parametersByName;
 		FieldModerator moderator;
@@ -411,7 +411,7 @@ final class JacksonCompiler {
 					// because we need to tolerate the fields arriving in arbitrary order.
 					Map<String, Object> valueMap = jacksonPlugin.gatherParameterValuesByName(nodeJavaType, parametersByName, moderator, p, ctxt);
 
-					List<Object> parameterValues = jacksonPlugin.parameterValueList(nodeJavaType.getRawClass(), valueMap, parametersByName, bosk);
+					List<Object> parameterValues = jacksonPlugin.parameterValueList(nodeJavaType.getRawClass(), valueMap, parametersByName, boskInfo);
 
 					@SuppressWarnings("unchecked")
 					T result = (T)codec.instantiateFrom(parameterValues);

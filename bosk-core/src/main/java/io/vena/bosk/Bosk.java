@@ -73,7 +73,7 @@ import static lombok.AccessLevel.NONE;
  *
  * @param <R> The type of the state tree's root node
  */
-public class Bosk<R extends StateTreeNode> {
+public class Bosk<R extends StateTreeNode> implements BoskInfo<R> {
 	@Getter private final String name;
 	@Getter private final Identifier instanceID = Identifier.from(randomUUID().toString());
 	@Getter private final BoskDriver<R> driver;
@@ -111,10 +111,20 @@ public class Bosk<R extends StateTreeNode> {
 			throw new IllegalArgumentException("Invalid root type " + rootType + ": " + e.getMessage(), e);
 		}
 
-		// We do this last because the driver factory is allowed to do such things
-		// as create References, so it needs the rest of the initialization to
-		// have completed already.
-		this.driver = driverFactory.build(this, this.localDriver);
+		// Rather than pass `this` while it's still under construction,
+		// pass another object that contains the things that are available
+		// at this point.
+		//
+		UnderConstruction<R> boskInfo = new UnderConstruction<>(
+			name, instanceID, rootRef, this::registerHooks
+		);
+
+		// We do this as late as possible because the driver factory is allowed
+		// to do such things as create References, so it needs the rest of the
+		// initialization to have completed already.
+		//
+		this.driver = driverFactory.build(boskInfo, this.localDriver);
+
 		try {
 			this.currentRoot = requireNonNull(driver.initialRoot(rootType));
 		} catch (InvalidTypeException | IOException | InterruptedException e) {
@@ -133,11 +143,27 @@ public class Bosk<R extends StateTreeNode> {
 		this(name, rootType, b->defaultRoot, driverFactory);
 	}
 
+	record UnderConstruction<RR extends StateTreeNode>(
+		String name,
+		Identifier instanceID,
+		RootReference<RR> rootReference,
+		RegisterHooksMethod m
+	) implements BoskInfo<RR> {
+		@Override
+		public void registerHooks(Object receiver) throws InvalidTypeException {
+			m.registerHooks(receiver);
+		}
+	}
+
+	private interface RegisterHooksMethod {
+		void registerHooks(Object receiver) throws InvalidTypeException;
+	}
+
 	/**
 	 * You can use <code>Bosk::simpleDriver</code> as the
 	 * <code>driverFactory</code> if you don't want any additional driver functionality.
 	 */
-	public static <RR extends StateTreeNode> BoskDriver<RR> simpleDriver(@SuppressWarnings("unused") Bosk<RR> bosk, BoskDriver<RR> downstream) {
+	public static <RR extends StateTreeNode> BoskDriver<RR> simpleDriver(@SuppressWarnings("unused") BoskInfo<RR> boskInfo, BoskDriver<RR> downstream) {
 		return downstream;
 	}
 
@@ -499,6 +525,7 @@ public class Bosk<R extends StateTreeNode> {
 		localDriver.triggerEverywhere(reg);
 	}
 
+	@Override
 	public void registerHooks(Object receiver) throws InvalidTypeException {
 		HookRegistrar.registerHooks(receiver, this);
 	}
@@ -1000,7 +1027,7 @@ try (ReadContext originalThReadContext = bosk.readContext()) {
 	 * correspond to an {@link Identifier} that can be looked up in an
 	 * object that implements {@link EnumerableByIdentifier}. (We are
 	 * not offering to use reflection to look up object fields by name here.)
-	 *
+	 * <p>
 	 * TODO: This is not currently checked or enforced; it will just cause confusing crashes.
 	 * It should throw {@link InvalidTypeException} at the time the Reference is created.
 	 */

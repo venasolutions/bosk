@@ -151,7 +151,7 @@ abstract class AbstractMongoDriverTest {
 	}
 
 	protected <E extends Entity> DriverFactory<E> createDriverFactory() {
-		return (bosk, downstream) -> {
+		return (boskInfo, downstream) -> {
 			MongoDriver<E> driver = MongoDriver.<E>factory(
 				MongoClientSettings.builder(mongoService.clientSettings())
 					.applyToClusterSettings(builder -> {
@@ -164,7 +164,7 @@ abstract class AbstractMongoDriverTest {
 					.build(),
 				driverSettings,
 				new BsonPlugin()
-			).build(bosk, downstream);
+			).build(boskInfo, downstream);
 			tearDownActions.addFirst(driver::close);
 			return driver;
 		};
