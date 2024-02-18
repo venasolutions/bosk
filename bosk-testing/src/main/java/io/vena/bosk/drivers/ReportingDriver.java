@@ -33,7 +33,7 @@ public class ReportingDriver<R extends StateTreeNode> implements BoskDriver<R> {
 	final Runnable flushListener;
 
 	public static <RR extends StateTreeNode> DriverFactory<RR> factory(Consumer<UpdateOperation> listener, Runnable flushListener) {
-		return (b,d) -> new ReportingDriver<>(d, b.diagnosticContext(), listener, flushListener);
+		return (b,d) -> new ReportingDriver<>(d, b.rootReference().diagnosticContext(), listener, flushListener);
 	}
 
 	@Override

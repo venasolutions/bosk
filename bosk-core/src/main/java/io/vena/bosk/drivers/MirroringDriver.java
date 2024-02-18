@@ -25,7 +25,7 @@ public class MirroringDriver<R extends StateTreeNode> implements BoskDriver<R> {
 	 * Causes updates to be applied both to <code>mirror</code> and to the downstream driver.
 	 */
 	public static <RR extends StateTreeNode> DriverFactory<RR> targeting(Bosk<RR> mirror) {
-		return (bosk, downstream) -> new ForwardingDriver<>(asList(
+		return (boskInfo, downstream) -> new ForwardingDriver<>(asList(
 			new MirroringDriver<>(mirror),
 			downstream
 		));

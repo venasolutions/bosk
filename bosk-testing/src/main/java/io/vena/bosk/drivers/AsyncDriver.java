@@ -1,7 +1,7 @@
 package io.vena.bosk.drivers;
 
-import io.vena.bosk.Bosk;
 import io.vena.bosk.BoskDriver;
+import io.vena.bosk.BoskInfo;
 import io.vena.bosk.DriverFactory;
 import io.vena.bosk.Identifier;
 import io.vena.bosk.Reference;
@@ -20,7 +20,7 @@ import static lombok.AccessLevel.PRIVATE;
 
 @RequiredArgsConstructor(access = PRIVATE)
 public class AsyncDriver<R extends StateTreeNode> implements BoskDriver<R> {
-	private final Bosk<R> bosk;
+	private final BoskInfo<R> bosk;
 	private final BoskDriver<R> downstream;
 	private final ExecutorService executor = Executors.newSingleThreadExecutor();
 
@@ -68,10 +68,10 @@ public class AsyncDriver<R extends StateTreeNode> implements BoskDriver<R> {
 
 	private void submitAsyncTask(String description, Runnable task) {
 		LOGGER.debug("Submit {}", description);
-		var diagnosticAttributes = bosk.diagnosticContext().getAttributes();
+		var diagnosticAttributes = bosk.rootReference().diagnosticContext().getAttributes();
 		executor.submit(()->{
 			LOGGER.debug("Run {}", description);
-			try (var __ = bosk.diagnosticContext().withOnly(diagnosticAttributes)) {
+			try (var __ = bosk.rootReference().diagnosticContext().withOnly(diagnosticAttributes)) {
 				task.run();
 			}
 			LOGGER.trace("Done {}", description);

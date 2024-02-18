@@ -11,8 +11,8 @@ import com.mongodb.client.result.DeleteResult;
 import com.mongodb.client.result.InsertOneResult;
 import com.mongodb.client.result.UpdateResult;
 import com.mongodb.lang.Nullable;
-import io.vena.bosk.Bosk;
 import io.vena.bosk.BoskDriver;
+import io.vena.bosk.BoskInfo;
 import io.vena.bosk.Entity;
 import io.vena.bosk.EnumerableByIdentifier;
 import io.vena.bosk.Identifier;
@@ -86,14 +86,14 @@ final class PandoFormatDriver<R extends StateTreeNode> extends AbstractFormatDri
 	static final BsonString ROOT_DOCUMENT_ID = new BsonString("|");
 
 	PandoFormatDriver(
-		Bosk<R> bosk,
+		BoskInfo<R> boskInfo,
 		TransactionalCollection<BsonDocument> collection,
 		MongoDriverSettings driverSettings,
 		PandoFormat format, BsonPlugin bsonPlugin,
 		FlushLock flushLock,
 		BoskDriver<R> downstream
 	) {
-		super(bosk.rootReference(), new Formatter(bosk, bsonPlugin));
+		super(boskInfo.rootReference(), new Formatter(boskInfo, bsonPlugin));
 		this.description = getClass().getSimpleName() + ": " + driverSettings;
 		this.settings = driverSettings;
 		this.format = format;

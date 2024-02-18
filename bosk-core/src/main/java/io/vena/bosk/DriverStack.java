@@ -23,10 +23,10 @@ public interface DriverStack<R extends StateTreeNode> extends DriverFactory<R> {
 	static <RR extends StateTreeNode> DriverStack<RR> of(DriverFactory<RR>...factories) {
 		return new DriverStack<RR>() {
 			@Override
-			public BoskDriver<RR> build(Bosk<RR> bosk, BoskDriver<RR> downstream) {
+			public BoskDriver<RR> build(BoskInfo<RR> boskInfo, BoskDriver<RR> downstream) {
 				BoskDriver<RR> result = downstream;
 				for (int i = factories.length - 1; i >= 0; i--) {
-					result = factories[i].build(bosk, result);
+					result = factories[i].build(boskInfo, result);
 				}
 				return result;
 			}

@@ -2,7 +2,7 @@ package io.vena.bosk.drivers.mongo;
 
 import com.mongodb.client.model.changestream.ChangeStreamDocument;
 import com.mongodb.client.model.changestream.UpdateDescription;
-import io.vena.bosk.Bosk;
+import io.vena.bosk.BoskInfo;
 import io.vena.bosk.Listing;
 import io.vena.bosk.MapValue;
 import io.vena.bosk.Reference;
@@ -68,12 +68,12 @@ final class Formatter {
 	 */
 	private volatile MapValue<String> lastEventDiagnosticAttributes = MapValue.empty();
 
-	Formatter(Bosk<?> bosk, BsonPlugin bsonPlugin) {
+	Formatter(BoskInfo<?> boskInfo, BsonPlugin bsonPlugin) {
 		this.simpleCodecs = CodecRegistries.fromProviders(
-			bsonPlugin.codecProviderFor(bosk),
+			bsonPlugin.codecProviderFor(boskInfo),
 			new ValueCodecProvider(),
 			new DocumentCodecProvider());
-		this.preferredBoskCodecs = type -> bsonPlugin.getCodec(type, rawClass(type), simpleCodecs, bosk);
+		this.preferredBoskCodecs = type -> bsonPlugin.getCodec(type, rawClass(type), simpleCodecs, boskInfo);
 		this.deserializationScopeFunction = bsonPlugin::newDeserializationScope;
 	}
 

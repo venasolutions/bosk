@@ -73,7 +73,7 @@ import static lombok.AccessLevel.NONE;
  *
  * @param <R> The type of the state tree's root node
  */
-public class Bosk<R extends StateTreeNode> {
+public class Bosk<R extends StateTreeNode> implements BoskInfo<R> {
 	@Getter private final String name;
 	@Getter private final Identifier instanceID = Identifier.from(randomUUID().toString());
 	@Getter private final BoskDriver<R> driver;
@@ -137,7 +137,7 @@ public class Bosk<R extends StateTreeNode> {
 	 * You can use <code>Bosk::simpleDriver</code> as the
 	 * <code>driverFactory</code> if you don't want any additional driver functionality.
 	 */
-	public static <RR extends StateTreeNode> BoskDriver<RR> simpleDriver(@SuppressWarnings("unused") Bosk<RR> bosk, BoskDriver<RR> downstream) {
+	public static <RR extends StateTreeNode> BoskDriver<RR> simpleDriver(@SuppressWarnings("unused") BoskInfo<RR> boskInfo, BoskDriver<RR> downstream) {
 		return downstream;
 	}
 

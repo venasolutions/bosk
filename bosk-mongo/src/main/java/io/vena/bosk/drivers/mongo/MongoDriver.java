@@ -3,6 +3,7 @@ package io.vena.bosk.drivers.mongo;
 import com.mongodb.MongoClientSettings;
 import io.vena.bosk.Bosk;
 import io.vena.bosk.BoskDriver;
+import io.vena.bosk.BoskInfo;
 import io.vena.bosk.DriverFactory;
 import io.vena.bosk.StateTreeNode;
 import io.vena.bosk.drivers.mongo.status.MongoStatus;
@@ -49,6 +50,9 @@ public sealed interface MongoDriver<R extends StateTreeNode>
 	 */
 	void refurbish() throws IOException;
 
+	/**
+	 * Requires a {@link Bosk.ReadContext}.
+	 */
 	MongoStatus readStatus() throws Exception;
 
 	/**
@@ -70,6 +74,6 @@ public sealed interface MongoDriver<R extends StateTreeNode>
 	}
 
 	interface MongoDriverFactory<RR extends StateTreeNode> extends DriverFactory<RR> {
-		@Override MongoDriver<RR> build(Bosk<RR> bosk, BoskDriver<RR> downstream);
+		@Override MongoDriver<RR> build(BoskInfo<RR> boskInfo, BoskDriver<RR> downstream);
 	}
 }

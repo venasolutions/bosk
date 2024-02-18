@@ -95,8 +95,8 @@ public abstract class SerializationPlugin {
 
 	public final DeserializationScope nodeFieldDeserializationScope(Class<?> nodeClass, String fieldName) {
 		DeserializationPath annotation = infoFor(nodeClass).annotatedParameters_DeserializationPath.get(fieldName);
+		DeserializationScope outerScope = currentScope.get();
 		if (annotation == null) {
-			DeserializationScope outerScope = currentScope.get();
 			DeserializationScope newScope = new NestedDeserializationScope(
 				outerScope,
 				outerScope.path().then(fieldName),
@@ -104,7 +104,6 @@ public abstract class SerializationPlugin {
 			currentScope.set(newScope);
 			return newScope;
 		} else {
-			DeserializationScope outerScope = currentScope.get();
 			try {
 				Path path = Path
 					.parseParameterized(annotation.value())
@@ -180,13 +179,13 @@ public abstract class SerializationPlugin {
 	 * supplied where possible, such as <code>Optional.empty()</code> and
 	 * {@link Enclosing} references.
 	 */
-	public final List<Object> parameterValueList(Class<?> nodeClass, Map<String, Object> parameterValuesByName, LinkedHashMap<String, Parameter> parametersByName, Bosk<?> bosk) {
+	public final List<Object> parameterValueList(Class<?> nodeClass, Map<String, Object> parameterValuesByName, LinkedHashMap<String, Parameter> parametersByName, BoskInfo<?> boskInfo) {
 		List<Object> parameterValues = new ArrayList<>();
 		for (Entry<String, Parameter> entry: parametersByName.entrySet()) {
 			String name = entry.getKey();
 			Parameter parameter = entry.getValue();
 			Class<?> type = parameter.getType();
-			Reference<?> implicitReference = findImplicitReferenceIfAny(nodeClass, parameter, bosk);
+			Reference<?> implicitReference = findImplicitReferenceIfAny(nodeClass, parameter, boskInfo);
 
 			Object value = parameterValuesByName.remove(name);
 			if (value == null) {
@@ -204,7 +203,7 @@ public abstract class SerializationPlugin {
 						// If the object is an entry in a Catalog or a key in a SideTable, we can determine its ID
 						Reference<Object> enclosingRef;
 						try {
-							enclosingRef = bosk.rootReference().then(Object.class, path.truncatedBy(1));
+							enclosingRef = boskInfo.rootReference().then(Object.class, path.truncatedBy(1));
 						} catch (InvalidTypeException e) {
 							throw new AssertionError("Non-empty path must have an enclosing reference: " + path, e);
 						}
@@ -285,13 +284,13 @@ public abstract class SerializationPlugin {
 		}
 	}
 
-	private Reference<?> findImplicitReferenceIfAny(Class<?> nodeClass, Parameter parameter, Bosk<?> bosk) {
+	private Reference<?> findImplicitReferenceIfAny(Class<?> nodeClass, Parameter parameter, BoskInfo<?> boskInfo) {
 		if (isSelfReference(nodeClass, parameter)) {
 			Class<?> targetClass = rawClass(parameterType(parameter.getParameterizedType(), Reference.class, 0));
-			return selfReference(targetClass, bosk);
+			return selfReference(targetClass, boskInfo);
 		} else if (isEnclosingReference(nodeClass, parameter)) {
 			Class<?> targetClass = rawClass(parameterType(parameter.getParameterizedType(), Reference.class, 0));
-			Reference<Object> selfRef = selfReference(Object.class, bosk);
+			Reference<Object> selfRef = selfReference(Object.class, boskInfo);
 			try {
 				return selfRef.enclosingReference(targetClass);
 			} catch (InvalidTypeException e) {
@@ -305,10 +304,10 @@ public abstract class SerializationPlugin {
 		}
 	}
 
-	private <T> Reference<T> selfReference(Class<T> targetClass, Bosk<?> bosk) throws AssertionError {
+	private <T> Reference<T> selfReference(Class<T> targetClass, BoskInfo<?> boskInfo) throws AssertionError {
 		Path currentPath = currentScope.get().path();
 		try {
-			return bosk.rootReference().then(targetClass, currentPath);
+			return boskInfo.rootReference().then(targetClass, currentPath);
 		} catch (InvalidTypeException e) {
 			throw new UnexpectedPathException("currentDeserializationPath should be valid: \"" + currentPath + "\"", e);
 		}

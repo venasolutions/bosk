@@ -21,7 +21,7 @@ import com.fasterxml.jackson.databind.ser.Serializers;
 import com.fasterxml.jackson.databind.type.CollectionType;
 import com.fasterxml.jackson.databind.type.MapType;
 import com.fasterxml.jackson.databind.type.TypeFactory;
-import io.vena.bosk.Bosk;
+import io.vena.bosk.BoskInfo;
 import io.vena.bosk.Catalog;
 import io.vena.bosk.Entity;
 import io.vena.bosk.Identifier;
@@ -72,21 +72,21 @@ import static java.util.Objects.requireNonNull;
 public final class JacksonPlugin extends SerializationPlugin {
 	private final JacksonCompiler compiler = new JacksonCompiler(this);
 
-	public BoskJacksonModule moduleFor(Bosk<?> bosk) {
+	public BoskJacksonModule moduleFor(BoskInfo<?> boskInfo) {
 		return new BoskJacksonModule() {
 			@Override
 			public void setupModule(SetupContext context) {
-				context.addSerializers(new BoskSerializers(bosk));
-				context.addDeserializers(new BoskDeserializers(bosk));
+				context.addSerializers(new BoskSerializers(boskInfo));
+				context.addDeserializers(new BoskDeserializers(boskInfo));
 			}
 		};
 	}
 
 	private final class BoskSerializers extends Serializers.Base {
-		private final Bosk<?> bosk;
+		private final BoskInfo<?> boskInfo;
 
-		public BoskSerializers(Bosk<?> bosk) {
-			this.bosk = bosk;
+		public BoskSerializers(BoskInfo<?> boskInfo) {
+			this.boskInfo = boskInfo;
 		}
 
 		@Override
@@ -122,7 +122,7 @@ public final class JacksonPlugin extends SerializationPlugin {
 		}
 
 		private JsonSerializer<Object> derivedRecordSerializer(SerializationConfig config, JavaType type, BeanDescription beanDesc) {
-			return derivedRecordSerDes(type, beanDesc, bosk).serializer(config);
+			return derivedRecordSerDes(type, beanDesc, boskInfo).serializer(config);
 		}
 
 		private JsonSerializer<Catalog<Entity>> catalogSerializer(SerializationConfig config, BeanDescription beanDesc) {
@@ -210,7 +210,7 @@ public final class JacksonPlugin extends SerializationPlugin {
 
 		private JsonSerializer<StateTreeNode> stateTreeNodeSerializer(SerializationConfig config, JavaType type, BeanDescription beanDesc) {
 			StateTreeNodeFieldModerator moderator = new StateTreeNodeFieldModerator(type);
-			return compiler.<StateTreeNode>compiled(type, bosk, moderator).serializer(config);
+			return compiler.<StateTreeNode>compiled(type, boskInfo, moderator).serializer(config);
 		}
 
 		private JsonSerializer<MapValue<Object>> mapValueSerializer(SerializationConfig config, BeanDescription beanDesc) {
@@ -243,10 +243,10 @@ public final class JacksonPlugin extends SerializationPlugin {
 	}
 
 	private final class BoskDeserializers extends Deserializers.Base {
-		private final Bosk<?> bosk;
+		private final BoskInfo<?> boskInfo;
 
-		public BoskDeserializers(Bosk<?> bosk) {
-			this.bosk = bosk;
+		public BoskDeserializers(BoskInfo<?> boskInfo) {
+			this.boskInfo = boskInfo;
 		}
 
 		@Override
@@ -284,7 +284,7 @@ public final class JacksonPlugin extends SerializationPlugin {
 		}
 
 		private JsonDeserializer<Object> derivedRecordDeserializer(JavaType type, DeserializationConfig config, BeanDescription beanDesc) {
-			return derivedRecordSerDes(type, beanDesc, bosk).deserializer(config);
+			return derivedRecordSerDes(type, beanDesc, boskInfo).deserializer(config);
 		}
 
 		private JsonDeserializer<Catalog<Entity>> catalogDeserializer(JavaType type, DeserializationConfig config, BeanDescription beanDesc) {
@@ -350,7 +350,7 @@ public final class JacksonPlugin extends SerializationPlugin {
 				@Override
 				public Reference<?> deserialize(JsonParser p, DeserializationContext ctxt) throws IOException {
 					try {
-						return bosk.rootReference().then(Object.class, Path.parse(p.getText()));
+						return boskInfo.rootReference().then(Object.class, Path.parse(p.getText()));
 					} catch (InvalidTypeException e) {
 						throw new UnexpectedPathException(e);
 					}
@@ -430,7 +430,7 @@ public final class JacksonPlugin extends SerializationPlugin {
 
 		private JsonDeserializer<StateTreeNode> stateTreeNodeDeserializer(JavaType type, DeserializationConfig config, BeanDescription beanDesc) {
 			StateTreeNodeFieldModerator moderator = new StateTreeNodeFieldModerator(type);
-			return compiler.<StateTreeNode>compiled(type, bosk, moderator).deserializer(config);
+			return compiler.<StateTreeNode>compiled(type, boskInfo, moderator).deserializer(config);
 		}
 
 		private JsonDeserializer<ListValue<Object>> listValueDeserializer(JavaType type, DeserializationConfig config, BeanDescription beanDesc) {
@@ -539,7 +539,7 @@ public final class JacksonPlugin extends SerializationPlugin {
 	private static final JavaType CATALOG_REF_TYPE = TypeFactory.defaultInstance().constructType(new TypeReference<
 		Reference<Catalog<?>>>() {});
 
-	private <T> CompiledSerDes<T> derivedRecordSerDes(JavaType objType, BeanDescription beanDesc, Bosk<?> bosk) {
+	private <T> CompiledSerDes<T> derivedRecordSerDes(JavaType objType, BeanDescription beanDesc, BoskInfo<?> boskInfo) {
 		// Check for special cases
 		Class<?> objClass = objType.getRawClass();
 		if (ListValue.class.isAssignableFrom(objClass)) { // TODO: MapValue?
@@ -555,7 +555,7 @@ public final class JacksonPlugin extends SerializationPlugin {
 
 		// Default DerivedRecord handling
 		DerivedRecordFieldModerator moderator = new DerivedRecordFieldModerator(objType);
-		return compiler.compiled(objType, bosk, moderator);
+		return compiler.compiled(objType, boskInfo, moderator);
 	}
 
 
