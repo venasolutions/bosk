@@ -525,6 +525,7 @@ public class Bosk<R extends StateTreeNode> implements BoskInfo<R> {
 		localDriver.triggerEverywhere(reg);
 	}
 
+	@Override
 	public void registerHooks(Object receiver) throws InvalidTypeException {
 		HookRegistrar.registerHooks(receiver, this);
 	}
@@ -1026,7 +1027,7 @@ try (ReadContext originalThReadContext = bosk.readContext()) {
 	 * correspond to an {@link Identifier} that can be looked up in an
 	 * object that implements {@link EnumerableByIdentifier}. (We are
 	 * not offering to use reflection to look up object fields by name here.)
-	 *
+	 * <p>
 	 * TODO: This is not currently checked or enforced; it will just cause confusing crashes.
 	 * It should throw {@link InvalidTypeException} at the time the Reference is created.
 	 */
